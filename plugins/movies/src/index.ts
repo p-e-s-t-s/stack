@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs'
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@cordisjs/plugin-timer'
 import type {} from '@magpiejs/api'
+import type {} from '@magpiejs/calendar'
 import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/jobs'
 import { type MediaFile, type MediaItem, renderName } from '@magpiejs/library'
@@ -13,8 +14,11 @@ import type { MovieMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq } from 'drizzle-orm'
 import api from './api'
+import movieCalendar from './calendar'
 import console_ from './console'
 import automation from './automation'
+import movieImport from './import'
+import { MOVIE_NAMING } from './naming'
 import movieSearch, { type MovieSearch, type SearchResult } from './search'
 import * as schema from './schema'
 
@@ -123,6 +127,9 @@ export class MoviesService extends Service {
       }, 'movies.grabber')
     })
     this.ctx.library.registerKind({ id: 'movie', label: 'Movies' })
+    this.ctx.library.registerNaming('movie', MOVIE_NAMING)
+    this.ctx.inject(['import'], (ctx) => void ctx.plugin(movieImport))
+    this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(movieCalendar, this))
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
   }
@@ -171,7 +178,7 @@ export class MoviesService extends Service {
       .get()
     if (found) throw new Error('this movie is already in the library')
     const meta = await this.provider().getMovie!(String(options.tmdbId))
-    const naming = this.ctx.library.naming()
+    const naming = this.ctx.library.naming('movie')
     const item = this.ctx.library.add(
       {
         kind: 'movie',
@@ -184,7 +191,7 @@ export class MoviesService extends Service {
         primaryProvider: 'tmdb',
         profileId: options.profileId,
         rootFolderId: options.rootFolderId,
-        folder: renderName(naming.movieFolder, { Title: meta.title, Year: meta.year }),
+        folder: renderName(naming.movieFolder!, { Title: meta.title, Year: meta.year }),
         refreshedAt: Date.now(),
       },
       meta.alternateTitles,

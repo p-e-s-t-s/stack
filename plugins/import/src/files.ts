@@ -31,29 +31,29 @@ export const fileSystem = {
 export type FileSystem = typeof fileSystem
 
 /**
- * The video files of a download (samples and extras skipped), largest first. A path that is
- * itself a video file gives just that file.
+ * The files of a download with one of these extensions, largest first. A path that is itself
+ * such a file gives just that file. `skipExtras` leaves out samples and extras folders (video).
  */
-export async function findVideos(
+export async function findFiles(
   path: string,
+  extensions: ReadonlySet<string>,
+  options: { skipExtras?: boolean } = {},
   fsx: FileSystem = fileSystem,
 ): Promise<{ path: string; size: number }[]> {
   const stat = await fsx.stat(path)
   if (stat.isFile())
-    return VIDEO_EXTENSIONS.has(extname(path).toLowerCase()) ? [{ path, size: stat.size }] : []
+    return extensions.has(extname(path).toLowerCase()) ? [{ path, size: stat.size }] : []
   const candidates: { path: string; size: number }[] = []
   const walk = async (dir: string, depth: number) => {
     for (const entry of await fsx.readdir(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name)
       if (entry.isDirectory()) {
-        if (
-          depth < 3 &&
-          !/^(samples?|extras|featurettes|behind the scenes|trailers?)$/i.test(entry.name)
-        )
+        const extras = /^(samples?|extras|featurettes|behind the scenes|trailers?)$/i
+        if (depth < 3 && !(options.skipExtras && extras.test(entry.name)))
           await walk(full, depth + 1)
       } else if (
-        VIDEO_EXTENSIONS.has(extname(entry.name).toLowerCase()) &&
-        !/(^|[._ -])sample([._ -]|$)/i.test(entry.name)
+        extensions.has(extname(entry.name).toLowerCase()) &&
+        !(options.skipExtras && /(^|[._ -])sample([._ -]|$)/i.test(entry.name))
       ) {
         candidates.push({ path: full, size: (await fsx.stat(full)).size })
       }
@@ -61,6 +61,11 @@ export async function findVideos(
   }
   await walk(path, 0)
   return candidates.sort((a, b) => b.size - a.size)
+}
+
+/** The video files of a download (samples and extras skipped), largest first. */
+export function findVideos(path: string, fsx: FileSystem = fileSystem) {
+  return findFiles(path, VIDEO_EXTENSIONS, { skipExtras: true }, fsx)
 }
 
 /** The main video file of a download: the largest video that isn't a sample or an extra. */

@@ -1,32 +1,57 @@
-// Web console entry: Media management (root folders, naming, file handling).
+// Web console entry: Media management (root folders, naming per kind, file handling).
 
 import type {} from '@magpiejs/webui'
-import type { Context } from 'cordis'
 import type { MediaKind } from '@magpiejs/types'
-import type { KindInfo, LibraryService, Naming, RootFolder } from './index'
+import type { Context } from 'cordis'
+import type { FileHandling, KindInfo, LibraryService, RootFolder } from './index'
+
+export interface KindSettings extends KindInfo {
+  naming?: {
+    templates: { key: string; label: string; help?: string }[]
+    tokens: string[]
+  }
+}
 
 export interface LibraryData {
-  kinds: KindInfo[]
+  kinds: KindSettings[]
   rootFolders: RootFolder[]
-  naming: Naming
+  /** Naming templates by kind. */
+  naming: Record<string, Record<string, string>>
+  files: FileHandling
   addRootFolder(path: string, kind: MediaKind): Promise<void>
   removeRootFolder(id: number): Promise<void>
-  saveNaming(naming: Naming): Promise<void>
+  saveNaming(kind: MediaKind, values: Record<string, string>): Promise<void>
+  saveFiles(files: FileHandling): Promise<void>
 }
 
 export default function console_(ctx: Context, library: LibraryService) {
-  const refresh = () =>
-    entry.mutate((d) => {
-      d.kinds = library.kinds()
-      d.rootFolders = library.rootFolders()
-      d.naming = library.naming()
-    })
+  const snapshot = () => {
+    const kinds = library.kinds()
+    return {
+      kinds: kinds.map((k): KindSettings => {
+        const scheme = library.namingScheme(k.id)
+        return {
+          ...k,
+          naming: scheme && {
+            templates: Object.entries(scheme.templates).map(([key, t]) => ({
+              key,
+              label: t.label,
+              help: t.help,
+            })),
+            tokens: scheme.tokens,
+          },
+        }
+      }),
+      rootFolders: library.rootFolders(),
+      naming: Object.fromEntries(kinds.map((k) => [k.id, library.naming(k.id)])),
+      files: library.fileHandling(),
+    }
+  }
+  const refresh = () => entry.mutate((d) => Object.assign(d, snapshot()))
   ctx.on('library/kinds', refresh)
 
   const data: LibraryData = {
-    kinds: library.kinds(),
-    rootFolders: library.rootFolders(),
-    naming: library.naming(),
+    ...snapshot(),
     async addRootFolder(path, kind) {
       if (!path.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(path))
         throw new Error('use an absolute path')
@@ -38,8 +63,12 @@ export default function console_(ctx: Context, library: LibraryService) {
       library.removeRootFolder(id)
       refresh()
     },
-    async saveNaming(naming) {
-      library.saveNaming(naming)
+    async saveNaming(kind, values) {
+      library.saveNaming(kind, values)
+      refresh()
+    },
+    async saveFiles(files) {
+      library.saveFileHandling(files)
       refresh()
     },
   }

@@ -2,7 +2,6 @@
 // each video in a download to episodes, names and places it, and links it to them.
 
 import { basename, extname, join, relative } from 'node:path'
-import { QUALITY_NAMES, type Quality } from '@magpiejs/decision/qualities'
 import type { Grab } from '@magpiejs/downloads'
 import { ImportError, type ImportResult, type ImportTools } from '@magpiejs/import'
 import { type MediaFile, renderName } from '@magpiejs/library'
@@ -18,17 +17,17 @@ const pad = (n: number, width = 2) => String(n).padStart(width, '0')
 export function episodeFileName(
   series: Series,
   episodes: Episode[],
-  release: { quality: string; parsed: ParsedRelease },
-  naming: { episodeFile: string; dailyEpisodeFile: string; animeEpisodeFile: string },
+  release: { quality: string; qualityName?: string; parsed: ParsedRelease },
+  naming: Record<string, string>,
 ) {
   const sorted = [...episodes].sort((a, b) => a.season - b.season || a.number - b.number)
   const first = sorted[0]!
   const template =
     series.details.seriesType === 'daily'
-      ? naming.dailyEpisodeFile
+      ? naming.dailyEpisodeFile!
       : series.details.seriesType === 'anime'
-        ? naming.animeEpisodeFile
-        : naming.episodeFile
+        ? naming.animeEpisodeFile!
+        : naming.episodeFile!
   const multi = sorted.length > 1
   return renderName(template, {
     'Series Title': series.title,
@@ -42,7 +41,7 @@ export function episodeFileName(
       : (first.absoluteNumber ?? undefined),
     'Episode Title': [...new Set(sorted.map((e) => e.title).filter(Boolean))].join(' + '),
     'Air Date': first.airDate ?? undefined,
-    Quality: QUALITY_NAMES[release.quality as Quality] ?? release.quality,
+    Quality: release.qualityName ?? release.quality,
     Group: release.parsed.group,
     Resolution: release.parsed.resolution,
     Source: release.parsed.source,
@@ -53,13 +52,13 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
   async function importEpisodes(itemId: number, grab: Grab, tools: ImportTools) {
     const show = series.get(itemId)
     if (!show) throw new ImportError('the series is no longer in the library')
-    const videos = await tools.videos()
+    const videos = await tools.files()
     const episodes = series.episodes(show.id)
     const grabbed = new Set(series.grabEpisodes(grab.id))
     const releaseParsed = parse(grab.title, { kind: 'series' })
-    const naming = ctx.library.naming()
+    const naming = ctx.library.naming('series')
     const folder = ctx.library.folderOf(show)
-    const quality = grab.quality as Quality
+    const quality = grab.quality
 
     const results: { path: string; method: string; replaced?: string }[] = []
     const skipped: string[] = []
@@ -95,7 +94,12 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
         show.details.seasonFolders && naming.seasonFolder
           ? renderName(naming.seasonFolder, { season: covered[0]!.season })
           : ''
-      const fileName = episodeFileName(show, covered, { quality, parsed }, naming)
+      const fileName = episodeFileName(
+        show,
+        covered,
+        { quality, qualityName: ctx.decision.qualityName(quality), parsed },
+        naming,
+      )
       const dest = join(folder, seasonDir, fileName + extname(video.path).toLowerCase())
 
       // files this one replaces entirely; a multi-episode file that also holds other

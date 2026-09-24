@@ -3,7 +3,10 @@
     <div class="mp-head"><h1>Media management</h1></div>
 
     <h2>Root folders</h2>
-    <p class="mp-lead">Where your library lives. Each movie gets its own folder inside.</p>
+    <p class="mp-lead">
+      Where your library lives: one root folder per kind of media, with a folder per movie, series…
+      inside.
+    </p>
     <table v-if="data.rootFolders.length" class="mp-table">
       <tbody>
         <tr v-for="f in data.rootFolders" :key="f.id">
@@ -26,24 +29,35 @@
     </form>
     <p v-if="error" class="mp-error">{{ error }}</p>
 
+    <template v-for="k in data.kinds" :key="k.id">
+      <template v-if="k.naming && naming[k.id]">
+        <h2>{{ k.label }} naming</h2>
+        <div class="mp-card">
+          <div v-for="t in k.naming.templates" :key="t.key" class="mp-field">
+            <label :for="`${k.id}-${t.key}`">{{ t.label }}</label>
+            <input
+              :id="`${k.id}-${t.key}`"
+              v-model="naming[k.id]![t.key]"
+              :data-testid="`naming-${k.id}-${t.key}`"
+            />
+            <span v-if="t.help" class="mp-help">{{ t.help }}</span>
+          </div>
+          <p class="mp-muted mp-small tokens">
+            Tokens: <code v-for="token in k.naming.tokens" :key="token">{{ braces(token) }}</code>
+          </p>
+          <div class="mp-row">
+            <button class="primary" @click="saveNaming(k.id)">Save</button>
+            <span v-if="saved === k.id" class="mp-muted">Saved.</span>
+          </div>
+        </div>
+      </template>
+    </template>
+
     <h2>Files</h2>
     <div class="mp-card">
       <div class="mp-field">
-        <label for="movie-folder">Movie folder</label>
-        <input id="movie-folder" v-model="naming.movieFolder" />
-      </div>
-      <div class="mp-field">
-        <label for="movie-file">Movie file</label>
-        <input id="movie-file" v-model="naming.movieFile" />
-        <span class="mp-help">
-          Tokens: <code>{Title}</code> <code>{Year}</code> <code>{Quality}</code>
-          <code>{Edition}</code> <code>{Group}</code> <code>{Resolution}</code>
-          <code>{Source}</code>. The extension is added for you.
-        </span>
-      </div>
-      <div class="mp-field">
         <label for="hardlinks">Use hardlinks</label>
-        <div><input id="hardlinks" v-model="naming.useHardlinks" type="checkbox" /></div>
+        <div><input id="hardlinks" v-model="files.useHardlinks" type="checkbox" /></div>
         <span class="mp-help">
           Torrents keep seeding without using extra space. Needs downloads and library on the same
           drive; otherwise Magpie copies.
@@ -51,12 +65,12 @@
       </div>
       <div class="mp-field">
         <label for="recycle">Recycle bin</label>
-        <input id="recycle" v-model="naming.recycleBin" placeholder="Leave empty to delete" />
+        <input id="recycle" v-model="files.recycleBin" placeholder="Leave empty to delete" />
         <span class="mp-help">Replaced files are moved here instead of deleted.</span>
       </div>
       <div class="mp-row save">
-        <button class="primary" @click="save">Save</button>
-        <span v-if="saved" class="mp-muted">Saved.</span>
+        <button class="primary" @click="saveFiles">Save</button>
+        <span v-if="saved === 'files'" class="mp-muted">Saved.</span>
       </div>
     </div>
   </section>
@@ -72,13 +86,26 @@ const path = ref('')
 const kind = ref<string>(data.value.kinds[0]?.id ?? 'movie')
 const kindLabel = (id: string) => data.value.kinds.find((k) => k.id === id)?.label ?? id
 const error = ref('')
-const saved = ref(false)
-const naming = ref({ ...data.value.naming })
+const saved = ref<string>()
+const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
+const naming = ref(clone(data.value.naming))
+const files = ref(clone(data.value.files))
 watch(
-  () => data.value.naming,
-  (n) => (naming.value = { ...n }),
+  () => [data.value.naming, data.value.files] as const,
+  ([n, f]) => {
+    naming.value = clone(n)
+    files.value = clone(f)
+  },
   { deep: true },
 )
+
+/** `Title` → `{Title}` (written out, since `}}` would end a template expression). */
+const braces = (token: string) => '{' + token + '}'
+
+function flash(what: string) {
+  saved.value = what
+  setTimeout(() => (saved.value = undefined), 2000)
+}
 
 async function add() {
   error.value = ''
@@ -90,10 +117,14 @@ async function add() {
   }
 }
 
-async function save() {
-  await data.value.saveNaming(naming.value)
-  saved.value = true
-  setTimeout(() => (saved.value = false), 2000)
+async function saveNaming(kind: string) {
+  await data.value.saveNaming(kind as never, naming.value[kind]!)
+  flash(kind)
+}
+
+async function saveFiles() {
+  await data.value.saveFiles(files.value)
+  flash('files')
 }
 </script>
 
@@ -107,5 +138,8 @@ async function save() {
 }
 .save {
   margin-top: 8px;
+}
+.tokens code {
+  margin-right: 6px;
 }
 </style>

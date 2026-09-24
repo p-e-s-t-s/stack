@@ -13,8 +13,10 @@ import type {} from '@magpiejs/metadata'
 import type { EpisodeMetadata, SeriesMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { and, between, eq, inArray } from 'drizzle-orm'
+import seriesCalendar from './calendar'
 import console_ from './console'
 import automation from './automation'
+import { SERIES_NAMING } from './naming'
 import episodeImport from './import'
 import episodeSearch, { type EpisodeResult, type EpisodeSearch, pickReleases } from './search'
 import * as schema from './schema'
@@ -189,6 +191,8 @@ export class SeriesService extends Service {
       }
     })
     this.ctx.library.registerKind({ id: 'series', label: 'Series' })
+    this.ctx.library.registerNaming('series', SERIES_NAMING)
+    this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(seriesCalendar, this))
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
   }
 
@@ -302,7 +306,7 @@ export class SeriesService extends Service {
     const provider = this.provider()
     const meta = await provider.getSeries!(String(options.tmdbId))
     const episodes = withAbsoluteNumbers(await provider.getEpisodes!(String(options.tmdbId)))
-    const naming = this.ctx.library.naming()
+    const naming = this.ctx.library.naming('series')
     const monitor = options.monitor ?? 'all'
 
     const regular = meta.seasons.map((s) => s.number).filter((n) => n > 0)
@@ -322,7 +326,7 @@ export class SeriesService extends Service {
         primaryProvider: 'tmdb',
         profileId: options.profileId,
         rootFolderId: options.rootFolderId,
-        folder: renderName(naming.seriesFolder, { 'Series Title': meta.title, Year: meta.year }),
+        folder: renderName(naming.seriesFolder!, { 'Series Title': meta.title, Year: meta.year }),
         refreshedAt: Date.now(),
       },
       meta.alternateTitles,

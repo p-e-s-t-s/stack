@@ -1,25 +1,34 @@
-// @magpiejs/calendar: upcoming and recent episodes (and movie releases) as a Calendar page and
-// an iCal feed at /api/v1/calendar.ics (docs/phase-4.md §4.5). Uses whichever of the series and
-// movies plugins are enabled.
+// @magpiejs/calendar: a Calendar page and an iCal feed at /api/v1/calendar.ics
+// (docs/phase-4.md §4.5). Kinds of media add their dates with `ctx.calendar.source()`:
+// episodes from series, releases from movies, and later albums, books and podcast episodes.
 
 import type {} from '@cordisjs/plugin-timer'
 import type {} from '@magpiejs/api'
-import type {} from '@magpiejs/decision'
-import type {} from '@magpiejs/movies'
-import type {} from '@magpiejs/series'
-import type { Context } from 'cordis'
+import type { MediaKind } from '@magpiejs/types'
+import { type Context, Service } from 'cordis'
 import console_ from './console'
 
-export const name = 'calendar'
+declare module 'cordis' {
+  interface Context {
+    calendar: CalendarService
+  }
+  interface Events {
+    'calendar/sources'(): void
+    /** A source's dates or states changed (e.g. new episodes); open calendars reload. */
+    'calendar/changed'(): void
+  }
+}
 
 export interface CalendarEntry {
   /** Stable id for iCal, e.g. `episode-12`. */
   uid: string
   /** ISO date. */
   date: string
-  kind: 'episode' | 'movie'
-  /** Library item id (series or movie). */
+  kind: MediaKind
+  /** Library item id. */
   mediaId: number
+  /** Web console path the entry opens, e.g. `/series/3`. */
+  link: string
   title: string
   /** `S01E02 · Episode title` or `Digital release`. */
   subtitle: string
@@ -27,67 +36,74 @@ export interface CalendarEntry {
   quality?: string
 }
 
+/** Entries of one kind between two ISO dates (inclusive). */
+export type CalendarSource = (from: string, to: string, now: number) => CalendarEntry[]
+
 const DAY = 86_400_000
 export const isoDate = (ms: number) => new Date(ms).toISOString().slice(0, 10)
-const pad = (n: number) => String(n).padStart(2, '0')
 
-/** Calendar entries between two ISO dates (inclusive), sorted by date. */
-export function entries(ctx: Context, from: string, to: string, now = Date.now()): CalendarEntry[] {
-  const today = isoDate(now)
-  const out: CalendarEntry[] = []
-  const quality = (q: string) => ctx.get('decision')?.qualityName(q) ?? q
+/** The usual state of a dated entry: has a file, not monitored, still to come, or missing. */
+export function entryState(
+  date: string,
+  options: { hasFile: boolean; monitored: boolean },
+  now = Date.now(),
+): CalendarEntry['state'] {
+  if (options.hasFile) return 'downloaded'
+  if (!options.monitored) return 'unmonitored'
+  return date > isoDate(now) ? 'upcoming' : 'missing'
+}
 
-  for (const { series, episode, file } of ctx.get('series')?.airing(from, to) ?? []) {
-    const monitored = series.monitored && episode.monitored
-    // daily shows are known by their date, which the calendar already shows
-    const number =
-      series.details.seriesType === 'daily' ? '' : `S${pad(episode.season)}E${pad(episode.number)}`
-    out.push({
-      uid: `episode-${episode.id}`,
-      date: episode.airDate!,
-      kind: 'episode',
-      mediaId: series.id,
-      title: series.title,
-      subtitle: [number, episode.title].filter(Boolean).join(' · ') || episode.airDate!,
-      state: file
-        ? 'downloaded'
-        : !monitored
-          ? 'unmonitored'
-          : episode.airDate! > today
-            ? 'upcoming'
-            : 'missing',
-      quality: file && quality(file.quality),
-    })
+export class CalendarService extends Service {
+  private sources = new Map<MediaKind, CalendarSource>()
+
+  constructor(ctx: Context) {
+    super(ctx, 'calendar')
   }
 
-  for (const movie of ctx.get('movies')?.list() ?? []) {
-    const d = movie.details
-    const dates: [string | null, string][] = [
-      [d.inCinemas, 'In cinemas'],
-      [d.digitalRelease, 'Digital release'],
-      [d.physicalRelease, 'Disc release'],
-    ]
-    for (const [date, label] of dates) {
-      if (!date || date < from || date > to) continue
-      out.push({
-        uid: `movie-${movie.id}-${label.split(' ')[0]!.toLowerCase()}`,
-        date,
-        kind: 'movie',
-        mediaId: movie.id,
-        title: movie.year ? `${movie.title} (${movie.year})` : movie.title,
-        subtitle: label,
-        state: movie.file
-          ? 'downloaded'
-          : !movie.monitored
-            ? 'unmonitored'
-            : date > today
-              ? 'upcoming'
-              : 'missing',
-        quality: movie.file && quality(movie.file.quality),
+  [Service.init]() {
+    this.ctx.inject(['api'], (ctx) => {
+      ctx.api.get('/calendar.ics', ({ query }) => {
+        const now = Date.now()
+        const past = Number(query.get('pastDays') ?? 14)
+        const future = Number(query.get('futureDays') ?? 60)
+        const body = toICal(
+          this.entries(isoDate(now - past * DAY), isoDate(now + future * DAY), now),
+          now,
+        )
+        return new Response(body, {
+          headers: { 'content-type': 'text/calendar; charset=utf-8' },
+        })
       })
-    }
+      ctx.api.get('/calendar', ({ query }) => {
+        const now = Date.now()
+        return this.entries(
+          query.get('from') ?? isoDate(now - 7 * DAY),
+          query.get('to') ?? isoDate(now + 28 * DAY),
+          now,
+        )
+      })
+    })
+    this.ctx.inject(['webui', 'timer'], (ctx) => void ctx.plugin(console_, this))
   }
-  return out.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
+
+  /** Adds a kind's dates to the calendar, for the caller's lifetime. */
+  source(kind: MediaKind, source: CalendarSource) {
+    return this.ctx.effect(() => {
+      this.sources.set(kind, source)
+      this.ctx.emit('calendar/sources')
+      return () => {
+        this.sources.delete(kind)
+        this.ctx.emit('calendar/sources')
+      }
+    }, `calendar.source(${kind})`)
+  }
+
+  /** Entries of every kind between two ISO dates (inclusive), sorted by date. */
+  entries(from: string, to: string, now = Date.now()): CalendarEntry[] {
+    return [...this.sources.values()]
+      .flatMap((source) => source(from, to, now))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
+  }
 }
 
 /** Escapes text for an iCal property value. */
@@ -119,29 +135,4 @@ export function toICal(list: CalendarEntry[], now = Date.now()) {
   return lines.join('\r\n') + '\r\n'
 }
 
-export function apply(ctx: Context) {
-  ctx.inject(['api'], (ctx) => {
-    ctx.api.get('/calendar.ics', ({ query }) => {
-      const now = Date.now()
-      const past = Number(query.get('pastDays') ?? 14)
-      const future = Number(query.get('futureDays') ?? 60)
-      const body = toICal(
-        entries(ctx, isoDate(now - past * DAY), isoDate(now + future * DAY), now),
-        now,
-      )
-      return new Response(body, {
-        headers: { 'content-type': 'text/calendar; charset=utf-8' },
-      })
-    })
-    ctx.api.get('/calendar', ({ query }) => {
-      const now = Date.now()
-      return entries(
-        ctx,
-        query.get('from') ?? isoDate(now - 7 * DAY),
-        query.get('to') ?? isoDate(now + 28 * DAY),
-        now,
-      )
-    })
-  })
-  ctx.inject(['webui', 'timer'], (ctx) => void ctx.plugin(console_))
-}
+export default CalendarService

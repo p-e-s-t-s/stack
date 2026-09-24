@@ -109,8 +109,7 @@ const label = computed(
   () =>
     `${fmt(from.value, { day: 'numeric', month: 'long' })} – ${fmt(to.value, { day: 'numeric', month: 'long', year: 'numeric' })}`,
 )
-const link = (e: CalendarEntry) =>
-  e.kind === 'episode' ? `/series/${e.mediaId}` : `/movie/${e.mediaId}`
+const link = (e: CalendarEntry) => e.link
 const feedUrl = `${location.origin}/api/v1/calendar.ics?apikey=YOUR_KEY`
 </script>
 

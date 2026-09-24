@@ -7,7 +7,7 @@ import MetadataService from '@magpiejs/metadata'
 import SeriesService from '@magpiejs/series'
 import { Context } from 'cordis'
 import { expect, it } from 'vitest'
-import { entries, isoDate, toICal } from '../src'
+import CalendarService, { isoDate, toICal } from '../src'
 
 it('lists episodes by air date with their state, and as iCal', async () => {
   const DAY = 86_400_000
@@ -20,6 +20,7 @@ it('lists episodes by air date with their state, and as iCal', async () => {
   await ctx.plugin(LibraryService)
   await ctx.plugin(MetadataService)
   await ctx.plugin(SeriesService)
+  await ctx.plugin(CalendarService)
   ctx.metadata.register({
     id: 'tmdb',
     kinds: ['series'],
@@ -43,7 +44,7 @@ it('lists episodes by air date with their state, and as iCal', async () => {
     search: false,
   })
 
-  const list = entries(ctx, isoDate(now - 7 * DAY), isoDate(now + 7 * DAY), now)
+  const list = ctx.calendar.entries(isoDate(now - 7 * DAY), isoDate(now + 7 * DAY), now)
   expect(list.map((e) => [e.subtitle, e.state])).toEqual([
     ['S01E02 · Last week', 'missing'],
     ['S01E03 · Next week', 'upcoming'],

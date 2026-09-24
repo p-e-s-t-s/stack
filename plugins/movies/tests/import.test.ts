@@ -19,7 +19,9 @@ import JobsService from '@magpiejs/jobs'
 import LibraryService from '@magpiejs/library'
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it } from 'vitest'
-import ImportService, { fileSystem } from '../src'
+import ImportService, { fileSystem } from '@magpiejs/import'
+import MetadataService from '@magpiejs/metadata'
+import MoviesService from '../src'
 
 let ctx: Context
 let dir: string
@@ -37,6 +39,8 @@ beforeEach(async () => {
   await ctx.plugin(DownloadsService)
   await ctx.plugin(ImportService)
   await ctx.plugin(HistoryService)
+  await ctx.plugin(MetadataService)
+  await ctx.plugin(MoviesService)
   const root = ctx.library.addRootFolder(join(dir, 'movies'), 'movie')
   movieId = ctx.library.add({
     kind: 'movie',
@@ -48,7 +52,7 @@ beforeEach(async () => {
     rootFolderId: root.id,
     folder: 'Night of the Living Dead (1968)',
   }).id
-  ctx.library.saveNaming({ recycleBin: join(dir, 'recycle') })
+  ctx.library.saveFileHandling({ recycleBin: join(dir, 'recycle') })
   return () => rmSync(dir, { recursive: true, force: true })
 })
 

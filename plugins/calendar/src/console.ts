@@ -2,7 +2,7 @@
 
 import type {} from '@magpiejs/webui'
 import type { Context } from 'cordis'
-import { type CalendarEntry, entries, isoDate } from './index'
+import { type CalendarEntry, type CalendarService, isoDate } from './index'
 
 export interface CalendarData {
   /** Entries between two ISO dates. */
@@ -11,10 +11,11 @@ export interface CalendarData {
   revision: number
 }
 
-export default function console_(ctx: Context) {
+export default function console_(ctx: Context, calendar: CalendarService) {
   const bump = ctx.debounce(() => entry.mutate((d) => (d.revision += 1)), 500)
   for (const event of [
-    'series/episodes',
+    'calendar/sources',
+    'calendar/changed',
     'library/added',
     'library/updated',
     'library/deleted',
@@ -29,7 +30,7 @@ export default function console_(ctx: Context) {
       // at most a year at a time
       if (Date.parse(to) - Date.parse(from) > 366 * 86_400_000)
         to = isoDate(Date.parse(from) + 366 * 86_400_000)
-      return entries(ctx, from, to)
+      return calendar.entries(from, to)
     },
   }
 

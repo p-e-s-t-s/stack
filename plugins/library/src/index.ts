@@ -29,39 +29,29 @@ declare module 'cordis' {
   }
 }
 
-export interface Naming {
-  /** Movie folder, e.g. `{Title} ({Year})`. */
-  movieFolder: string
-  /** Movie file without extension, e.g. `{Title} ({Year}) [{Quality}]`. */
-  movieFile: string
-  /** Series folder, e.g. `{Series Title} ({Year})`. */
-  seriesFolder: string
-  /** Season folder inside it, e.g. `Season {season:00}`; empty for no season folders. */
-  seasonFolder: string
-  /** Episode file without extension. */
-  episodeFile: string
-  /** Episode file for daily series. */
-  dailyEpisodeFile: string
-  /** Episode file for anime series. */
-  animeEpisodeFile: string
+/** A naming template a kind offers, e.g. the movie file name. */
+export interface NamingTemplate {
+  label: string
+  default: string
+  help?: string
+}
+
+/** A kind's naming templates and the tokens they may use. */
+export interface NamingScheme {
+  templates: Record<string, NamingTemplate>
+  /** Shown in Media management, e.g. `Title`, `season:00`. */
+  tokens: string[]
+}
+
+/** How files get into the library; shared by every kind. */
+export interface FileHandling {
   /** Hardlink finished torrents (falls back to copy across filesystems). */
   useHardlinks: boolean
   /** Replaced and deleted files go here instead of being deleted; empty to delete. */
   recycleBin: string
 }
 
-export const DEFAULT_NAMING: Naming = {
-  movieFolder: '{Title} ({Year})',
-  movieFile: '{Title} ({Year}) [{Quality}]',
-  seriesFolder: '{Series Title} ({Year})',
-  seasonFolder: 'Season {season:00}',
-  episodeFile: '{Series Title} - S{season:00}E{episode:00} - {Episode Title} [{Quality}]',
-  dailyEpisodeFile: '{Series Title} - {Air Date} - {Episode Title} [{Quality}]',
-  animeEpisodeFile:
-    '{Series Title} - S{season:00}E{episode:00} - {absolute:000} - {Episode Title} [{Quality}]',
-  useHardlinks: true,
-  recycleBin: '',
-}
+export const DEFAULT_FILE_HANDLING: FileHandling = { useHardlinks: true, recycleBin: '' }
 
 /** Characters not allowed in file names on common filesystems. */
 export function cleanFileName(name: string) {
@@ -116,6 +106,7 @@ export class LibraryService extends Service {
 
   db!: Drizzle<typeof schema>
   private kindInfo = new Map<MediaKind, KindInfo>()
+  private schemes = new Map<MediaKind, NamingScheme>()
 
   constructor(ctx: Context) {
     super(ctx, 'library')
@@ -146,6 +137,22 @@ export class LibraryService extends Service {
 
   kinds(): KindInfo[] {
     return [...this.kindInfo.values()]
+  }
+
+  /** Declares a kind's naming templates for the caller's lifetime. */
+  registerNaming(kind: MediaKind, scheme: NamingScheme) {
+    return this.ctx.effect(() => {
+      this.schemes.set(kind, scheme)
+      this.ctx.emit('library/kinds')
+      return () => {
+        this.schemes.delete(kind)
+        this.ctx.emit('library/kinds')
+      }
+    }, `library.registerNaming(${kind})`)
+  }
+
+  namingScheme(kind: MediaKind) {
+    return this.schemes.get(kind)
   }
 
   // ---- root folders
@@ -297,22 +304,54 @@ export class LibraryService extends Service {
 
   // ---- settings
 
-  naming(): Naming {
-    const row = this.db
-      .select()
-      .from(schema.settings)
-      .where(eq(schema.settings.key, 'naming'))
-      .get()
-    return { ...DEFAULT_NAMING, ...(row?.value as Partial<Naming> | undefined) }
+  private setting<T>(key: string): T | undefined {
+    return this.db.select().from(schema.settings).where(eq(schema.settings.key, key)).get()
+      ?.value as T | undefined
   }
 
-  saveNaming(naming: Partial<Naming>) {
-    const value = { ...this.naming(), ...naming }
+  private saveSetting(key: string, value: unknown) {
     this.db
       .insert(schema.settings)
-      .values({ key: 'naming', value })
+      .values({ key, value })
       .onConflictDoUpdate({ target: schema.settings.key, set: { value } })
       .run()
+  }
+
+  /**
+   * A kind's naming templates: saved values over the kind's defaults. Values saved before
+   * naming was per kind (one `naming` object) are still read.
+   */
+  naming(kind: MediaKind): Record<string, string> {
+    const templates = this.schemes.get(kind)?.templates ?? {}
+    const legacy = this.setting<Record<string, string>>('naming') ?? {}
+    const saved = this.setting<Record<string, string>>(`naming:${kind}`) ?? {}
+    return Object.fromEntries(
+      Object.entries(templates).map(([key, t]) => [key, saved[key] ?? legacy[key] ?? t.default]),
+    )
+  }
+
+  saveNaming(kind: MediaKind, values: Record<string, string>) {
+    const known = Object.keys(this.schemes.get(kind)?.templates ?? {})
+    const value = {
+      ...this.naming(kind),
+      ...Object.fromEntries(Object.entries(values).filter(([k]) => known.includes(k))),
+    }
+    this.saveSetting(`naming:${kind}`, value)
+    return value
+  }
+
+  fileHandling(): FileHandling {
+    const legacy = this.setting<Partial<FileHandling>>('naming') ?? {}
+    const saved = this.setting<Partial<FileHandling>>('files') ?? {}
+    return {
+      useHardlinks: saved.useHardlinks ?? legacy.useHardlinks ?? DEFAULT_FILE_HANDLING.useHardlinks,
+      recycleBin: saved.recycleBin ?? legacy.recycleBin ?? DEFAULT_FILE_HANDLING.recycleBin,
+    }
+  }
+
+  saveFileHandling(patch: Partial<FileHandling>) {
+    const value = { ...this.fileHandling(), ...patch }
+    this.saveSetting('files', value)
     return value
   }
 }
