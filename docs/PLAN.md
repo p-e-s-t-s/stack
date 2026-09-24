@@ -520,7 +520,7 @@ scene numbering, and TMDB episode groups for alternate orderings.
 **Exit (met, with fake services):** a standard, a daily and an anime series each go from
 search → import correctly, including a season pack.
 
-### Phase 4.5 — Generic media kinds
+### Phase 4.5 — Generic media kinds (done)
 
 Detailed in [phase-4.5.md](phase-4.5.md). Makes a new kind of media a new plugin, with no
 edits to core plugins: open `MediaKind`; **quality families** (video built in) with their own
@@ -528,8 +528,9 @@ parser, size rule and default profiles, and profiles per family; indexer **searc
 and Torznab categories per kind; naming templates per kind; import by file extension;
 calendar sources; an `http` download protocol.
 
-**Exit:** existing tests and data upgrade unchanged, and a fixture kind defined in a test
-goes search → grab → import without touching core plugins.
+**Exit (met):** existing tests and data upgrade unchanged, and a fixture kind defined in a
+test (`packages/app/tests/fixture-kind.test.ts`) goes search → grab → import → calendar
+without touching core plugins.
 
 ### Phase 4.6 — Podcasts
 

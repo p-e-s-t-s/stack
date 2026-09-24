@@ -89,15 +89,15 @@ export class DecisionService extends Service {
    * Adds a quality family for the lifetime of the calling plugin. The first time a family is
    * seen, its default sizes and profiles are created.
    */
-  family(definition: QualityFamily<any>) {
+  family<P extends BaseParsed>(definition: QualityFamily<P>) {
     return this.ctx.effect(() => {
       if (this.familyMap.has(definition.id))
         throw new Error(`quality family ${definition.id} already exists`)
       const taken = new Set(this.families().flatMap((f) => f.qualities.map((q) => q.id)))
       const clash = definition.qualities.find((q) => taken.has(q.id))
       if (clash) throw new Error(`quality ${clash.id} already belongs to another family`)
-      this.familyMap.set(definition.id, definition)
-      this.seed(definition)
+      this.familyMap.set(definition.id, definition as unknown as QualityFamily)
+      this.seed(definition as unknown as QualityFamily)
       this.ctx.emit('decision/families')
       return () => {
         this.familyMap.delete(definition.id)

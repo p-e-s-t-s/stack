@@ -128,14 +128,26 @@ the phase isn't done.
 - An existing `magpie.yml` and database upgrade without manual steps.
 - The fixture kind goes search → import without touching core plugins.
 
-## 7. Decisions
+## 7. Status
+
+Done. What changed against this plan:
+
+- Naming migration is a read fallback: values saved in the old combined `naming` setting are
+  read until a kind's naming is saved again, so no data step was needed.
+- The movie importer moved from `@magpiejs/import` into `@magpiejs/movies`, so the import
+  plugin has no knowledge of any kind.
+- Kinds also declare themselves with `ctx.library.registerKind()` (label for root folders
+  and settings), and calendar entries carry the web console link they open.
+- The fixture kind lives in `packages/app/tests/fixture-kind.test.ts`.
+
+## 8. Decisions
 
 - **Quality families, not per-kind qualities.** Movies and TV share video qualities;
   ebooks and audiobooks are separate families even though both belong to books.
 - **No renumbering.** The new kinds are Phases 4.6–4.8 so later phase numbers (and the
   documents that refer to them) stay the same.
 
-## 8. Open questions for the kind phases
+## 9. Open questions for the kind phases
 
 - Audiobooks inside the books plugin (like Readarr) with their own root folder, or a kind
   of their own? The plan assumes inside books.
