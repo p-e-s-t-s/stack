@@ -1,0 +1,34 @@
+{
+  "name": "@magpiejs/metadata-itunes",
+  "version": "0.0.0",
+  "description": "Podcast search from the iTunes Search API for Magpie (no key needed)",
+  "type": "module",
+  "license": "MIT",
+  "magpie": {
+    "provider": {
+      "kind": "metadata",
+      "label": "iTunes (podcasts)",
+      "single": true,
+      "basic": [
+        "country"
+      ]
+    }
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/metadata": "0.0.0",
+    "@magpiejs/podcasts": "0.0.0",
+    "@magpiejs/types": "0.0.0",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "@cordisjs/plugin-http": "^1.5.2",
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@cordisjs/plugin-http": "1.5.2",
+    "cordis": "4.0.0-rc.10"
+  }
+}

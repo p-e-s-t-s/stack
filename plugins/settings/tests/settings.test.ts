@@ -32,7 +32,7 @@ it('adds, edits, disables and removes providers in magpie.yml', async () => {
       ['@magpiejs/metadata-tmdb', 'metadata', true],
     ]),
   )
-  const tmdb = settings.providers('metadata')[0]!
+  const tmdb = settings.providers('metadata').find((p) => p.name === '@magpiejs/metadata-tmdb')!
   expect(tmdb.fields.map((f) => [f.key, f.type])).toEqual([
     ['apiKey', 'secret'],
     ['language', 'string'],

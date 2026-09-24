@@ -20,6 +20,7 @@ export interface ExternalIds {
   imdb?: string
   anidb?: string
   mal?: string
+  itunes?: string
 }
 
 export interface TestResult {
@@ -42,6 +43,10 @@ export interface MetadataSearchResult {
   overview?: string
   posterUrl?: string
   ids: ExternalIds
+  /** Creator shown next to the title (podcast author, book author, artist). */
+  author?: string
+  /** For podcasts: the RSS feed. */
+  feedUrl?: string
 }
 
 export interface MovieMetadata extends MetadataSearchResult {

@@ -31,10 +31,13 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/metadata' },
     // enabled from Settings → Metadata once it has an API key
     { name: '@magpiejs/metadata-tmdb', disabled: true, config: { apiKey: '' } },
+    // podcast search; needs no key
+    { name: '@magpiejs/metadata-itunes' },
     { name: '@magpiejs/library' },
     { name: '@magpiejs/indexers' },
     { name: '@magpiejs/movies' },
     { name: '@magpiejs/series' },
+    { name: '@magpiejs/podcasts' },
     { name: '@magpiejs/downloads' },
     // direct downloads (podcast episodes); needs no settings
     { name: '@magpiejs/downloader-http' },
