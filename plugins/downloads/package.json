@@ -16,6 +16,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@magpiejs/api": "0.0.0",
     "@magpiejs/database": "0.0.0",
     "@magpiejs/decision": "0.0.0",
     "@magpiejs/jobs": "0.0.0",

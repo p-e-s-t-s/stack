@@ -23,6 +23,8 @@ export function defaultConfig(options: StartOptions) {
       config: { host: '0.0.0.0', port: options.port ?? 6767 },
     },
     { name: '@magpiejs/database' },
+    { name: '@magpiejs/auth' },
+    { name: '@magpiejs/api' },
     { name: '@magpiejs/jobs' },
     { name: '@magpiejs/decision' },
     { name: '@cordisjs/plugin-http' },

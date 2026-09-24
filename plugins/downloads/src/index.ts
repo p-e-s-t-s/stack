@@ -5,6 +5,7 @@ import type {} from '@cordisjs/plugin-http'
 import type {} from '@cordisjs/plugin-timer'
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@magpiejs/decision'
+import type {} from '@magpiejs/api'
 import type {} from '@magpiejs/jobs'
 import type { DownloadClient, DownloadPayload, DownloadStatus, ReleaseInfo } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
@@ -128,6 +129,15 @@ export class DownloadsService extends Service {
     })
 
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+    this.ctx.inject(['api'], (ctx) => {
+      ctx.api.get('/queue', () => this.active())
+      ctx.api.delete('/queue/:id', async ({ params, query }) => {
+        await this.remove(Number(params.id), {
+          deleteData: query.get('deleteData') === 'true',
+          blocklist: query.get('blocklist') === 'true',
+        })
+      })
+    })
   }
 
   // ---- clients

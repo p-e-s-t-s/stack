@@ -1,0 +1,21 @@
+{
+  "name": "@magpiejs/api",
+  "version": "0.0.0",
+  "description": "REST API under /api/v1 for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@cordisjs/plugin-server": "1.7.0",
+    "@magpiejs/auth": "0.0.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/database": "0.0.0",
+    "cordis": "4.0.0-rc.10"
+  }
+}

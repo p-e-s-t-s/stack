@@ -1,0 +1,31 @@
+{
+  "name": "@magpiejs/auth",
+  "version": "0.0.0",
+  "description": "Login, sessions and API keys for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "magpie": {
+    "namespace": "auth"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@cordisjs/plugin-server": "1.7.0",
+    "@magpiejs/database": "0.0.0",
+    "drizzle-orm": "0.45.3",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/webui": "0.0.0",
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "0.31.11"
+  }
+}

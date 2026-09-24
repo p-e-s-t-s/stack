@@ -4,6 +4,7 @@
 import { rmSync } from 'node:fs'
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@cordisjs/plugin-timer'
+import type {} from '@magpiejs/api'
 import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/jobs'
 import { type MediaFile, type MediaItem, renderName } from '@magpiejs/library'
@@ -11,6 +12,7 @@ import type {} from '@magpiejs/metadata'
 import type { MovieMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq } from 'drizzle-orm'
+import api from './api'
 import console_ from './console'
 import automation from './automation'
 import movieSearch, { type MovieSearch, type SearchResult } from './search'
@@ -88,7 +90,7 @@ export class MoviesService extends Service {
   /** Set while an indexers plugin is loaded. */
   searcher?: MovieSearch
   /** Set while indexers and downloads are loaded (automatic search and grab). */
-  searchAndGrab?: (movieId: number) => Promise<unknown>
+  searchAndGrab?: (movieId: number) => Promise<{ title: string } | undefined>
   /** Set while a downloads plugin is loaded. */
   grabber?: (movieId: number, result: SearchResult, manual: boolean) => Promise<unknown>
 
@@ -121,6 +123,7 @@ export class MoviesService extends Service {
       }, 'movies.grabber')
     })
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+    this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
   }
 
   /** Grabs a release from the last search of a movie (interactive "Grab"). */
