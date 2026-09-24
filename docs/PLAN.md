@@ -116,7 +116,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
 | `@magpiejs/library` | `ctx.library`: media items, files, root folders, naming | `media_items`, `media_files`, `alternate_titles`, `root_folders`, `naming` | database |
 | `@magpiejs/movies` | movie kind, movie pages | `movie_details` (media_id → `media_items`) | library |
 | `@magpiejs/series` | series kind, series pages | `series_details` (media_id → `media_items`), `seasons`, `episodes`, `episode_files` | library |
-| `@magpiejs/decision` | `ctx.decision`: profiles, custom formats, scoring | `quality_definitions`, `quality_profiles`, `custom_formats`, `profile_format_scores`, `language_profiles`, `release_restrictions` | database |
+| `@magpiejs/decision` | `ctx.decision`: profiles, custom formats, scoring | `quality_sizes`, `profiles`, `custom_formats`, `profile_scores`, `restrictions` (see [phase-2.md](phase-2.md#32-tables)) | database |
 | `@magpiejs/indexers` | `ctx.indexers` registry, RSS sync, search | `indexer_status` | decision, jobs |
 | `@magpiejs/downloads` | `ctx.downloads` registry, grab, monitor, path mapping | `grabs`, `blocklist`, `remote_path_mappings` | indexers, jobs |
 | `@magpiejs/import` | import pipeline, library scan | — (writes via `ctx.library`) | library, downloads |
@@ -274,13 +274,12 @@ The owning plugin for each table is listed in §3.0. Names below omit the plugin
 | `episode_files` | file_id, episode_id (many-to-many: multi-episode files) |
 | `subtitle_assignments` | media_id, subtitle_profile_id |
 | `subtitle_files` | id, media_file_id, path, language, forced, hi, provider, score, synced |
-| `quality_definitions` | quality, min/max/preferred size per minute |
-| `quality_profiles` | name, ordered allowed qualities (JSON, supports groups), cutoff quality, min CF score, cutoff CF score, upgrades_allowed |
-| `custom_formats` | name, specifications (JSON: regex on title, release group, source, resolution, language, size, indexer flags), include_in_rename |
-| `profile_format_scores` | profile_id, format_id, score |
-| `language_profiles` | name, languages, allow original language |
+| `quality_sizes` | quality, min/max/preferred size per minute |
+| `profiles` | name, ordered allowed qualities (JSON, supports groups), cutoff quality, min/cutoff format score, upgrades allowed, languages, min seeders, min age |
+| `custom_formats` | name, conditions (JSON: regex on title, release group, source, resolution, language, size, indexer flags), include in file name |
+| `profile_scores` | profile_id, format_id, score |
 | `subtitle_profiles` | name, languages (+forced / HI flags), cutoff, min score |
-| `release_restrictions` | required terms, ignored terms, tags |
+| `restrictions` | required terms, ignored terms, tags |
 | `root_folders` | path, kind, free-space warning threshold |
 | `indexer_status` | indexer_id (loader entry id), failures, disabled_until, last_rss_at, last_rss_guid |
 | `remote_path_mappings` | host, remote_path, local_path |
@@ -464,17 +463,20 @@ What Phase 1 found out (differs from the original plan):
 - The web console builds with Vite 7 (what `@cordisjs/client` uses); Vitest uses Vite 8.
 
 ### Phase 2 — Release parser & decision engine (pure logic, heavily tested)
-- `packages/parser`: title, year, season/episode (incl. `S01E01E02`, `1x01`, daily
-  `2024.05.01`, anime absolute `- 123`, season packs, multi-season), resolution, source,
-  modifiers (Remux, PROPER, REPACK, REAL), video codec, HDR formats, audio codec/channels,
-  languages, edition, release group, hash-tagged anime groups `[Group]`.
-- Golden fixture file: ≥500 real release names with expected output, collected from
-  indexer RSS feeds and our own libraries. The project is MIT, so no code or test files
-  are copied from the GPL-3.0 *arr projects (see §10).
-- `plugins/decision`: quality definitions, profiles, custom formats, scoring, upgrade
-  decider, with rejection reasons.
 
-**Exit:** parser fixtures pass; decision engine unit tests cover every rule in §5.3.
+Detailed plan: [phase-2.md](phase-2.md).
+
+- `packages/parser`: release name → structured fields (title, year, episodes incl. daily,
+  anime and packs, resolution, source, modifiers, codecs, HDR, audio, languages, edition,
+  streaming service, revision, group), with the source text of every field.
+- Fixtures: hand-written cases plus ≥500 reviewed real names collected by a script from
+  your own *arr history or indexer feeds. No code or tests copied from GPL-3.0 projects.
+- `plugins/decision`: qualities, size limits, profiles, custom formats, rules (extensible
+  by other plugins), upgrade/cutoff logic and ranking.
+- Web console: Parse tester, and editors for profiles, custom formats and sizes.
+
+**Exit:** ≥500 reviewed fixtures pass; 10k names parse in under a second; every rule has
+unit tests; the new pages work in the production build.
 
 ### Phase 3 — MVP: movies end-to-end
 - `plugins/metadata-tmdb`: search, movie details, images, IMDb mapping.
