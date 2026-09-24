@@ -37,7 +37,12 @@ export interface MetadataSearchResult {
 export interface MovieMetadata extends MetadataSearchResult {
   kind: 'movie'
   runtimeMinutes?: number
+  /** ISO dates. */
   releaseDates?: { theatrical?: string; digital?: string; physical?: string }
+  alternateTitles?: string[]
+  originalLanguage?: string
+  backdropUrl?: string
+  genres?: string[]
 }
 
 export interface SeriesMetadata extends MetadataSearchResult {

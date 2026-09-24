@@ -25,6 +25,12 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/database' },
     { name: '@magpiejs/jobs' },
     { name: '@magpiejs/decision' },
+    { name: '@cordisjs/plugin-http' },
+    { name: '@magpiejs/metadata' },
+    // enable after adding your TMDB API key (Settings will manage this later)
+    { name: '@magpiejs/metadata-tmdb', disabled: true, config: { apiKey: '' } },
+    { name: '@magpiejs/library' },
+    { name: '@magpiejs/movies' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
     { name: '@magpiejs/system' },
   ]
