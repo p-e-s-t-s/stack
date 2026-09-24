@@ -1,0 +1,14 @@
+{
+  "name": "@magpiejs/parser",
+  "version": "0.0.0",
+  "description": "Release name parser",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "fast-check": "^4.3.0",
+    "yaml": "^2.8.1"
+  }
+}

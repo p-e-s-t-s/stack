@@ -1,0 +1,366 @@
+# Hand-written parser cases, one per rule or edge case (docs/phase-2.md §2.3).
+# Only the listed fields are checked. Written from naming conventions.
+
+# ---- movies: titles and years
+- name: The.Matrix.1999.1080p.BluRay.x264-GROUP
+  title: The Matrix
+  year: 1999
+  kind: movie
+  resolution: 1080p
+  source: bluray
+  video: { codec: x264 }
+  group: GROUP
+- name: 2001.A.Space.Odyssey.1968.2160p.UHD.BluRay.x265-GROUP
+  title: 2001 A Space Odyssey
+  year: 1968
+- name: 1917.2019.1080p.WEB-DL.DD5.1.H264-GROUP
+  title: '1917'
+  year: 2019
+  source: webdl
+- name: Blade.Runner.2049.2017.2160p.WEB-DL.x265-GROUP
+  title: Blade Runner 2049
+  year: 2017
+- name: The.Movie.Title.(2020).1080p.WEB-DL.H264-GROUP
+  title: The Movie Title
+  year: 2020
+- name: The Movie Title (2020) [1080p] [BluRay] [5.1] [YTS.MX]
+  title: The Movie Title
+  year: 2020
+  resolution: 1080p
+  source: bluray
+  audio: { channels: '5.1' }
+- name: Movie.Title.1080p.BluRay.x264-GROUP
+  title: Movie Title
+  kind: movie
+  resolution: 1080p
+- name: S.W.A.T.2003.1080p.BluRay.x264-GROUP
+  title: S.W.A.T.
+  year: 2003
+- name: Mission.Impossible.Dead.Reckoning.Part.One.2023.2160p.WEB-DL.DDP5.1.Atmos.DV.H.265-GROUP
+  title: Mission Impossible Dead Reckoning Part One
+  year: 2023
+  video: { codec: x265, hdr: [dv] }
+  audio: { codecs: [ddp], channels: '5.1', atmos: true }
+- name: Spider-Man.No.Way.Home.2021.1080p.WEB-DL.H264-GROUP
+  title: Spider-Man No Way Home
+  year: 2021
+- name: You+Me.2024.720p.WEBRip.x264-GROUP
+  title: You+Me
+  source: webrip
+  resolution: 720p
+- name: Die.Hard.GERMAN.1080p.BluRay.x264-GROUP
+  title: Die Hard
+  languages: [de]
+- name: the_movie_title_2015_720p_hdtv_x264-group
+  title: the movie title
+  year: 2015
+  source: hdtv
+  group: group
+- name: Movie.Title.2020.1080p.WEB-DL.H264-GROUP.mkv
+  title: Movie Title
+  group: GROUP
+- name: Movie.Title.2020.1080p.WEB-DL.H264-GROUP[rarbg]
+  group: GROUP
+- name: Movie.Title.2020.1080p.WEB-DL.H264-GROUP-Obfuscated
+  group: GROUP
+- name: Movie.Title.2020.1080p.WEB-DL
+  group: null
+  source: webdl
+
+# ---- movie sources and modifiers
+- name: Movie.2020.2160p.UHD.BluRay.REMUX.HDR.HEVC.TrueHD.Atmos.7.1-GROUP
+  source: bluray
+  modifiers: [remux]
+  resolution: 2160p
+  audio: { codecs: [truehd], channels: '7.1', atmos: true }
+- name: Movie.2020.1080p.BluRay.Remux.AVC.DTS-HD.MA.5.1-GROUP
+  modifiers: [remux]
+  video: { codec: x264 }
+  audio: { codecs: [dtshdma], channels: '5.1' }
+- name: Movie.2020.COMPLETE.UHD.BLURAY-GROUP
+  source: bluray
+  modifiers: [brdisk]
+  resolution: 2160p
+- name: Movie.2020.1080p.BD50.AVC-GROUP
+  modifiers: [brdisk]
+- name: Movie.2020.BDRip.x264-GROUP
+  source: bluray
+- name: Movie.2020.720p.BRRip.x264-GROUP
+  source: bluray
+- name: Movie.2020.DVDRip.XviD-GROUP
+  source: dvd
+  video: { codec: xvid }
+- name: Movie.2020.DVDR-GROUP
+  source: dvd
+- name: Movie.2020.PAL.DVD9-GROUP
+  source: dvd
+- name: Movie.2020.HDCAM.x264-GROUP
+  source: cam
+- name: Movie.2020.CAM.x264-GROUP
+  source: cam
+- name: Movie.2020.HDTS.x264-GROUP
+  source: telesync
+- name: Movie.2020.TS.XviD-GROUP
+  source: telesync
+- name: Movie.2020.TC.XviD-GROUP
+  source: telecine
+- name: Movie.2020.DVDSCR.XviD-GROUP
+  source: dvd
+  modifiers: [screener]
+- name: Movie.2020.R5.XviD-GROUP
+  modifiers: [regional]
+- name: Movie.2020.1080p.WEBRip.x264-GROUP
+  source: webrip
+- name: Movie.2020.1080p.WEB.H264-GROUP
+  source: webdl
+- name: Movie.2020.1080p.AMZN.WEB-DL.DDP5.1.H.264-GROUP
+  source: webdl
+  streamingService: amzn
+  audio: { codecs: [ddp], channels: '5.1' }
+- name: Movie.2020.2160p.NF.WEB-DL.DDP5.1.HDR.HEVC-GROUP
+  streamingService: nf
+  video: { hdr: [hdr10], codec: x265 }
+- name: Movie.2020.2160p.DSNP.WEB-DL.DDP5.1.DV.HDR.H.265-GROUP
+  streamingService: dsnp
+  video: { hdr: [dv, hdr10] }
+- name: Movie.2020.2160p.ATVP.WEB-DL.DDP5.1.Atmos.DV.H.265-GROUP
+  streamingService: atvp
+- name: Movie.2020.1080p.iT.WEB-DL.DD5.1.H.264-GROUP
+  streamingService: itunes
+  audio: { codecs: [dd], channels: '5.1' }
+- name: Movie.2020.2160p.MA.WEB-DL.DTS-HD.MA.5.1.H.265-GROUP
+  streamingService: ma
+  audio: { codecs: [dtshdma] }
+- name: Movie.2020.1080p.HMAX.WEB-DL.DD+5.1.H.264-GROUP
+  streamingService: hmax
+  audio: { codecs: [ddp] }
+- name: Movie.2020.720p.HDTV.x264-GROUP
+  source: hdtv
+- name: Movie.2020.PDTV.XviD-GROUP
+  source: hdtv
+- name: Movie.2020.1080p.WEB-DL.AAC2.0.H.264-GROUP
+  audio: { codecs: [aac], channels: '2.0' }
+- name: Movie.2020.1080p.BluRay.FLAC.2.0.x264-GROUP
+  audio: { codecs: [flac], channels: '2.0' }
+- name: Movie.2020.2160p.BluRay.DTS-X.7.1.x265-GROUP
+  audio: { codecs: [dtsx], channels: '7.1' }
+- name: Movie.2020.1080p.BluRay.DTS.x264-GROUP
+  audio: { codecs: [dts] }
+- name: Movie.2020.1080p.BluRay.AC3.x264-GROUP
+  audio: { codecs: [dd] }
+- name: Movie.2020.1080p.WEB-DL.EAC3.x264-GROUP
+  audio: { codecs: [ddp] }
+- name: Movie.2020.1080p.BluRay.LPCM.2.0.AVC-GROUP
+  audio: { codecs: [pcm], channels: '2.0' }
+- name: Movie.2020.1080p.WEB-DL.OPUS.AV1-GROUP
+  audio: { codecs: [opus] }
+  video: { codec: av1 }
+- name: Movie.2020.1080p.BluRay.x265.10bit-GROUP
+  video: { codec: x265, bitDepth: 10 }
+- name: Movie.2020.1080p.BluRay.VC-1.DTS-GROUP
+  video: { codec: vc1 }
+- name: Movie.2020.2160p.WEB-DL.HDR10+.H.265-GROUP
+  video: { hdr: [hdr10plus] }
+- name: Movie.2020.2160p.WEB-DL.HDR10Plus.H.265-GROUP
+  video: { hdr: [hdr10plus] }
+- name: Movie.2020.2160p.WEB-DL.DoVi.HDR10.H.265-GROUP
+  video: { hdr: [dv, hdr10] }
+- name: Movie.2020.2160p.WEB.HLG.H265-GROUP
+  video: { hdr: [hlg] }
+- name: Movie.2020.1080p.BluRay.3D.HSBS.x264-GROUP
+  video: { threeD: true }
+- name: Movie.2020.HYBRID.2160p.UHD.BluRay.REMUX.DV.HDR.HEVC-GROUP
+  flags: [hybrid]
+
+# ---- editions
+- name: Movie.2020.Directors.Cut.1080p.BluRay.x264-GROUP
+  edition: Director's Cut
+  title: Movie
+- name: Movie.2020.Extended.Cut.2160p.BluRay.x265-GROUP
+  edition: Extended Cut
+- name: Movie.2020.EXTENDED.1080p.BluRay.x264-GROUP
+  edition: Extended
+- name: Movie.2020.UNRATED.1080p.BluRay.x264-GROUP
+  edition: Unrated
+- name: Movie.2020.Theatrical.Cut.1080p.BluRay.x264-GROUP
+  edition: Theatrical Cut
+- name: Movie.2020.IMAX.2160p.WEB-DL.DDP5.1.H.265-GROUP
+  edition: IMAX
+- name: Movie.2020.IMAX.Enhanced.2160p.WEB-DL.H.265-GROUP
+  edition: IMAX Enhanced
+- name: Movie.1985.REMASTERED.1080p.BluRay.x264-GROUP
+  edition: Remastered
+- name: Movie.1985.4K.Remastered.1080p.BluRay.x264-GROUP
+  edition: 4K Remastered
+- name: Movie.1985.Criterion.1080p.BluRay.x264-GROUP
+  edition: Criterion
+- name: Movie.1985.30th.Anniversary.Edition.1080p.BluRay.x264-GROUP
+  edition: 30th Anniversary Edition
+- name: Movie.1985.Open.Matte.1080p.WEB-DL.H264-GROUP
+  edition: Open Matte
+
+# ---- revisions and flags
+- name: Movie.2020.PROPER.1080p.BluRay.x264-GROUP
+  revision: { version: 2, proper: true }
+- name: Movie.2020.REPACK.1080p.BluRay.x264-GROUP
+  revision: { version: 2, repack: true }
+- name: Movie.2020.REPACK2.1080p.BluRay.x264-GROUP
+  revision: { version: 3, repack: true }
+- name: Movie.2020.REAL.PROPER.1080p.BluRay.x264-GROUP
+  revision: { version: 2, real: 1, proper: true }
+- name: Real.Steel.2011.1080p.BluRay.x264-GROUP
+  title: Real Steel
+  revision: { version: 1, real: 0 }
+- name: Movie.2020.RERIP.1080p.WEB.H264-GROUP
+  revision: { version: 2 }
+- name: Movie.2020.iNTERNAL.1080p.BluRay.x264-GROUP
+  flags: [internal]
+- name: Movie.2020.LiMiTED.1080p.BluRay.x264-GROUP
+  flags: [limited]
+- name: Movie.2020.1080p.WEB-DL.H264-GROUP.sample.mkv
+  flags: [sample]
+- name: Movie.2020.HC.1080p.WEBRip.x264-GROUP
+  hardcodedSubs: hc
+- name: Movie.2020.KORSUB.1080p.HDRip.x264-GROUP
+  hardcodedSubs: korsub
+- name: Movie.2020.1080p.WEB-DL.HCSubs.x264-GROUP
+  hardcodedSubs: hc
+
+# ---- languages
+- name: Movie.2020.1080p.BluRay.x264-GROUP
+  languages: [en]
+- name: Movie.2020.GERMAN.1080p.BluRay.x264-GROUP
+  languages: [de]
+- name: Movie.2020.German.DL.1080p.BluRay.x264-GROUP
+  languages: [de, en]
+  flags: [multi-audio]
+- name: Movie.2020.MULTi.1080p.BluRay.x264-GROUP
+  flags: [multi-audio]
+- name: Movie.2020.FRENCH.1080p.WEB.H264-GROUP
+  languages: [fr]
+- name: Movie.2020.TRUEFRENCH.1080p.WEB.H264-GROUP
+  languages: [fr]
+- name: Movie.2020.iTALiAN.1080p.WEB.H264-GROUP
+  languages: [it]
+- name: Movie.2020.SPANiSH.1080p.WEB.H264-GROUP
+  languages: [es]
+- name: Movie.2020.1080p.WEB-DL.ITA.ENG.AC3-GROUP
+  languages: [it, en]
+- name: Movie.2020.2160p.GER.UHD.Blu-ray.REMUX-GROUP
+  languages: [en]
+- name: The.Italian.Job.2003.1080p.BluRay.x264-GROUP
+  title: The Italian Job
+  languages: [en]
+- name: French.Kiss.1995.1080p.BluRay.x264-GROUP
+  title: French Kiss
+  languages: [en]
+- name: Movie.2020.1080p.WEB-DL.DL.H264-GROUP
+  flags: [multi-audio]
+
+# ---- series: standard
+- name: Show.Name.S01E01.1080p.WEB.H264-GROUP
+  title: Show Name
+  kind: episode
+  episodes: { season: 1, numbers: [1] }
+- name: Show.Name.S01E01.Episode.Title.720p.HDTV.x264-GROUP
+  title: Show Name
+  episodes: { season: 1, numbers: [1] }
+  source: hdtv
+- name: Show.Name.S01E01E02.1080p.WEB.H264-GROUP
+  episodes: { season: 1, numbers: [1, 2] }
+- name: Show.Name.S01E01-E03.1080p.WEB.H264-GROUP
+  episodes: { season: 1, numbers: [1, 2, 3] }
+- name: Show.Name.S01E01-03.1080p.WEB.H264-GROUP
+  episodes: { season: 1, numbers: [1, 2, 3] }
+- name: Show.Name.S01E01+E02.1080p.WEB.H264-GROUP
+  episodes: { season: 1, numbers: [1, 2] }
+- name: Show Name S01 E05 1080p WEB H264-GROUP
+  title: Show Name
+  episodes: { season: 1, numbers: [5] }
+- name: Show.Name.1x05.720p.HDTV.x264-GROUP
+  episodes: { season: 1, numbers: [5] }
+- name: Show.Name.S2025E10.1080p.WEB.H264-GROUP
+  episodes: { season: 2025, numbers: [10] }
+- name: Show.Name.S00E03.1080p.WEB.H264-GROUP
+  episodes: { season: 0, numbers: [3], special: true }
+- name: Show.Name.2024.S02E07.1080p.WEB.H264-GROUP
+  title: Show Name
+  year: 2024
+  episodes: { season: 2, numbers: [7] }
+- name: Show.Name.US.S05E01.1080p.WEB.H264-GROUP
+  title: Show Name US
+- name: 9-1-1.S05E01.1080p.WEB.H264-GROUP
+  title: 9-1-1
+  episodes: { season: 5, numbers: [1] }
+- name: The.100.S07E01.1080p.WEB.H264-GROUP
+  title: The 100
+- name: Show.Name.S01E01.REPACK.1080p.WEB.H264-GROUP
+  revision: { version: 2, repack: true }
+- name: Show.Name.S01E01.PROPER.DV.2160p.WEB.h265-GROUP
+  video: { hdr: [dv] }
+  revision: { proper: true }
+
+# ---- series: packs
+- name: Show.Name.S01.1080p.BluRay.x264-GROUP
+  kind: season
+  episodes: { season: 1, numbers: [] }
+- name: Show.Name.S01-S03.1080p.BluRay.x264-GROUP
+  kind: season
+  episodes: { numbers: [], seasons: [1, 2, 3] }
+- name: Show.Name.S01-03.1080p.WEB-DL.H264-GROUP
+  episodes: { seasons: [1, 2, 3] }
+- name: Show Name Season 2 1080p WEB-DL H264-GROUP
+  kind: season
+  episodes: { season: 2 }
+- name: Show.Name.S02.COMPLETE.720p.WEB.x264-GROUP
+  kind: season
+  episodes: { season: 2 }
+
+# ---- series: daily
+- name: The.Daily.Show.2026.09.23.Guest.Name.1080p.WEB.h264-GROUP
+  title: The Daily Show
+  kind: episode
+  episodes: { airDate: '2026-09-23', numbers: [] }
+- name: Late.Night.Show.2026-01-05.720p.HDTV.x264-GROUP
+  episodes: { airDate: '2026-01-05' }
+
+# ---- series: anime
+- name: '[SubsPlease] Sousou no Frieren - 12 (1080p) [ABCD1234].mkv'
+  title: Sousou no Frieren
+  group: SubsPlease
+  kind: episode
+  episodes: { absolute: [12] }
+  resolution: 1080p
+- name: '[Erai-raws] Show Name - 05 [1080p][Multiple Subtitle].mkv'
+  title: Show Name
+  group: Erai-raws
+  episodes: { absolute: [5] }
+- name: '[Group] Show Name - 03v2 [720p].mkv'
+  episodes: { absolute: [3] }
+  revision: { version: 2 }
+- name: '[Group] Show Name - 1001 (1080p) [ABCDEF01].mkv'
+  episodes: { absolute: [1001] }
+- name: '[Group] Show Name (01-12) [1080p]'
+  title: Show Name
+  group: Group
+  episodes: { absolute: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] }
+- name: '[Group] Show Name - 01 ~ 12 [1080p]'
+  episodes: { absolute: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] }
+- name: '[Group] Show Name S2 - 04 [1080p]'
+  title: Show Name
+  group: Group
+  episodes: { season: 2, numbers: [4] }
+- name: Show.Name.E13.1080p.BluRay.x264-GROUP
+  episodes: { numbers: [13] }
+- name: Show.Name.S01E09.DUBBED.720p.WEB.H264-GROUP
+  flags: [dubbed]
+
+# ---- odd inputs
+- name: ''
+  title: ''
+  languages: [en]
+- name: a3f1b9c0d2e4f6a8b1c3d5e7f9a0b2c4
+  flags: [obfuscated]
+- name: '   Movie.2020.1080p.BluRay.x264-GROUP   '
+  title: Movie
+  group: GROUP
