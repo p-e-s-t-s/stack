@@ -2,6 +2,7 @@
 // Each indexer (e.g. a Prowlarr Torznab URL) is a plugin instance that registers here.
 
 import type { Drizzle } from '@magpiejs/database'
+import type {} from '@magpiejs/jobs'
 import type { IndexerProvider, ReleaseInfo, ReleaseQuery } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq } from 'drizzle-orm'
@@ -16,6 +17,10 @@ declare module 'cordis' {
   }
   interface Events {
     'indexers/changed'(): void
+    /** New releases from an indexer's RSS feed since the last sync. */
+    'indexers/rss'(
+      releases: (ReleaseInfo & { indexerName: string; indexerPriority: number })[],
+    ): void
   }
 }
 
@@ -53,7 +58,7 @@ const MINUTE = 60_000
 const BACKOFF = [5, 15, 30, 60, 180, 360].map((m) => m * MINUTE)
 
 export class IndexersService extends Service {
-  static inject = ['database']
+  static inject = ['database', 'jobs']
 
   db!: Drizzle<typeof schema>
   timeout = 30_000
@@ -70,7 +75,57 @@ export class IndexersService extends Service {
       schema,
       migrations: new URL('../migrations', import.meta.url),
     })
+    this.ctx.jobs.define(
+      'indexers.rss',
+      async () => {
+        await this.syncRss()
+      },
+      { maxAttempts: 1 },
+    )
+    this.ctx.jobs.schedule('indexers.rss', 'indexers.rss', this.rssInterval)
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+  }
+
+  rssInterval = 15 * 60_000
+
+  /** Reads every RSS-enabled indexer's feed and announces releases newer than last time. */
+  async syncRss() {
+    const fresh: (ReleaseInfo & { indexerName: string; indexerPriority: number })[] = []
+    await Promise.all(
+      this.usable('rss').map(async ([id, indexer]) => {
+        if (!indexer.provider.rss) return
+        try {
+          const releases = await this.withTimeout(indexer.provider.rss())
+          this.succeeded(id)
+          const last = this.db
+            .select()
+            .from(schema.status)
+            .where(eq(schema.status.indexerId, id))
+            .get()?.lastRssGuid
+          // feeds are newest first: stop at the newest release seen last time
+          const stop = last ? releases.findIndex((r) => r.guid === last) : -1
+          const newer = stop >= 0 ? releases.slice(0, stop) : releases
+          for (const r of newer)
+            fresh.push({
+              ...r,
+              indexerId: id,
+              indexerName: indexer.name,
+              indexerPriority: indexer.priority,
+            })
+          if (releases[0]) {
+            this.db
+              .update(schema.status)
+              .set({ lastRssGuid: releases[0].guid, lastRssAt: this.now() })
+              .where(eq(schema.status.indexerId, id))
+              .run()
+          }
+        } catch (error) {
+          this.failed(id, error instanceof Error ? error.message : String(error))
+        }
+      }),
+    )
+    if (fresh.length) this.ctx.emit('indexers/rss', fresh)
+    return fresh
   }
 
   /** Registers an indexer for the lifetime of the calling plugin. */

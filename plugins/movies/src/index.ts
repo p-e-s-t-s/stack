@@ -12,6 +12,7 @@ import type { MovieMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq } from 'drizzle-orm'
 import console_ from './console'
+import automation from './automation'
 import movieSearch, { type MovieSearch, type SearchResult } from './search'
 import * as schema from './schema'
 
@@ -86,6 +87,8 @@ export class MoviesService extends Service {
   db!: Drizzle<typeof schema>
   /** Set while an indexers plugin is loaded. */
   searcher?: MovieSearch
+  /** Set while indexers and downloads are loaded (automatic search and grab). */
+  searchAndGrab?: (movieId: number) => Promise<unknown>
   /** Set while a downloads plugin is loaded. */
   grabber?: (movieId: number, result: SearchResult, manual: boolean) => Promise<unknown>
 
@@ -105,6 +108,7 @@ export class MoviesService extends Service {
     })
     this.ctx.jobs.schedule('movies.refresh-all', 'movies.refresh', DAY)
     this.ctx.inject(['indexers'], (ctx) => void ctx.plugin(movieSearch, this))
+    this.ctx.inject(['indexers', 'downloads'], (ctx) => void ctx.plugin(automation, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
         this.grabber = (movieId, { release, decision }, manual) =>
@@ -213,6 +217,33 @@ export class MoviesService extends Service {
       },
       meta.alternateTitles,
     )
+  }
+
+  /** Library movies a release could be for: by indexer IDs, else by title. */
+  findForRelease(
+    release: { ids?: { tmdb?: string; imdb?: string } },
+    parsed: { title: string },
+  ): Movie[] {
+    if (release.ids?.tmdb) {
+      const d = this.db
+        .select()
+        .from(schema.details)
+        .where(eq(schema.details.tmdbId, Number(release.ids.tmdb)))
+        .get()
+      if (d) return [this.get(d.mediaId)!]
+    }
+    if (release.ids?.imdb) {
+      const d = this.db
+        .select()
+        .from(schema.details)
+        .where(eq(schema.details.imdbId, release.ids.imdb))
+        .get()
+      if (d) return [this.get(d.mediaId)!]
+    }
+    return this.ctx.library
+      .findByTitle(parsed.title, 'movie')
+      .map((item) => this.get(item.id))
+      .filter((m): m is Movie => !!m)
   }
 
   get(id: number): Movie | undefined {

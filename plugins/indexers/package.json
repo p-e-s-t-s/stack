@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@magpiejs/database": "0.0.0",
+    "@magpiejs/jobs": "0.0.0",
     "@magpiejs/types": "0.0.0",
     "drizzle-orm": "0.45.3"
   },

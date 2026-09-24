@@ -289,6 +289,15 @@ export function profileRanks(profile: Pick<schema.Profile, 'items'>) {
   return { rankOf: (quality: string) => ranks.get(quality) ?? -1, allowed }
 }
 
+/** Whether a file already satisfies the profile's cutoff (no more upgrades wanted). */
+export function cutoffMet(profile: schema.Profile, file: { quality: string; formatScore: number }) {
+  if (!profile.upgradesAllowed) return true
+  const { rankOf } = profileRanks(profile)
+  const cutoff =
+    rankOf(profile.cutoff) >= 0 ? rankOf(profile.cutoff) : groupRank(profile, profile.cutoff)
+  return rankOf(file.quality) >= cutoff && file.formatScore >= profile.cutoffFormatScore
+}
+
 function groupRank(profile: schema.Profile, name: string) {
   return profile.items.findIndex((item) => 'name' in item && item.name === name)
 }
