@@ -92,5 +92,18 @@ export function qualityOf(parsed: ParsedRelease): Quality {
       return `bluray-${r}` as Quality
     }
   }
+  // a resolution but no source (common for anime, e.g. `[Group] Show - 03 (1080p)`): like
+  // Sonarr, count it as HDTV of that resolution
+  switch (parsed.resolution) {
+    case '2160p':
+      return 'hdtv-2160p'
+    case '1080p':
+      return 'hdtv-1080p'
+    case '720p':
+      return 'hdtv-720p'
+    case '576p':
+    case '480p':
+      return 'sdtv'
+  }
   return 'unknown'
 }

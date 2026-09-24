@@ -98,7 +98,8 @@ export interface ReleaseQuery {
   term?: string
   ids?: ExternalIds
   season?: number
-  episode?: number
+  /** A number, or `MM/DD` for daily shows (with the year as `season`), per Newznab. */
+  episode?: number | string
 }
 
 export interface ReleaseInfo {

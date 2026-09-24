@@ -99,14 +99,38 @@ export function pickReleases(results: EpisodeResult[], wanted: Set<number>) {
 export default function episodeSearch(ctx: Context, series: SeriesService) {
   const cache = new Map<number, { at: number; results: Map<string, EpisodeResult> }>()
 
-  /** Queries for these episodes: one per season, with the episode when it's the only one. */
+  /**
+   * Queries for these episodes. Standard: one per season, with the episode when it's the only
+   * one. Daily: by air date. Anime: by title and absolute number, plus the season queries.
+   */
   function queries(show: Series, wanted: Episode[]): ReleaseQuery[] {
     const base = { kind: 'series' as const, term: show.title, ids: show.externalIds }
+    const type = show.details.seriesType
+    const few = wanted.length <= 5
+    if (type === 'daily') {
+      const dated = wanted.filter((e) => e.airDate)
+      if (!few || !dated.length) return [base]
+      return dated.map((e) => ({
+        ...base,
+        season: Number(e.airDate!.slice(0, 4)),
+        episode: `${e.airDate!.slice(5, 7)}/${e.airDate!.slice(8, 10)}`,
+      }))
+    }
     const bySeason = new Map<number, Episode[]>()
     for (const e of wanted) bySeason.set(e.season, [...(bySeason.get(e.season) ?? []), e])
-    return [...bySeason].map(([season, eps]) =>
+    const seasonal: ReleaseQuery[] = [...bySeason].map(([season, eps]) =>
       eps.length === 1 ? { ...base, season, episode: eps[0]!.number } : { ...base, season },
     )
+    if (type !== 'anime') return seasonal
+    // anime releases are mostly named by absolute number: search by text, without ids
+    const absolute = wanted.filter((e) => e.absoluteNumber)
+    const text: ReleaseQuery[] = few
+      ? absolute.map((e) => ({
+          kind: 'series',
+          term: `${show.title} ${String(e.absoluteNumber).padStart(2, '0')}`,
+        }))
+      : [{ kind: 'series', term: show.title }]
+    return [...seasonal, ...text]
   }
 
   function targetFor(show: Series, parsed: ParsedRelease, covered: Episode[]): DecisionTarget {
