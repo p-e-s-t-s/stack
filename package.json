@@ -11,14 +11,15 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "npm run start -w @magpiejs/app -- --dev",
+    "dev": "npm run dev -w @magpiejs/app",
     "start": "npm run start -w @magpiejs/app",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "check:ownership": "tsx scripts/check-ownership.ts"
+    "check:ownership": "tsx scripts/check-ownership.ts",
+    "build": "tsx scripts/build-webui.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

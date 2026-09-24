@@ -24,7 +24,7 @@ published packages say otherwise, and the plan follows the packages:
 | `@cordisjs/components` | `0.4.x` | Shared console components, incl. schemastery-driven forms (`schemastery-vue`). |
 | `@cordisjs/plugin-loader` | `1.0.0-rc` | YAML-configured plugin loading; enable/disable/reload plugins at runtime. |
 | `@cordisjs/plugin-timer` | `1.1.x` | Disposable timers (`ctx.setInterval`, etc.). |
-| `@cordisjs/plugin-logger` | `1.0.x` | Logging. |
+| `@cordisjs/plugin-include` | `1.1.x` | Loads a YAML file (`magpie.yml`) into the loader and writes UI changes back to it. |
 | `schemastery` | `3.18.x` | Config schemas; the console renders settings forms from them. |
 
 **Not used:** the ready-made console pages — `@cordisjs/plugin-server-webui` (route
@@ -72,7 +72,7 @@ Consequences:
 | HTTP in | `@cordisjs/plugin-server` |
 | HTTP out | `@cordisjs/plugin-http` (+ per-host rate limiter we add) |
 | UI | `@cordisjs/plugin-webui` + `@cordisjs/client` + `@cordisjs/components` (Vue 3, Element Plus, UnoCSS). Core only; all pages are ours |
-| DB | SQLite + Drizzle ORM for schema and queries, with our own Cordis plugin layer `@magpiejs/database` (§4.2) that gives each plugin its own tables, versioned migrations and real foreign keys, tied to the plugin lifecycle. Driver: built-in `node:sqlite` (no native build) or `better-sqlite3`, chosen in Phase 1 (§4.2) |
+| DB | SQLite + Drizzle ORM for schema and queries, with our own Cordis plugin layer `@magpiejs/database` (§4.2) that gives each plugin its own tables, versioned migrations and real foreign keys, tied to the plugin lifecycle. Driver: `better-sqlite3` (decided in Phase 1, §4.2) |
 | Config schemas | `schemastery` |
 | Tests | Vitest; `msw` for HTTP mocks; Playwright for a few UI smoke tests |
 | Media probing | `ffprobe` (bundled in Docker image) |
@@ -344,11 +344,11 @@ after a backup. It never happens automatically on disable or uninstall.
 **Connection settings:** `journal_mode=WAL`, `busy_timeout`, `foreign_keys=ON`,
 scheduled `VACUUM INTO` backups with retention.
 
-**Driver (decided in Phase 1 by a short test):** `node:sqlite` needs no native build, but
-Drizzle's native `node-sqlite` driver is only in Drizzle 1.0 (RC as of 2026-09); on stable
-Drizzle (0.45) it goes through `sqlite-proxy`. The alternative is `better-sqlite3` with
-stable Drizzle and prebuilt binaries. The test checks transactions, the migration runner
-and throughput on each; the layer hides the choice from plugins.
+**Driver (decided in Phase 1): `better-sqlite3`.** It installs from prebuilt binaries,
+and its Drizzle driver runs transactions synchronously, so no other plugin's query can
+slip into an open migration transaction. Drizzle's `node:sqlite` driver only exists in the
+Drizzle 1.0 release candidate; revisit once 1.0 is stable. The layer hides the choice from
+plugins.
 
 Reloading the database plugin itself restarts every plugin that depends on it (that's how
 Cordis dependencies work); the UI labels database settings accordingly.
@@ -435,26 +435,33 @@ attention" list with a manual-import dialog.
 
 Each phase ends with a runnable build and explicit exit criteria. Phase 3 is the MVP.
 
-### Phase 1 — Foundations
-- MIT `LICENSE`; root `package.json` (workspaces), `tsconfig.base.json`, project references, ESLint,
-  Prettier, Vitest, `tsup`, GitHub Actions CI (lint, typecheck, test on Node 24).
-- `packages/app`: entry point with `@cordisjs/plugin-loader` + `@cordisjs/plugin-hmr` (dev),
-  config dir resolution (`--config`, `MAGPIE_CONFIG_DIR`), logger, thin wrappers over
-  the few Cordis APIs we rely on.
-- `packages/types`: shared interfaces from §3.1 (types only, no runtime).
-- `plugins/database`: the §4.2 schema layer (register, migration runner, backups, lock),
-  driver test, drizzle-kit setup per plugin, CI ownership check.
-- `plugins/jobs`: persisted job queue on the `jobs` table (retry with backoff, locking,
-  scheduled/recurring jobs, visible in UI later).
-- `packages/http-utils`: rate limiter + retry wrapper around `ctx.http`.
-- **WebUI foundation** (see §10): `plugins/webui-base` skeleton on `@cordisjs/client`
-  with none of the stock pages loaded; one page, one schemastery-generated settings
-  form, one widget updated live over WebSocket, and a plugin whose page disappears when
-  it's disabled.
+### Phase 1 — Foundations (done)
+- MIT `LICENSE`; npm workspaces, TypeScript 6 (typescript-eslint doesn't support 7 yet),
+  ESLint, Prettier, Vitest, GitHub Actions CI (typecheck, lint, format, ownership check,
+  tests, production build on Node 24). Packages run from TypeScript source through `tsx`;
+  publishing builds come later.
+- `packages/app`: boots Cordis with `@cordisjs/plugin-loader` and
+  `@cordisjs/plugin-include` (`magpie.yml`, written with defaults on first start), config
+  dir from `--config` / `MAGPIE_CONFIG_DIR`, console output from Cordis 4's built-in
+  logger, clean shutdown on SIGINT/SIGTERM.
+- `packages/types`, `packages/http-utils` (token-bucket rate limiter, retry with backoff).
+- `plugins/database`: the §4.2 layer, including the crash test.
+- `plugins/jobs`: persisted queue with retries, dedupe keys and schedules, bound to the
+  defining plugin's lifecycle.
+- `plugins/webui`: subclass of `@cordisjs/plugin-webui` that serves Magpie's own shell
+  (sidebar, home page with a `home-widgets` slot) instead of the stock console; dev mode
+  runs Vite, `npm run build` produces the shell plus each plugin's client entry.
+- `plugins/system`: the foundation page — live job-queue widget, a test job button,
+  database namespaces, and a schemastery-generated form that edits the jobs plugin's
+  settings at runtime through the loader.
 
-**Exit:** `npm run dev` boots, creates the DB, passes the §4.2 crash test (kill during a
-migration → next start finds the DB unchanged and re-runs it), runs a scheduled test job, serves the
-foundation page; CI green.
+What Phase 1 found out (differs from the original plan):
+- `@cordisjs/plugin-logger` 1.0.x predates Cordis 4's built-in logger and prints nothing;
+  the app attaches a console exporter to the built-in logger instead.
+- `@cordisjs/plugin-hmr` hangs outside Cordis's own CLI worker; dev restarts come from
+  `tsx watch` instead.
+- `@cordisjs/client` defaults to the `zh-CN` locale; the shell follows the browser.
+- The web console builds with Vite 7 (what `@cordisjs/client` uses); Vitest uses Vite 8.
 
 ### Phase 2 — Release parser & decision engine (pure logic, heavily tested)
 - `packages/parser`: title, year, season/episode (incl. `S01E01E02`, `1x01`, daily
