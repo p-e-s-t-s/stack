@@ -41,30 +41,35 @@ second (RSS batches).
 ```ts
 interface ParsedRelease {
   input: string
-  title: string                 // cleaned title, e.g. "The Matrix"
+  title: string // cleaned title, e.g. "The Matrix"
   year?: number
   kind: 'movie' | 'episode' | 'season' | 'unknown'
-  episodes?: {                  // series only
-    season?: number             // undefined for absolute-numbered anime
-    numbers: number[]           // [1, 2] for S01E01E02; [] for a full season pack
-    absolute?: number[]         // anime
-    airDate?: string            // daily shows, ISO date
-    seasons?: number[]          // multi-season packs S01-S03
+  episodes?: {
+    // series only
+    season?: number // undefined for absolute-numbered anime
+    numbers: number[] // [1, 2] for S01E01E02; [] for a full season pack
+    absolute?: number[] // anime
+    airDate?: string // daily shows, ISO date
+    seasons?: number[] // multi-season packs S01-S03
     special?: boolean
   }
   resolution?: '480p' | '576p' | '720p' | '1080p' | '2160p'
-  source?: 'cam' | 'telesync' | 'telecine' | 'workprint' | 'dvd' | 'hdtv'
-         | 'webrip' | 'webdl' | 'bluray'
+  source?:
+    'cam' | 'telesync' | 'telecine' | 'workprint' | 'dvd' | 'hdtv' | 'webrip' | 'webdl' | 'bluray'
   modifiers: ('remux' | 'brdisk' | 'rawhd' | 'regional' | 'screener')[]
   revision: { version: number; real: number; proper: boolean; repack: boolean }
-  video: { codec?: 'x264' | 'x265' | 'av1' | 'vc1' | 'mpeg2' | 'xvid'; bitDepth?: 8 | 10;
-           hdr: ('dv' | 'hdr10' | 'hdr10plus' | 'hlg' | 'sdr')[]; threeD?: boolean }
-  audio: { codecs: string[]; channels?: string; atmos?: boolean }   // 'truehd', 'dtshdma', 'ddp', 'aac'…
-  languages: string[]           // ISO 639-1; 'multi' when tagged MULTi
-  edition?: string              // "Director's Cut", "Extended", "IMAX"…
-  streamingService?: string     // 'amzn', 'nf', 'dsnp', 'atvp', 'hmax'…
+  video: {
+    codec?: 'x264' | 'x265' | 'av1' | 'vc1' | 'mpeg2' | 'xvid'
+    bitDepth?: 8 | 10
+    hdr: ('dv' | 'hdr10' | 'hdr10plus' | 'hlg' | 'sdr')[]
+    threeD?: boolean
+  }
+  audio: { codecs: string[]; channels?: string; atmos?: boolean } // 'truehd', 'dtshdma', 'ddp', 'aac'…
+  languages: string[] // ISO 639-1; 'multi' when tagged MULTi
+  edition?: string // "Director's Cut", "Extended", "IMAX"…
+  streamingService?: string // 'amzn', 'nf', 'dsnp', 'atvp', 'hmax'…
   group?: string
-  hardcodedSubs?: string        // 'hc', 'korsub'… (usually rejected)
+  hardcodedSubs?: string // 'hc', 'korsub'… (usually rejected)
   flags: ('hybrid' | 'obfuscated' | 'sample' | 'extras')[]
   /** Which part of the input produced each field; shown in the Parse tester. */
   spans: { field: string; start: number; end: number; text: string }[]
@@ -111,7 +116,7 @@ case):
 - **Real names** (target ≥ 500 total at exit): a script,
   `scripts/collect-release-names.ts`, reads release names from sources you point it at —
   your own Radarr/Sonarr databases' history (read-only), or an indexer RSS feed — and
-  writes *candidate* fixtures with the parser's current output. A person reviews and
+  writes _candidate_ fixtures with the parser's current output. A person reviews and
   corrects them before they're committed. No code or test files from the GPL-3.0 *arr
   projects are used.
 - **Property tests** (`fast-check`): the parser never throws, spans stay inside the input,
@@ -130,13 +135,13 @@ maps to exactly one quality. Unknown combinations map to `unknown`.
 
 ### 3.2 Tables
 
-| Table | Columns |
-|---|---|
-| `decision_quality_sizes` | quality, min / preferred / max MB per minute of runtime |
-| `decision_profiles` | id, name, items (JSON: ordered qualities and groups, each allowed or not), cutoff quality, min format score, cutoff format score, upgrades allowed, languages (JSON), min seeders, min age minutes |
-| `decision_custom_formats` | id, name, conditions (JSON, §3.3), include in file name |
-| `decision_profile_scores` | profile_id → `decision_profiles`, format_id → `decision_custom_formats` (both `on delete cascade`), score |
-| `decision_restrictions` | id, required terms, ignored terms (plain or `/regex/`), tags |
+| Table                     | Columns                                                                                                                                                                                            |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `decision_quality_sizes`  | quality, min / preferred / max MB per minute of runtime                                                                                                                                            |
+| `decision_profiles`       | id, name, items (JSON: ordered qualities and groups, each allowed or not), cutoff quality, min format score, cutoff format score, upgrades allowed, languages (JSON), min seeders, min age minutes |
+| `decision_custom_formats` | id, name, conditions (JSON, §3.3), include in file name                                                                                                                                            |
+| `decision_profile_scores` | profile_id → `decision_profiles`, format_id → `decision_custom_formats` (both `on delete cascade`), score                                                                                          |
+| `decision_restrictions`   | id, required terms, ignored terms (plain or `/regex/`), tags                                                                                                                                       |
 
 The first migration seeds default size limits and three profiles — **Any**, **HD
 (720p/1080p)** and **Ultra HD** — through a data step.
@@ -146,17 +151,17 @@ The first migration seeds default size limits and three profiles — **Any**, **
 A custom format matches when all its required conditions match and at least one of its
 optional ones does (the usual semantics). Each condition can be negated.
 
-| Condition | Matches on |
-|---|---|
-| `title` | regex on the release name |
-| `group` | regex on the release group |
-| `source`, `resolution`, `modifier` | parsed values |
-| `edition` | regex on the parsed edition |
-| `language` | parsed languages (or "original language" of the target) |
-| `hdr`, `videoCodec`, `audioCodec` | parsed values |
-| `streamingService` | parsed value |
-| `size` | release size range in GB |
-| `indexerFlag` | flags from the indexer (freeleech, internal…) |
+| Condition                          | Matches on                                              |
+| ---------------------------------- | ------------------------------------------------------- |
+| `title`                            | regex on the release name                               |
+| `group`                            | regex on the release group                              |
+| `source`, `resolution`, `modifier` | parsed values                                           |
+| `edition`                          | regex on the parsed edition                             |
+| `language`                         | parsed languages (or "original language" of the target) |
+| `hdr`, `videoCodec`, `audioCodec`  | parsed values                                           |
+| `streamingService`                 | parsed value                                            |
+| `size`                             | release size range in GB                                |
+| `indexerFlag`                      | flags from the indexer (freeleech, internal…)           |
 
 A release's **format score** = the sum of the profile's scores for every format it
 matches. Custom format definitions are stored as JSON that follows the same shape as
@@ -190,19 +195,19 @@ interface Decision {
 Rules are small functions registered with `ctx.decision.rule(name, fn)`, tied to the
 registering plugin's lifecycle — the same pattern as job types. Phase 2 ships:
 
-| Rule | Rejects when |
-|---|---|
-| `quality-allowed` | quality not allowed in the profile |
-| `size` | size outside the quality's limits for the runtime (skipped without runtime) |
-| `restrictions` | a required term is missing or an ignored term is present |
-| `language` | none of the release's languages is in the profile's list |
-| `min-format-score` | format score below the profile's minimum |
-| `hardcoded-subs` | release has hardcoded subtitles (unless a format scores them positively) |
-| `seeders` | torrent below the profile's minimum seeders |
-| `min-age` | usenet release younger than the profile's minimum age |
-| `episode-match` | season pack when a single episode is wanted and vice versa, or wrong season |
-| `upgrade` | not better than the current file, or the current file already meets the cutoff |
-| `sample` | release is a sample or extras-only |
+| Rule               | Rejects when                                                                   |
+| ------------------ | ------------------------------------------------------------------------------ |
+| `quality-allowed`  | quality not allowed in the profile                                             |
+| `size`             | size outside the quality's limits for the runtime (skipped without runtime)    |
+| `restrictions`     | a required term is missing or an ignored term is present                       |
+| `language`         | none of the release's languages is in the profile's list                       |
+| `min-format-score` | format score below the profile's minimum                                       |
+| `hardcoded-subs`   | release has hardcoded subtitles (unless a format scores them positively)       |
+| `seeders`          | torrent below the profile's minimum seeders                                    |
+| `min-age`          | usenet release younger than the profile's minimum age                          |
+| `episode-match`    | season pack when a single episode is wanted and vice versa, or wrong season    |
+| `upgrade`          | not better than the current file, or the current file already meets the cutoff |
+| `sample`           | release is a sample or extras-only                                             |
 
 Phase 3 adds `blocklist` and `in-queue` from the `downloads` plugin; later plugins can
 add their own (for example a per-indexer rule).
@@ -231,15 +236,15 @@ These live in the `decision` plugin's client entry, so disabling the plugin remo
 
 ## 5. Milestones
 
-| # | Deliverable | Done when |
-|---|---|---|
-| 2a | Parser core: normalization, episodes, year, title, group | hand-written episode/title cases pass |
-| 2b | Parser quality fields: resolution, source, modifiers, codecs, HDR, audio, languages, edition, service, revision | hand-written quality cases pass; property tests pass |
-| 2c | `collect-release-names` script and first batch of real fixtures | ≥ 300 reviewed real names committed |
-| 2d | `decision` plugin: qualities, tables, seeded defaults, custom format matching | unit tests for every condition type |
-| 2e | Rules, upgrade logic, ranking, rule registry | unit tests for every rule in §3.4 |
-| 2f | Parse tester page | usable end to end against real names |
-| 2g | Profile, custom format and size editors | edits persist and take effect without restart |
+| #   | Deliverable                                                                                                     | Done when                                            |
+| --- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 2a  | Parser core: normalization, episodes, year, title, group                                                        | hand-written episode/title cases pass                |
+| 2b  | Parser quality fields: resolution, source, modifiers, codecs, HDR, audio, languages, edition, service, revision | hand-written quality cases pass; property tests pass |
+| 2c  | `collect-release-names` script and first batch of real fixtures                                                 | ≥ 300 reviewed real names committed                  |
+| 2d  | `decision` plugin: qualities, tables, seeded defaults, custom format matching                                   | unit tests for every condition type                  |
+| 2e  | Rules, upgrade logic, ranking, rule registry                                                                    | unit tests for every rule in §3.4                    |
+| 2f  | Parse tester page                                                                                               | usable end to end against real names                 |
+| 2g  | Profile, custom format and size editors                                                                         | edits persist and take effect without restart        |
 
 2a → 2b → 2c are sequential; 2d can start alongside 2b; 2f needs 2d.
 
@@ -254,12 +259,12 @@ These live in the `decision` plugin's client entry, so disabling the plugin remo
 
 ## 7. Risks
 
-| Risk | Mitigation |
-|---|---|
-| Release naming is messy; the long tail never ends | Fixture-driven: every bug report becomes a fixture. Parse tester makes failures visible. |
-| Title extraction for names with numbers/years | Dedicated cases; year is only a stop token when a plausible title precedes it |
-| Clean-room constraint (MIT) | Write matchers from naming conventions and our own fixtures; never open *arr parser code while implementing |
-| Custom format semantics differ subtly from what users know | Document our semantics in the editor; Phase 5 importer maps and reports anything it can't |
+| Risk                                                       | Mitigation                                                                                                  |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Release naming is messy; the long tail never ends          | Fixture-driven: every bug report becomes a fixture. Parse tester makes failures visible.                    |
+| Title extraction for names with numbers/years              | Dedicated cases; year is only a stop token when a plausible title precedes it                               |
+| Clean-room constraint (MIT)                                | Write matchers from naming conventions and our own fixtures; never open *arr parser code while implementing |
+| Custom format semantics differ subtly from what users know | Document our semantics in the editor; Phase 5 importer maps and reports anything it can't                   |
 
 ## 8. Questions
 
