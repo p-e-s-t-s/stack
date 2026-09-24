@@ -266,12 +266,13 @@ These live in the `decision` plugin's client entry, so disabling the plugin remo
 | Clean-room constraint (MIT)                                | Write matchers from naming conventions and our own fixtures; never open *arr parser code while implementing |
 | Custom format semantics differ subtly from what users know | Document our semantics in the editor; Phase 5 importer maps and reports anything it can't                   |
 
-## 8. Questions
+## 8. Decisions
 
-1. **Real release names:** can you point the collection script at your existing
-   Radarr/Sonarr databases (or give an indexer RSS URL)? It only reads release names
-   from history, locally. Without it, we'd rely on hand-written cases for longer.
-2. **Languages:** besides English, which languages matter to you? This sets detection
-   priorities and the default profiles.
-3. **Default profiles:** simple built-in profiles now and TRaSH-style custom formats via
-   import in Phase 5 (recommended), or ship TRaSH-like formats by default now?
+- **Languages:** English only. The parser still recognizes language tags so non-English
+  releases can be rejected, but defaults and detection priorities are English-first.
+- **Default profiles:** the three simple built-ins (Any, HD, Ultra HD); TRaSH-style custom
+  formats come through the Phase 5 importer.
+- **Real release names:** there is no local Radarr/Sonarr, so the collection script reads
+  from public pre-databases (scene release listings: names, categories and dates only, no
+  content), e.g. predb.net, predb.ovh or xrel.to's public API. The script takes the source
+  as an option so an indexer RSS feed can be added later.
