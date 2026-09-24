@@ -38,7 +38,7 @@ WebUI ecosystem.
 Consequences:
 - Routes are registered with `ctx.server.get/post(...)`, not Koa middleware. If a Koa
   middleware is ever needed, wrap it in an adapter; don't add a second HTTP server.
-- Because Cordis v4 is an RC, `packages/core` wraps the few Cordis APIs we lean on so a
+- Because Cordis v4 is an RC, `packages/app` wraps the few Cordis APIs we lean on so a
   breaking RC bump is fixed in one place. Renovate PRs for `cordis` / `@cordisjs/*` are
   manual-merge only.
 - **Node:** the plan targets Node 24 LTS (the dev container currently has Node 22; CI
@@ -72,7 +72,7 @@ Consequences:
 | HTTP in | `@cordisjs/plugin-server` |
 | HTTP out | `@cordisjs/plugin-http` (+ per-host rate limiter we add) |
 | UI | `@cordisjs/plugin-webui` + `@cordisjs/client` + `@cordisjs/components` (Vue 3, Element Plus, UnoCSS). Core only; all pages are ours |
-| DB | SQLite via Drizzle ORM. Driver: `better-sqlite3`, behind an adapter so `node:sqlite` can replace it once it's stable (no native build = easier ARM/Docker) |
+| DB | SQLite via `minato` (`@cordisjs/plugin-database`) + `@minatojs/driver-sqlite`, which runs on the built-in `node:sqlite` (no native build). Each plugin declares its own tables/columns with `ctx.model.extend()`; `@magpiejs/database` adds the safeguards in §4.2 |
 | Config schemas | `schemastery` |
 | Tests | Vitest; `msw` for HTTP mocks; Playwright for a few UI smoke tests |
 | Media probing | `ffprobe` (bundled in Docker image) |
@@ -81,33 +81,65 @@ Consequences:
 
 ## 3. Architecture
 
+Magpie follows the Cordis model all the way down: **every feature is a plugin that brings
+its own services, data model, jobs, HTTP routes and UI pages**, and disposing it removes
+all of them. There is no central "core" that owns the schema. The only non-plugin packages
+are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
+`http-utils`).
+
 ```
-                         ┌──────────────────────────────────────┐
-                         │ cordis Context + loader (YAML config) │
-                         └──────────────────┬───────────────────┘
-        ┌────────────┬─────────────┬────────┴───────┬──────────────┬─────────────┐
-   ┌────▼───┐  ┌─────▼────┐  ┌─────▼─────┐  ┌───────▼──────┐  ┌────▼─────┐ ┌─────▼──────┐
-   │   db   │  │  jobs    │  │  library  │  │   decision   │  │ pathmap  │ │  notify    │
-   │(SQLite)│  │(persisted│  │(media,    │  │(parser, CFs, │  │(remote → │ │ (fan-out)  │
-   │        │  │ queue)   │  │ files,    │  │ scoring)     │  │  local)  │ │            │
-   └────────┘  └──────────┘  │ scanning) │  └──────────────┘  └──────────┘ └────────────┘
-                             └───────────┘
-   Provider registries (each provider = its own plugin, many instances allowed):
-   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-   │ metadata     │ │ indexers     │ │ downloaders  │ │ subtitles    │ │ notifiers    │
-   │ tmdb, tvdb,  │ │ torznab,     │ │ qbittorrent, │ │ opensubs,    │ │ discord,     │
-   │ anidb, ...   │ │ newznab,     │ │ transmission,│ │ subdl, ...   │ │ webhook, ... │
-   │              │ │ prowlarr,    │ │ sabnzbd, ... │ │              │ │              │
-   │              │ │ cardigann    │ │              │ │              │ │              │
-   └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
-   Orchestrators: search (RSS + manual + missing/upgrade sweeps), grab, download-monitor,
-                  import, subtitle-manager
-   Surfaces:      our own webui pages, REST API (/api/v1), *arr-compat API (/api/v3 shims)
+                          ┌───────────────────────────────────────┐
+                          │ cordis + loader (magpie.yml) + hmr    │
+                          └───────────────────┬───────────────────┘
+ Infrastructure services (each a plugin providing a ctx service)
+   database (ctx.database, ctx.model) · jobs (ctx.jobs) · auth · api (ctx.api) · webui-base
+                                              │
+ Feature plugins (each owns its tables via ctx.model.extend + pages + jobs)
+   library ── movies ── series ── decision ── indexers ── downloads ── import
+   history ── notify ── subtitles ── calendar ── migrate-arr ── compat-api
+                                              │
+ Provider plugins (register into a feature's registry; many instances allowed)
+   metadata: tmdb, tvdb, anidb, xem          indexers: torznab, newznab, prowlarr, cardigann
+   downloads: qbittorrent, transmission, …   subtitles: opensubtitles, subdl, …
+   notify: discord, webhook, ntfy, …
 ```
+
+### 3.0 Plugins and what they own
+
+| Plugin | Provides | Owns (tables / fields it declares) | Depends on |
+|---|---|---|---|
+| `@magpiejs/database` | `ctx.database`, `ctx.model` (minato) + safeguards | `magpie_meta` | — |
+| `@magpiejs/jobs` | `ctx.jobs` persisted queue & schedules | `jobs` | database |
+| `@magpiejs/auth` | login, API keys, WS origin check | `users`, `api_keys` | database, server |
+| `@magpiejs/api` | `ctx.api` REST route helper under `/api/v1` | — | server, auth |
+| `@magpiejs/webui-base` | shell, `page`/`widget`/`slot` helpers | — | webui |
+| `@magpiejs/library` | `ctx.library`: media items, files, root folders, naming | `media_items`, `media_files`, `alternate_titles`, `root_folders`, `naming` | database |
+| `@magpiejs/movies` | movie kind, movie pages | movie fields on `media_items` (edition, …) | library |
+| `@magpiejs/series` | series kind, series pages | series fields on `media_items`, `seasons`, `episodes`, `episode_files` | library |
+| `@magpiejs/decision` | `ctx.decision`: profiles, custom formats, scoring | `quality_definitions`, `quality_profiles`, `custom_formats`, `profile_format_scores`, `language_profiles`, `release_restrictions` | database |
+| `@magpiejs/indexers` | `ctx.indexers` registry, RSS sync, search | `indexer_status` | decision, jobs |
+| `@magpiejs/downloads` | `ctx.downloads` registry, grab, monitor, path mapping | `grabs`, `blocklist`, `remote_path_mappings` | indexers, jobs |
+| `@magpiejs/import` | import pipeline, library scan | — (writes via `ctx.library`) | library, downloads |
+| `@magpiejs/history` | activity log | `history` | database |
+| `@magpiejs/notify` | `ctx.notify` registry | — | — |
+| `@magpiejs/subtitles` | `ctx.subtitles` registry, wanted/upgrade logic | `subtitle_files`, `subtitle_profiles`, **extends** `media_items` with `subtitle_profile_id` | library, jobs |
+| `@magpiejs/calendar` | calendar page + iCal | — | series or movies (optional) |
+| `@magpiejs/compat-api` | `/api/v3` shims for Prowlarr/Overseerr | — | api, library |
+
+What this buys:
+- **Disable TV and nothing else notices.** Turning off `series` removes its pages, routes,
+  jobs and matching logic; movies keep working; the series tables stay on disk and come
+  back when it's re-enabled.
+- **Subtitles is optional in the true sense.** Without it, `media_items` has no subtitle
+  column in the model and no subtitle UI exists.
+- **Third-party plugins get first-class storage** the same way first-party ones do.
+- **Instance config lives in `magpie.yml`, runtime state lives in the DB.** An indexer's
+  URL/API key is its loader entry's config; its failure count is a row in
+  `indexer_status` keyed by that entry's id. There is no second copy of config in SQL.
 
 ### 3.1 Plugin contracts
 
-Core defines registries; provider plugins register into them. When a provider plugin is
+Feature plugins define registries; provider plugins register into them. When a provider plugin is
 disposed, Cordis removes it from the registry automatically (registration goes through
 `ctx.effect`), so a disabled indexer disappears from searches immediately.
 
@@ -187,7 +219,11 @@ and Prowlarr indexers key on), with TMDB selectable per series. Anime series can
 AniDB/absolute ordering. Scene/XEM mappings (TheXEM) translate between scene numbering
 and the provider's numbering.
 
-## 4. Data model (Drizzle, SQLite)
+## 4. Data model (minato, SQLite)
+
+### 4.1 Tables
+
+The owning plugin for each table is listed in §3.0.
 
 | Table | Key columns |
 |---|---|
@@ -206,20 +242,38 @@ and the provider's numbering.
 | `subtitle_profiles` | name, languages (+forced / HI flags), cutoff, min score |
 | `release_restrictions` | required terms, ignored terms, tags |
 | `root_folders` | path, kind, free-space warning threshold |
-| `indexers` | id, plugin, name, config (JSON), enabled_rss, enabled_auto, enabled_interactive, priority, tags, source (`manual`/`prowlarr`/`cardigann`) |
-| `indexer_status` | indexer_id, failures, disabled_until, last_rss_at, last_rss_guid |
-| `download_clients` | id, plugin, name, config (JSON), priority, category, remove_completed, tags |
+| `indexer_status` | indexer_id (loader entry id), failures, disabled_until, last_rss_at, last_rss_guid |
 | `remote_path_mappings` | host, remote_path, local_path |
 | `blocklist` | media_id, release title, indexer, info_hash, reason, created_at |
 | `grabs` (download tracking) | id, media_id, episode_ids, release (JSON), indexer_id, client_id, download_id (hash/nzo id), state, state_changed_at, attempts, error |
 | `history` | event type, media_id, episode_id, data (JSON), created_at |
 | `jobs` | id, type, payload, run_at, attempts, status, lock_until, last_error |
-| `settings` | key, value (JSON) — naming templates, media management options |
+| `naming` | naming templates, media management options (row per kind) |
 | `api_keys`, `users` | single admin user (argon2 hash), API keys |
-| `notifications` | id, plugin, config, events |
 
-Migrations: `drizzle-kit` generated SQL files checked in; applied on startup inside a
-transaction, with an automatic DB backup before any migration.
+Indexer, download client, notifier and provider *instances* are loader entries in
+`magpie.yml` (their config schema is the plugin's `schemastery` schema), not tables.
+
+### 4.2 Schema changes and data safety
+
+minato syncs each table to what the loaded plugins declare: new tables and columns are
+added, removed fields are left in place, renames use `legacy: ['oldName']`, and data
+transforms use `ctx.model.migrate()`. That fits hot-swapping (a plugin enabled at runtime
+gets its tables immediately), but the SQLite driver has gaps we cover in
+`@magpiejs/database`:
+
+| Gap in minato's SQLite driver (5.0.x) | Safeguard |
+|---|---|
+| A table rebuild (rename/type change) runs create → copy → drop → rename **outside a transaction**; a crash mid-way leaves the data in `<table>_temp` and an empty table | Startup check: if any `*_temp` table exists, refuse to start with a recovery message. Upstream PR to wrap the rebuild in a transaction |
+| No backups | `VACUUM INTO` snapshot at startup and before a plugin whose version changed since last run is loaded (versions tracked in `magpie_meta`); scheduled backups with retention |
+| No record of which data migrations ran | `magpie_meta` stores a schema version per plugin; each plugin's `ctx.model.migrate` steps are keyed by version and run once, in order |
+| A failed `migrate` callback only logs a warning | Our wrapper treats it as fatal for that plugin: the plugin fails to start (visible in the UI), others keep running |
+| Type changes copy raw values | Rule: never change a column's type in place; add a new field and migrate data explicitly |
+| WAL mode not enabled | Set `journal_mode=WAL` and `busy_timeout` on connect |
+| Plugin downgraded below its recorded schema version | The plugin refuses to start and says why |
+
+Reloading the database plugin itself restarts every plugin that depends on it (that's how
+Cordis dependencies work); the UI labels database settings accordingly.
 
 ## 5. Core flows
 
@@ -306,19 +360,21 @@ Each phase ends with a runnable build and explicit exit criteria. Phase 3 is the
 ### Phase 1 — Foundations
 - MIT `LICENSE`; root `package.json` (workspaces), `tsconfig.base.json`, project references, ESLint,
   Prettier, Vitest, `tsup`, GitHub Actions CI (lint, typecheck, test on Node 24).
-- `packages/core`: app bootstrap with `@cordisjs/plugin-loader`, config dir resolution
-  (`--config`, `MAGPIE_CONFIG_DIR`), logger, the provider registries and service
-  interfaces from §3.1, thin wrappers over Cordis APIs.
-- `packages/db`: Drizzle schema (§4), migrations, backup-before-migrate, `ctx.db` service.
-- `packages/jobs`: persisted job queue on the `jobs` table (retry with backoff, locking,
+- `packages/app`: entry point with `@cordisjs/plugin-loader` + `@cordisjs/plugin-hmr` (dev),
+  config dir resolution (`--config`, `MAGPIE_CONFIG_DIR`), logger, thin wrappers over
+  the few Cordis APIs we rely on.
+- `packages/types`: shared interfaces from §3.1 (types only, no runtime).
+- `plugins/database`: minato + SQLite driver with the §4.2 safeguards.
+- `plugins/jobs`: persisted job queue on the `jobs` table (retry with backoff, locking,
   scheduled/recurring jobs, visible in UI later).
 - `packages/http-utils`: rate limiter + retry wrapper around `ctx.http`.
-- **WebUI foundation** (see §10): `packages/webui-base` skeleton on `@cordisjs/client`
+- **WebUI foundation** (see §10): `plugins/webui-base` skeleton on `@cordisjs/client`
   with none of the stock pages loaded; one page, one schemastery-generated settings
   form, one widget updated live over WebSocket, and a plugin whose page disappears when
   it's disabled.
 
-**Exit:** `npm run dev` boots, creates the DB, runs a scheduled test job, serves the
+**Exit:** `npm run dev` boots, creates the DB, passes the §4.2 crash test (kill during a
+table rebuild → next start refuses with a recovery message), runs a scheduled test job, serves the
 foundation page; CI green.
 
 ### Phase 2 — Release parser & decision engine (pure logic, heavily tested)
@@ -329,7 +385,7 @@ foundation page; CI green.
 - Golden fixture file: ≥500 real release names with expected output, collected from
   indexer RSS feeds and our own libraries. The project is MIT, so no code or test files
   are copied from the GPL-3.0 *arr projects (see §10).
-- `packages/decision`: quality definitions, profiles, custom formats, scoring, upgrade
+- `plugins/decision`: quality definitions, profiles, custom formats, scoring, upgrade
   decider, with rejection reasons.
 
 **Exit:** parser fixtures pass; decision engine unit tests cover every rule in §5.3.
@@ -341,13 +397,12 @@ foundation page; CI green.
 - `plugins/downloader-transmission` (RPC API, `X-Transmission-Session-Id` handshake,
   labels as categories, `downloadDir`). Second client, built right after qBittorrent so
   the `DownloadClient` interface is proven against two implementations before TV work.
-- `packages/pathmap`: remote path mappings.
-- `packages/library`: media items, root folders, naming templates, movie import (§5.4).
-- `packages/orchestrator`: RSS sync, missing search, grab, download monitor, import
-  (§5.1–5.4) for movies.
-- `packages/api`: REST `/api/v1` (movies, queue, history, indexers, clients, profiles),
+- `plugins/library`, `plugins/movies`, `plugins/decision`, `plugins/indexers` (RSS sync,
+  missing search), `plugins/downloads` (grab, monitor, path mapping), `plugins/import`,
+  `plugins/history` (§5.1–5.4) for movies.
+- `plugins/auth`, `plugins/api`: REST `/api/v1` (movies, queue, history, indexers, clients, profiles),
   API key auth.
-- `packages/webui-base`: our console shell built on `@cordisjs/client` (sidebar,
+- `plugins/webui-base`: our console shell built on `@cordisjs/client` (sidebar,
   header status, notifications toast, global search, the page/widget/slot registration
   helpers that feature plugins use), login page, and pages: Movies (grid/list), Movie detail (files,
   interactive search, history), Activity (queue/history), Settings (profiles, root
@@ -373,7 +428,7 @@ including a season pack.
 
 ### Phase 5 — Migration & library scan
 - Library scan / existing folder import (§5.5).
-- `packages/migrate-arr`: read Radarr/Sonarr SQLite DBs (read-only) and import media,
+- `plugins/migrate-arr`: read Radarr/Sonarr SQLite DBs (read-only) and import media,
   files, profiles, custom formats, indexers, download clients, tags, history (last N
   months). Dry-run report first.
 - Import from Radarr/Sonarr **API** as an alternative when the DB file isn't accessible.
@@ -385,9 +440,10 @@ unexplained mismatches.
 ### Phase 6 — Prowlarr support (two tracks)
 **6a. Use an existing Prowlarr (first):**
 - `plugins/indexer-prowlarr`: connects with Prowlarr URL + API key, lists its indexers
-  (`/api/v1/indexer`), and creates one Torznab/Newznab indexer per Prowlarr indexer
-  using Prowlarr's per-indexer proxy URLs (`/{id}/api`), kept in sync on a timer.
-  Indexers created this way have `source = 'prowlarr'` and are read-only in our UI.
+  (`/api/v1/indexer`), and registers one Torznab/Newznab indexer per Prowlarr indexer
+  into `ctx.indexers` using Prowlarr's per-indexer proxy URLs (`/{id}/api`), kept in sync
+  on a timer. Each is registered in a child context, so a removed Prowlarr indexer (or
+  disabling this plugin) removes it from Magpie; they show as read-only in our UI.
 - *arr-compat API shim (`/api/v3/system/status`, `/api/v3/indexer`, `/api/v3/indexer/schema`,
   `/api/v3/indexer/test`) so Prowlarr can instead **push** indexers to us by adding us as
   a "Radarr" and/or "Sonarr" application. Contract tests pin the exact payloads Prowlarr
@@ -408,7 +464,7 @@ and via Prowlarr's app sync. **Exit (6b):** the 20 most-used public trackers' Ca
 definitions pass a live smoke test.
 
 ### Phase 7 — Subtitles (Bazarr replacement)
-- `packages/subtitles`: subtitle profiles (languages, forced, hearing-impaired, cutoff),
+- `plugins/subtitles`: subtitle profiles (languages, forced, hearing-impaired, cutoff),
   detection of embedded tracks (ffprobe) and external `.srt/.ass` files, "wanted"
   computation per file.
 - Triggers: on `import/completed`, scheduled wanted sweep, and upgrade sweep (replace a
@@ -513,14 +569,15 @@ search and replace works from the UI.
 
 | Risk | Mitigation |
 |---|---|
-| Cordis v4 is an RC; APIs may change | Pin exact versions; wrap Cordis APIs in `core`; upgrade deliberately |
+| Cordis v4 is an RC; APIs may change | Pin exact versions; wrap Cordis APIs in `packages/app`; upgrade deliberately |
 | Cordis WebUI is Koishi-oriented and lightly documented | Build the foundation in Phase 1 before any feature pages. Where `@cordisjs/client` lacks something, add it in `webui-base` or contribute upstream; no standalone-Vue fallback |
 | Licensing: project is MIT; Radarr/Sonarr/Prowlarr/Bazarr are GPL-3.0 | Clean-room only: implement from public API docs and observed behavior, never copy their code or test files. Cardigann definitions are downloaded at runtime as data (not vendored into the repo), so their license doesn't attach to ours. Check each dependency's license in CI (`license-checker` allowlist) |
 | TVDB v4 API requires a paid project key or user subscriber PIN | Make TVDB optional; TMDB works out of the box; user supplies their PIN |
 | TMDB TV numbering differs from scene/TVDB | Per-series primary provider + episode groups + XEM |
 | Indexer sites break or block | Cardigann definitions updated from upstream; FlareSolverr support; Prowlarr passthrough stays supported |
 | Scope is large (four mature apps) | Phase 3 MVP first; each later phase is independently shippable |
-| `better-sqlite3` native builds on ARM/Alpine | Prebuilt binaries on `node:24-slim`; driver adapter allows `node:sqlite` later |
+| minato auto-sync is less strict than versioned migrations | §4.2 safeguards, crash test in CI, upstream fix for the rebuild transaction |
+| `node:sqlite` is still marked experimental in Node 24 | Pin Node 24 LTS; it's what minato's driver targets; covered by backups |
 
 ## 11. Decisions
 
@@ -534,7 +591,5 @@ search and replace works from the UI.
 | Prowlarr | Use existing Prowlarr first, native replacement later (Phase 6) |
 | Subtitles | Built in (Phase 7) |
 
-Still open (not blocking Phase 1):
-1. **Database layer:** Drizzle (current plan) vs the Cordis ecosystem's own
-   `minato` / `@cordisjs/plugin-database` + `@minatojs/driver-sqlite`, which lets plugins
-   extend tables with `ctx.model.extend()` and ties table lifetime to plugin lifetime.
+| Database | minato + SQLite (`node:sqlite`), plugins own their tables, §4.2 safeguards |
+| Architecture | Every feature is a plugin (§3.0); no central schema-owning core |
