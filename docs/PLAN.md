@@ -72,7 +72,7 @@ Consequences:
 | HTTP in | `@cordisjs/plugin-server` |
 | HTTP out | `@cordisjs/plugin-http` (+ per-host rate limiter we add) |
 | UI | `@cordisjs/plugin-webui` + `@cordisjs/client` + `@cordisjs/components` (Vue 3, Element Plus, UnoCSS). Core only; all pages are ours |
-| DB | SQLite via `minato` (`@cordisjs/plugin-database`) + `@minatojs/driver-sqlite`, which runs on the built-in `node:sqlite` (no native build). Each plugin declares only its own tables with `ctx.model.extend()`; `@magpiejs/database` adds the safeguards in §4.2 |
+| DB | SQLite + Drizzle ORM for schema and queries, with our own Cordis plugin layer `@magpiejs/database` (§4.2) that gives each plugin its own tables, versioned migrations and real foreign keys, tied to the plugin lifecycle. Driver: built-in `node:sqlite` (no native build) or `better-sqlite3`, chosen in Phase 1 (§4.2) |
 | Config schemas | `schemastery` |
 | Tests | Vitest; `msw` for HTTP mocks; Playwright for a few UI smoke tests |
 | Media probing | `ffprobe` (bundled in Docker image) |
@@ -92,7 +92,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
                           │ cordis + loader (magpie.yml) + hmr    │
                           └───────────────────┬───────────────────┘
  Infrastructure services (each a plugin providing a ctx service)
-   database (ctx.database, ctx.model) · jobs (ctx.jobs) · auth · api (ctx.api) · webui-base
+   database (ctx.database) · jobs (ctx.jobs) · auth · api (ctx.api) · webui-base
                                               │
  Feature plugins (each owns its own tables + pages + jobs; never alters another's)
    library ── movies ── series ── decision ── indexers ── downloads ── import
@@ -108,7 +108,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
 
 | Plugin | Provides | Owns (tables / fields it declares) | Depends on |
 |---|---|---|---|
-| `@magpiejs/database` | `ctx.database`, `ctx.model` (minato) + safeguards | `magpie_meta` | — |
+| `@magpiejs/database` | `ctx.database`: per-plugin schema registration, migration runner, backups (§4.2) | `_magpie_migrations` | — |
 | `@magpiejs/jobs` | `ctx.jobs` persisted queue & schedules | `jobs` | database |
 | `@magpiejs/auth` | login, API keys, WS origin check | `users`, `api_keys` | database, server |
 | `@magpiejs/api` | `ctx.api` REST route helper under `/api/v1` | — | server, auth |
@@ -151,23 +151,28 @@ plugin owns, it creates its own table that references the other table's id:
 Why: a plugin's schema changes can't break another plugin, removing a plugin removes
 exactly its tables, and each table has one owner responsible for its migrations.
 
-**References are logical, not SQLite `FOREIGN KEY` constraints (for now).** `node:sqlite`
-enforces foreign keys by default, and minato emits `FOREIGN KEY` without `ON DELETE`.
-Verified on Node 22: with a child row present, both deleting the parent row and minato's
-table-rebuild step (`DROP TABLE` on the parent) fail with `FOREIGN KEY constraint
-failed`. So a declared cross-plugin FK would block the owner's own migrations. Instead:
+Table names are prefixed with the owning plugin's namespace (`library_media_items`,
+`subtitles_assignments`, …) so ownership is visible in the database itself. The rule is
+enforced in CI: a plugin's schema may only define tables with its prefix, and its
+migration SQL may only create, alter or drop those tables.
 
-- **Deletes:** the owning plugin runs a `library/before-delete` hook (`ctx.serial`); each
-  loaded plugin removes its rows in the same transaction.
-- **Orphan sweep:** every plugin with reference columns deletes rows whose parent no longer
-  exists when it starts and daily. This covers deletes made while it was disabled.
-- **Reads:** join through minato (`database.join`) or look up by id; owners expose
-  lookups on their service (`ctx.library.get(id)`).
+**References are real SQLite foreign keys**, declared in the referencing plugin's Drizzle
+schema against the owner's exported table (`references(() => library.mediaItems.id,
+{ onDelete: 'cascade' })`):
 
-Upstream contributions that would let us switch to real constraints: `ON DELETE`
-support in minato's `foreign` config, and `PRAGMA foreign_keys=OFF` around the table
-rebuild (the procedure SQLite's docs prescribe). Once released, references become real
-FKs with `ON DELETE CASCADE`.
+- **Deletes cascade in the database**, so they work even while the referencing plugin is
+  disabled. Each reference picks `cascade`, `set null` or `restrict` deliberately.
+- **Load order is guaranteed by Cordis:** a plugin with a foreign key into another
+  plugin's table must `inject` that plugin's service, so the owner's migrations have run
+  before its own.
+- **An owner's table rebuild doesn't break references:** the migration runner turns
+  foreign key checks off around each migration and runs `PRAGMA foreign_key_check` before
+  committing (the procedure SQLite's docs prescribe). Verified on Node 22's
+  `node:sqlite`: child rows survive a parent-table rebuild, and a later parent delete
+  still cascades.
+- **Reads:** the owner exports its Drizzle table objects (`@magpiejs/library/schema`) so
+  others can join against them read-only; writes go through the owner's service
+  (`ctx.library.update(...)`).
 
 ### 3.1 Plugin contracts
 
@@ -251,11 +256,11 @@ and Prowlarr indexers key on), with TMDB selectable per series. Anime series can
 AniDB/absolute ordering. Scene/XEM mappings (TheXEM) translate between scene numbering
 and the provider's numbering.
 
-## 4. Data model (minato, SQLite)
+## 4. Data model (SQLite)
 
 ### 4.1 Tables
 
-The owning plugin for each table is listed in §3.0.
+The owning plugin for each table is listed in §3.0. Names below omit the plugin prefix.
 
 | Table | Key columns |
 |---|---|
@@ -289,23 +294,61 @@ The owning plugin for each table is listed in §3.0.
 Indexer, download client, notifier and provider *instances* are loader entries in
 `magpie.yml` (their config schema is the plugin's `schemastery` schema), not tables.
 
-### 4.2 Schema changes and data safety
+### 4.2 `@magpiejs/database`: our plugin schema layer
 
-minato syncs each table to what the loaded plugins declare: new tables and columns are
-added, removed fields are left in place, renames use `legacy: ['oldName']`, and data
-transforms use `ctx.model.migrate()`. That fits hot-swapping (a plugin enabled at runtime
-gets its tables immediately), but the SQLite driver has gaps we cover in
-`@magpiejs/database`:
+Drizzle builds the SQL and the types; this layer adds what Cordis needs. It's a small
+package (a few hundred lines plus tests), not an ORM.
 
-| Gap in minato's SQLite driver (5.0.x) | Safeguard |
-|---|---|
-| A table rebuild (rename/type change) runs create → copy → drop → rename **outside a transaction**; a crash mid-way leaves the data in `<table>_temp` and an empty table | Startup check: if any `*_temp` table exists, refuse to start with a recovery message. Upstream PR to wrap the rebuild in a transaction |
-| No backups | `VACUUM INTO` snapshot at startup and before a plugin whose version changed since last run is loaded (versions tracked in `magpie_meta`); scheduled backups with retention |
-| No record of which data migrations ran | `magpie_meta` stores a schema version per plugin; each plugin's `ctx.model.migrate` steps are keyed by version and run once, in order |
-| A failed `migrate` callback only logs a warning | Our wrapper treats it as fatal for that plugin: the plugin fails to start (visible in the UI), others keep running |
-| Type changes copy raw values | Rule: never change a column's type in place; add a new field and migrate data explicitly |
-| WAL mode not enabled | Set `journal_mode=WAL` and `busy_timeout` on connect |
-| Plugin downgraded below its recorded schema version | The plugin refuses to start and says why |
+**Plugin API**
+
+```ts
+// in plugins/subtitles
+export const inject = ['database', 'library']
+
+export function apply(ctx: Context) {
+  const db = ctx.database.register({
+    namespace: 'subtitles',                               // table prefix
+    schema,                                               // Drizzle sqliteTable objects
+    migrations: new URL('../migrations', import.meta.url) // drizzle-kit output
+  })
+  // db: typed Drizzle instance for this plugin's schema (+ owners' exported tables for reads)
+}
+```
+
+`register()` runs inside the plugin's lifecycle (`ctx.effect`): when the plugin is
+disposed its schema is unregistered; its tables and data stay.
+
+**Migrations**
+
+- Each plugin package has its own `drizzle.config.ts` and `migrations/` folder, generated
+  with `drizzle-kit generate` and reviewed in PRs like any other code.
+- When a plugin starts, the runner compares its migration journal with
+  `_magpie_migrations(namespace, tag, hash, applied_at)` and:
+  - refuses to start the plugin if an applied migration's file hash changed (edited
+    after release) or if the DB has migrations the plugin doesn't know (downgrade);
+  - otherwise takes a `VACUUM INTO` backup when anything is pending, then applies all
+    pending migrations in **one transaction**, with foreign key checks off and
+    `PRAGMA foreign_key_check` before commit. Any error rolls back everything and the
+    plugin fails to start (shown in the UI); other plugins keep running.
+- Migrations from different plugins are serialized with a lock, since Cordis can start
+  plugins concurrently.
+- Data migrations are ordinary SQL (or a TS step registered for a tag), inside the same
+  transaction.
+- Nothing is auto-synced from the schema at runtime: the checked-in migration files are
+  the only way the schema changes.
+
+**Removing a plugin's data** is an explicit "Delete data" action in Settings →
+Integrations: it drops the plugin's prefixed tables and its `_magpie_migrations` rows,
+after a backup. It never happens automatically on disable or uninstall.
+
+**Connection settings:** `journal_mode=WAL`, `busy_timeout`, `foreign_keys=ON`,
+scheduled `VACUUM INTO` backups with retention.
+
+**Driver (decided in Phase 1 by a short test):** `node:sqlite` needs no native build, but
+Drizzle's native `node-sqlite` driver is only in Drizzle 1.0 (RC as of 2026-09); on stable
+Drizzle (0.45) it goes through `sqlite-proxy`. The alternative is `better-sqlite3` with
+stable Drizzle and prebuilt binaries. The test checks transactions, the migration runner
+and throughput on each; the layer hides the choice from plugins.
 
 Reloading the database plugin itself restarts every plugin that depends on it (that's how
 Cordis dependencies work); the UI labels database settings accordingly.
@@ -399,7 +442,8 @@ Each phase ends with a runnable build and explicit exit criteria. Phase 3 is the
   config dir resolution (`--config`, `MAGPIE_CONFIG_DIR`), logger, thin wrappers over
   the few Cordis APIs we rely on.
 - `packages/types`: shared interfaces from §3.1 (types only, no runtime).
-- `plugins/database`: minato + SQLite driver with the §4.2 safeguards.
+- `plugins/database`: the §4.2 schema layer (register, migration runner, backups, lock),
+  driver test, drizzle-kit setup per plugin, CI ownership check.
 - `plugins/jobs`: persisted job queue on the `jobs` table (retry with backoff, locking,
   scheduled/recurring jobs, visible in UI later).
 - `packages/http-utils`: rate limiter + retry wrapper around `ctx.http`.
@@ -409,7 +453,7 @@ Each phase ends with a runnable build and explicit exit criteria. Phase 3 is the
   it's disabled.
 
 **Exit:** `npm run dev` boots, creates the DB, passes the §4.2 crash test (kill during a
-table rebuild → next start refuses with a recovery message), runs a scheduled test job, serves the
+migration → next start finds the DB unchanged and re-runs it), runs a scheduled test job, serves the
 foundation page; CI green.
 
 ### Phase 2 — Release parser & decision engine (pure logic, heavily tested)
@@ -593,8 +637,11 @@ search and replace works from the UI.
 - **Orchestrator:** integration tests with a temp SQLite DB, fake indexer (Torznab XML
   server), fake download client, and a temp filesystem — covering restart in every
   state of §5.1.
-- **Ownership rule:** a CI check that no plugin's model declares fields on a table it
-  doesn't own; tests for the before-delete hook and orphan sweep.
+- **Ownership rule:** a CI check that each plugin's schema and migration SQL only touch
+  tables with its prefix; tests that a parent-table rebuild keeps child rows and that
+  deletes cascade.
+- **Migration runner:** rollback on error, hash-drift and downgrade refusal, concurrent
+  plugin starts.
 - **Import:** tests for hardlink, cross-device fallback (a tmpfs mount in CI), atomic
   replacement, permission errors.
 - **Compatibility:** contract tests for the `/api/v3` shim against payloads captured from
@@ -613,8 +660,8 @@ search and replace works from the UI.
 | TMDB TV numbering differs from scene/TVDB | Per-series primary provider + episode groups + XEM |
 | Indexer sites break or block | Cardigann definitions updated from upstream; FlareSolverr support; Prowlarr passthrough stays supported |
 | Scope is large (four mature apps) | Phase 3 MVP first; each later phase is independently shippable |
-| minato auto-sync is less strict than versioned migrations | §4.2 safeguards, crash test in CI, upstream fix for the rebuild transaction |
-| `node:sqlite` is still marked experimental in Node 24 | Pin Node 24 LTS; it's what minato's driver targets; covered by backups |
+| Our own schema layer is code we maintain | Kept small (registration + migration runner); Drizzle does the SQL; crash and ownership tests in CI |
+| `node:sqlite` still marked experimental; Drizzle's `node-sqlite` driver only in 1.0 RC | Phase 1 driver test; `better-sqlite3` fallback behind the same layer |
 
 ## 11. Decisions
 
@@ -628,5 +675,5 @@ search and replace works from the UI.
 | Prowlarr | Use existing Prowlarr first, native replacement later (Phase 6) |
 | Subtitles | Built in (Phase 7) |
 
-| Database | minato + SQLite (`node:sqlite`), plugins own their tables, §4.2 safeguards |
+| Database | SQLite + Drizzle with our `@magpiejs/database` layer: prefixed plugin-owned tables, per-plugin versioned migrations, real foreign keys (§3.0.1, §4.2) |
 | Architecture | Every feature is a plugin (§3.0); no central schema-owning core |
