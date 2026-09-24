@@ -1,0 +1,1668 @@
+# Real scene release names (predb.net MP3, MP3-WEB, FLAC, FLAC-WEB and vinyl sections,
+# September 2026), a couple per group. Expected values were reviewed by hand; `null` means
+# "not set".
+
+- name: 'Ashanti-Only_U-VLS-FLAC-2004-THEVOiD'
+  expect:
+    {
+      artist: Ashanti,
+      album: Only U,
+      year: 2004,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: single,
+      catalog: null,
+      group: THEVOiD,
+    }
+- name: 'Hi-Tek-Hi-Teknology_Instrumentals-2LP-FLAC-2026-THEVOiD'
+  expect:
+    {
+      artist: Hi,
+      album: Tek - Hi - Teknology Instrumentals,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: null,
+      group: THEVOiD,
+    }
+- name: 'Ulcer_And_Disturd-Ulcer_And_Disturd-SPLIT-LP-FLAC-2026-FIXIE'
+  expect:
+    {
+      artist: Ulcer And Disturd,
+      album: Ulcer And Disturd,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: null,
+      group: FIXIE,
+    }
+- name: 'Vogelsang-Aus_Den_Truemmern_Empor-DE-EP-VINYL-FLAC-2025-TOTENKVLT'
+  expect:
+    {
+      artist: Vogelsang,
+      album: Aus Den Truemmern Empor,
+      year: 2025,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: ep,
+      catalog: null,
+      group: TOTENKVLT,
+    }
+- name: 'The_True_MORKE__Flammentod-White_Victims_War__Wir_Erwarten_Den_Sturm-SPLIT-EP-VINYL-FLAC-2026-TOTENKVLT'
+  expect:
+    {
+      artist: The True MORKE Flammentod,
+      album: White Victims War Wir Erwarten Den Sturm,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: ep,
+      catalog: null,
+      group: TOTENKVLT,
+    }
+- name: 'Buju_Banton-Too_Too_Bad-(VPRL2842)-LP-FLAC-2026-YARD'
+  expect:
+    {
+      artist: Buju Banton,
+      album: Too Too Bad,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: VPRL2842,
+      group: YARD,
+    }
+- name: 'VA-20_Dub_Classics-(BSRCD817)-CD-FLAC-2026-YARD'
+  expect:
+    {
+      artist: VA,
+      album: 20 Dub Classics,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: BSRCD817,
+      group: YARD,
+    }
+- name: 'Project_Pat-Ghetty_Green_(Sampler)-PROMO-LP-FLAC-1999-FiXIE'
+  expect:
+    {
+      artist: Project Pat,
+      album: Ghetty Green (Sampler),
+      year: 1999,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: null,
+      group: FiXIE,
+    }
+- name: 'Wang_Chung-To_Live_And_Die_In_L.A._40th_Anniversary_Deluxe_Edition-OST_Remastered-2LP-FLAC-2026-ERP'
+  expect:
+    {
+      artist: Wang Chung,
+      album: To Live And Die In L.A. 40th Anniversary Deluxe Edition,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: null,
+      group: ERP,
+    }
+- name: 'VA-Absolute_Rock_Classics-2CD-FLAC-2001-ERP'
+  expect:
+    {
+      artist: VA,
+      album: Absolute Rock Classics,
+      year: 2001,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: ERP,
+    }
+- name: 'Dinosaur_Jr.-There_Near-(JAG480LP-C1)-LIMITED_EDITION-LP-FLAC-2026-DALiAS'
+  expect:
+    {
+      artist: Dinosaur Jr.,
+      album: There Near,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: JAG480LP-C1,
+      group: DALiAS,
+    }
+- name: 'VA-PAPV001-(PAPV001)-VINYL-FLAC-2026-EMP'
+  expect:
+    {
+      artist: VA,
+      album: PAPV001,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: PAPV001,
+      group: EMP,
+    }
+- name: 'Trick_Or_Treat_vs_General_Levy-Some_Funky-(GENERAL001)-WHITELABEL-VINYL-FLAC-2001-KINDA'
+  expect:
+    {
+      artist: Trick Or Treat vs General Levy,
+      album: Some Funky,
+      year: 2001,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: GENERAL001,
+      group: KINDA,
+    }
+- name: 'Reservoir_Dogs-Buddah_Finger-(RDI002)-VINYL-FLAC-2000-KINDA'
+  expect:
+    {
+      artist: Reservoir Dogs,
+      album: Buddah Finger,
+      year: 2000,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: RDI002,
+      group: KINDA,
+    }
+- name: 'Moe.-Smash_Hits_Vol_1-16BIT-WEB-FLAC-2010-OBZEN'
+  expect:
+    {
+      artist: Moe.,
+      album: Smash Hits Vol 1,
+      year: 2010,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: OBZEN,
+    }
+- name: 'Moe.-Seasons_Greetings_From_Moe.-16BIT-WEB-FLAC-2002-OBZEN'
+  expect:
+    {
+      artist: Moe.,
+      album: Seasons Greetings From Moe.,
+      year: 2002,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: OBZEN,
+    }
+- name: 'Slaughtercult-Devoured_by_Perversion-24BIT-WEB-FLAC-2026-MOONBLOOD'
+  expect:
+    {
+      artist: Slaughtercult,
+      album: Devoured by Perversion,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: MOONBLOOD,
+    }
+- name: 'Plevre-Cite_mouroir-FR-24BIT-WEB-FLAC-2026-MOONBLOOD'
+  expect:
+    {
+      artist: Plevre,
+      album: Cite mouroir,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: MOONBLOOD,
+    }
+- name: 'Son_Little-Son_Little_On_Audiotree_Live-EP-24BIT-WEB-FLAC-2026-JADED'
+  expect:
+    {
+      artist: Son Little,
+      album: Son Little On Audiotree Live,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: ep,
+      catalog: null,
+      group: JADED,
+    }
+- name: 'Matrix_And_Futurebound-MFXX__20_Years_Of_Matrix_And_Futurebound-16BIT-WEB-FLAC-2026-JADED'
+  expect:
+    {
+      artist: Matrix And Futurebound,
+      album: MFXX 20 Years Of Matrix And Futurebound,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: JADED,
+    }
+- name: 'Trey_Songz-I_Gotta_Make_It-Deluxe_Edition-16BIT-WEB-FLAC-2005-LSM'
+  expect:
+    {
+      artist: Trey Songz,
+      album: I Gotta Make It,
+      year: 2005,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: LSM,
+    }
+- name: 'Conway_The_Machine-I_Heard_You_Paint_Houses-16BIT-WEB-FLAC-2026-LSM'
+  expect:
+    {
+      artist: Conway The Machine,
+      album: I Heard You Paint Houses,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: LSM,
+    }
+- name: 'VA-Brahms_Piano_Trios-16BIT-WEB-FLAC-1995-SYMPHONY'
+  expect:
+    {
+      artist: VA,
+      album: Brahms Piano Trios,
+      year: 1995,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: SYMPHONY,
+    }
+- name: 'VA-Beethoven_Triple_Concerto_And_Choral_Fantasy_(Live)-16BIT-WEB-FLAC-1995-SYMPHONY'
+  expect:
+    {
+      artist: VA,
+      album: Beethoven Triple Concerto And Choral Fantasy (Live),
+      year: 1995,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: SYMPHONY,
+    }
+- name: 'VA-Songs_To_Listen_To_In_A_Wendys_Parking_Lot-EP-16BIT-WEB-FLAC-2026-ENViED'
+  expect:
+    {
+      artist: VA,
+      album: Songs To Listen To In A Wendys Parking Lot,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: ep,
+      catalog: null,
+      group: ENViED,
+    }
+- name: 'Miles-Vault-(SHORT15)-16BIT-WEB-FLAC-2026-AGITB'
+  expect:
+    {
+      artist: Miles,
+      album: Vault,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: SHORT15,
+      group: AGITB,
+    }
+- name: 'Marco_Shuttle-MSP03-(MSP03)-24BIT-WEB-FLAC-2026-AGITB'
+  expect:
+    {
+      artist: Marco Shuttle,
+      album: MSP03,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: MSP03,
+      group: AGITB,
+    }
+- name: 'Orion-Clearing-AOF056-16BIT-WEB-FLAC-2026-WAVED'
+  expect:
+    {
+      artist: Orion,
+      album: Clearing,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: AOF056,
+      group: WAVED,
+    }
+- name: 'Charlotte_de_Witte-The_Resistance_EP-KNTXT034-24BIT-WEB-FLAC-2026-WAVED'
+  expect:
+    {
+      artist: Charlotte de Witte,
+      album: The Resistance EP,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: KNTXT034,
+      group: WAVED,
+    }
+- name: 'Heavy_Temple-A_Desert_Through_The_Trees-24BIT-WEB-FLAC-2026-STONERD'
+  expect:
+    {
+      artist: Heavy Temple,
+      album: A Desert Through The Trees,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: STONERD,
+    }
+- name: 'Dos_Brujos-Arta-16BIT-WEB-FLAC-2026-STONERD'
+  expect:
+    {
+      artist: Dos Brujos,
+      album: Arta,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: STONERD,
+    }
+- name: 'VA-Concertos_For_The_New_World_(Remastered)-16BIT-WEB-FLAC-1995-SYMPHONY_INT'
+  expect:
+    {
+      artist: VA,
+      album: Concertos For The New World (Remastered),
+      year: 1995,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: SYMPHONY_INT,
+    }
+- name: 'Saukrates-Father_Time-16BIT-WEB-FLAC-2026-SHHHHHH'
+  expect:
+    {
+      artist: Saukrates,
+      album: Father Time,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: SHHHHHH,
+    }
+- name: '2_Much-Wild_Thang-Totally_Awesome-16BIT-WEB-FLAC-1988-SHHHHHH'
+  expect:
+    {
+      artist: 2 Much,
+      album: Wild Thang - Totally Awesome,
+      year: 1988,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: SHHHHHH,
+    }
+- name: 'Zukenee-BLUNTS_and_BLADES-16BIT-WEB-FLAC-2026-ENRiCH'
+  expect:
+    {
+      artist: Zukenee,
+      album: BLUNTS and BLADES,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: ENRiCH,
+    }
+- name: 'Upchurch-First_Edition_(Side_A)-24BIT-WEB-FLAC-2026-ENRiCH'
+  expect:
+    {
+      artist: Upchurch,
+      album: First Edition (Side A),
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: ENRiCH,
+    }
+- name: 'VA-Out_Of_The_Funky_House_Vol._10-16BIT-WEB-FLAC-2026-ROSiN'
+  expect:
+    {
+      artist: VA,
+      album: Out Of The Funky House Vol. 10,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: ROSiN,
+    }
+- name: 'VA-Soothing_Concentration_053-16BIT-WEB-FLAC-2026-ROSiN'
+  expect:
+    {
+      artist: VA,
+      album: Soothing Concentration 053,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: ROSiN,
+    }
+- name: 'Meathead-Is_This_Becoming-16BIT-WEB-FLAC-2026-VEXED'
+  expect:
+    {
+      artist: Meathead,
+      album: Is This Becoming,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: VEXED,
+    }
+- name: 'Writheinfear-Rosesforwings-Remastered-16BIT-WEB-FLAC-2026-VEXED'
+  expect:
+    {
+      artist: Writheinfear,
+      album: Rosesforwings,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: VEXED,
+    }
+- name: 'Grand_Corps_Malade-Voir_La_Mer-FR-24BIT-WEB-FLAC-2026-SORCiERE'
+  expect:
+    {
+      artist: Grand Corps Malade,
+      album: Voir La Mer,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: SORCiERE,
+    }
+- name: 'Muzmin-Boojum-(FOT003)-16BIT-WEB-FLAC-2026-PTC'
+  expect:
+    {
+      artist: Muzmin,
+      album: Boojum,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: FOT003,
+      group: PTC,
+    }
+- name: 'Humans_Musik_and_Greggio-Disconnect-(AUTOMATIK031)-16BIT-WEB-FLAC-2026-PTC'
+  expect:
+    {
+      artist: Humans Musik and Greggio,
+      album: Disconnect,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: AUTOMATIK031,
+      group: PTC,
+    }
+- name: 'Wizack_Twizack-The_Tesseract-16BIT-WEB-FLAC-2019-FALCON'
+  expect:
+    {
+      artist: Wizack Twizack,
+      album: The Tesseract,
+      year: 2019,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: FALCON,
+    }
+- name: 'VA-World_Of_Psytrance_Vol._9-16BIT-WEB-FLAC-2022-FALCON'
+  expect:
+    {
+      artist: VA,
+      album: World Of Psytrance Vol. 9,
+      year: 2022,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: FALCON,
+    }
+- name: 'Lights_Of_Euphoria-Future_Unknown-24BIT-WEB-FLAC-2026-AMOK'
+  expect:
+    {
+      artist: Lights Of Euphoria,
+      album: Future Unknown,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: AMOK,
+    }
+- name: 'The_Crimson_Ghosts-Carpe_Mortem_(2026_Version)-16BIT-WEB-FLAC-2026-SDR'
+  expect:
+    {
+      artist: The Crimson Ghosts,
+      album: Carpe Mortem (2026 Version),
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: SDR,
+    }
+- name: 'Red_London-Keeping_It_Real-16BIT-WEB-FLAC-2026-SDR'
+  expect:
+    {
+      artist: Red London,
+      album: Keeping It Real,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: SDR,
+    }
+- name: 'The_69_Eyes-Universal_Monsters-24BIT-WEB-FLAC-2016-KALEVALA'
+  expect:
+    {
+      artist: The 69 Eyes,
+      album: Universal Monsters,
+      year: 2016,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: KALEVALA,
+    }
+- name: 'Roge-Lampoaalto_Vol.1-FI-24BIT-WEB-FLAC-2026-KALEVALA'
+  expect:
+    {
+      artist: Roge,
+      album: Lampoaalto Vol.1,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: KALEVALA,
+    }
+- name: 'Lil_M.U.-Biggest_Brats-16BIT-WEBFLAC-2026-PreMaxXxing'
+  expect:
+    {
+      artist: Lil M.U.,
+      album: Biggest Brats,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: PreMaxXxing,
+    }
+- name: 'John_Talent_and_DJ_Tobbe-Infected_By_The_Sound_(Radio_Mix)-16BIT-WEB-FLAC-2026-MARiBOR'
+  expect:
+    {
+      artist: John Talent and DJ Tobbe,
+      album: Infected By The Sound (Radio Mix),
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: MARiBOR,
+    }
+- name: 'Paipy_x_Winterborn_x_Daniela_Presta-The_Age_Of_Now-(REUP010)-16BIT-WEB-FLAC-2026-MARiBOR'
+  expect:
+    {
+      artist: Paipy x Winterborn x Daniela Presta,
+      album: The Age Of Now,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: REUP010,
+      group: MARiBOR,
+    }
+- name: 'Darryl_Saves_Lives-All_The_Things_I_Couldnt_Say-16BIT-WEBFLAC-2026-CORONAVIRUS'
+  expect:
+    {
+      artist: Darryl Saves Lives,
+      album: All The Things I Couldnt Say,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: CORONAVIRUS,
+    }
+- name: 'VA-Tales_from_the_Moon-(HH05)-16BIT-WEB-FLAC-2026-TR'
+  expect:
+    {
+      artist: VA,
+      album: Tales from the Moon,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: HH05,
+      group: TR,
+    }
+- name: 'Tides_FL-How_To_Survive_A_Fall-24BIT-48KHZ-WEB-FLAC-2026-FLACCiD'
+  expect:
+    {
+      artist: Tides FL,
+      album: How To Survive A Fall,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: FLACCiD,
+    }
+- name: 'ANTI-KIN-Time_Blurs_in_Heartache-EP-24BIT-48KHZ-WEB-FLAC-2026-FLACCiD'
+  expect:
+    {
+      artist: ANTI,
+      album: KIN - Time Blurs in Heartache,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: ep,
+      catalog: null,
+      group: FLACCiD,
+    }
+- name: 'Elkano_Browning_Cream-2-(MAMUSIK3)-CD-FLAC-2010-CEBAD'
+  expect:
+    {
+      artist: Elkano Browning Cream,
+      album: '2',
+      year: 2010,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: MAMUSIK3,
+      group: CEBAD,
+    }
+- name: 'Siberia-Soldados_Del_Asfalto-ES-CDEP-FLAC-2012-CEBAD'
+  expect:
+    {
+      artist: Siberia,
+      album: Soldados Del Asfalto,
+      year: 2012,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: ep,
+      catalog: null,
+      group: CEBAD,
+    }
+- name: 'T.S.O.L.--Strange_Love-CD-FLAC-1990-MEOWZiK'
+  expect:
+    {
+      artist: T.S.O.L.,
+      album: Strange Love,
+      year: 1990,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: MEOWZiK,
+    }
+- name: 'Five_Knuckle_Chuckle--Charliee_Horse-CD-FLAC-1996-MEOWZiK'
+  expect:
+    {
+      artist: Five Knuckle Chuckle,
+      album: Charliee Horse,
+      year: 1996,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: MEOWZiK,
+    }
+- name: 'VA-Charlies_Angels_Full_Throttle_Music_From_The_Motion_Picture-OST-CD-FLAC-2003-CALiFLAC'
+  expect:
+    {
+      artist: VA,
+      album: Charlies Angels Full Throttle Music From The Motion Picture,
+      year: 2003,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: CALiFLAC,
+    }
+- name: 'Alan_Silvestri-Eraser_Motion_Picture_Score-OST-CD-FLAC-1996-CALiFLAC'
+  expect:
+    {
+      artist: Alan Silvestri,
+      album: Eraser Motion Picture Score,
+      year: 1996,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: CALiFLAC,
+    }
+- name: 'Five_Finger_Death_Punch-Legacy-CD-FLAC-2026-BOCKSCAR'
+  expect:
+    {
+      artist: Five Finger Death Punch,
+      album: Legacy,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: BOCKSCAR,
+    }
+- name: 'VA-Thug_Life_Il_Ne_Peut_En_Rester_Quun-FR-CD-FLAC-2008-Mrflac'
+  expect:
+    {
+      artist: VA,
+      album: Thug Life Il Ne Peut En Rester Quun,
+      year: 2008,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: Mrflac,
+    }
+- name: 'VA-Menace_Sur_La_Planete_Rap_3-FR-CD-FLAC-2007-Mrflac'
+  expect:
+    {
+      artist: VA,
+      album: Menace Sur La Planete Rap 3,
+      year: 2007,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: Mrflac,
+    }
+- name: 'VA-El_Planeta_De_Los_Exitos-4CD-FLAC-2001-MAHOU'
+  expect:
+    {
+      artist: VA,
+      album: El Planeta De Los Exitos,
+      year: 2001,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: MAHOU,
+    }
+- name: 'VA-Currupipi_Mix_2-2CD-FLAC-1996-MAHOU'
+  expect:
+    {
+      artist: VA,
+      album: Currupipi Mix 2,
+      year: 1996,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: MAHOU,
+    }
+- name: 'Glykeria-Volta_Stin_Ellada-GR-2VINYL-FLAC-1989-Ouzo'
+  expect:
+    {
+      artist: Glykeria,
+      album: Volta Stin Ellada,
+      year: 1989,
+      codec: flac,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: null,
+      catalog: null,
+      group: Ouzo,
+    }
+- name: 'Torsofuck-Erotic_Diarrhea_Fantasy_-_As_Semen_Blends_to_Rot-(NSE141-01)-CD-FLAC-2026-86D'
+  expect:
+    {
+      artist: Torsofuck,
+      album: Erotic Diarrhea Fantasy - As Semen Blends to Rot,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: NSE141-01,
+      group: 86D,
+    }
+- name: 'Sick-Split_in_Two-(NSE134-01)-CD-FLAC-2026-86D'
+  expect:
+    {
+      artist: Sick,
+      album: Split in Two,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: NSE134-01,
+      group: 86D,
+    }
+- name: '2_Brothers_On_The_4th_Floor-Dreams-(ACD-0002-ID-1047)-2CD-FLAC-1997-B2A_INT'
+  expect:
+    {
+      artist: 2 Brothers On The 4th Floor,
+      album: Dreams,
+      year: 1997,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: ACD-0002-ID-1047,
+      group: B2A_INT,
+    }
+- name: 'Lykke_Li-The_Afterparty-CD-FLAC-2026-D2H'
+  expect:
+    {
+      artist: Lykke Li,
+      album: The Afterparty,
+      year: 2026,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: D2H,
+    }
+- name: 'Ashanti-Only_U-VLS-2004-GCP_INT'
+  expect:
+    {
+      artist: Ashanti,
+      album: Only U,
+      year: 2004,
+      codec: mp3,
+      bitDepth: null,
+      source: vinyl,
+      releaseType: single,
+      catalog: null,
+      group: GCP_INT,
+    }
+- name: 'Moe.-The_Conch-WEB-2007-QUAVER_iNT'
+  expect:
+    {
+      artist: Moe.,
+      album: The Conch,
+      year: 2007,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: QUAVER_iNT,
+    }
+- name: 'Moe.-Sticks_And_Stones-WEB-2008-QUAVER_iNT'
+  expect:
+    {
+      artist: Moe.,
+      album: Sticks And Stones,
+      year: 2008,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: QUAVER_iNT,
+    }
+- name: 'Moe.-Smash_Hits_Vol_1-WEB-2010-QUAVER'
+  expect:
+    {
+      artist: Moe.,
+      album: Smash Hits Vol 1,
+      year: 2010,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: QUAVER,
+    }
+- name: 'Moe.-Seasons_Greetings_From_Moe.-WEB-2002-QUAVER'
+  expect:
+    {
+      artist: Moe.,
+      album: Seasons Greetings From Moe.,
+      year: 2002,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: QUAVER,
+    }
+- name: 'Renegade_Soundwave-The_Phantom_(Carl_Cox_Rewire)-(JSW057B)-WEB-2026-BB'
+  expect:
+    {
+      artist: Renegade Soundwave,
+      album: The Phantom (Carl Cox Rewire),
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: JSW057B,
+      group: BB,
+    }
+- name: 'Pat_Bedeau_x_Anna-Marie_Johnson-Unconditional_Love-(BEDF062D)-WEB-2026-BB'
+  expect:
+    {
+      artist: Pat Bedeau x Anna,
+      album: Marie Johnson - Unconditional Love,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: BEDF062D,
+      group: BB,
+    }
+- name: 'Slaughtercult-Devoured_by_Perversion-WEB-2026-BLEEDiNG'
+  expect:
+    {
+      artist: Slaughtercult,
+      album: Devoured by Perversion,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: BLEEDiNG,
+    }
+- name: 'Hebe_Tien-The_Land_of_Maybe-WEB-CN-2026-TosK'
+  expect:
+    {
+      artist: Hebe Tien,
+      album: The Land of Maybe,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: TosK,
+    }
+- name: 'Gigi_Leung-A_Gentle_Existence-WEB-CN-2026-TosK'
+  expect:
+    {
+      artist: Gigi Leung,
+      album: A Gentle Existence,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: TosK,
+    }
+- name: 'Trey_Songz-Trey_Day-WEB-2007-UVU_INT'
+  expect:
+    {
+      artist: Trey Songz,
+      album: Trey Day,
+      year: 2007,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: UVU_INT,
+    }
+- name: 'Indeep-Last_Night_A_DJ_Saved_My_Life-Reissue_Deluxe_Edition-WEB-2018-UVU_INT'
+  expect:
+    {
+      artist: Indeep,
+      album: Last Night A DJ Saved My Life,
+      year: 2018,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: UVU_INT,
+    }
+- name: 'Trey_Songz-I_Gotta_Make_It-Deluxe_Edition-WEB-2005-UVU'
+  expect:
+    {
+      artist: Trey Songz,
+      album: I Gotta Make It,
+      year: 2005,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: UVU,
+    }
+- name: 'Nino_Man-Yeah_Thats_Me-Single-WEB-2026-UVU'
+  expect:
+    {
+      artist: Nino Man,
+      album: Yeah Thats Me,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: null,
+      group: UVU,
+    }
+- name: 'The_Real_Deal-The_Real_Deal_VS._The_World-(WEB)-2005-RUMBLE'
+  expect:
+    {
+      artist: The Real Deal,
+      album: The Real Deal VS. The World,
+      year: 2005,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: RUMBLE,
+    }
+- name: 'Sic_Waiting-Vices-EP-(WEB)-2012-RUMBLE'
+  expect:
+    {
+      artist: Sic Waiting,
+      album: Vices,
+      year: 2012,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: ep,
+      catalog: null,
+      group: RUMBLE,
+    }
+- name: 'Evren_Ulusoy_-_Innervisions-(PSI0922)-EP-WEB-2009-iDC'
+  expect:
+    {
+      artist: Evren Ulusoy,
+      album: Innervisions,
+      year: 2009,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: ep,
+      catalog: PSI0922,
+      group: iDC,
+    }
+- name: 'Malu_-_Quince-WEB-ES-2026-iDC'
+  expect:
+    {
+      artist: Malu,
+      album: Quince,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: iDC,
+    }
+- name: 'Solarstone-Solarcoaster_(Deestopia_Remix)-(PTP264)-SINGLE-WEB-2026-wAx'
+  expect:
+    {
+      artist: Solarstone,
+      album: Solarcoaster (Deestopia Remix),
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: PTP264,
+      group: wAx,
+    }
+- name: 'Bravdon_aka_Datkidbravo-Eureka-WEB-2026-FTD'
+  expect:
+    {
+      artist: Bravdon aka Datkidbravo,
+      album: Eureka,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: FTD,
+    }
+- name: 'Lee_A_Young_-_Wasai-SINGLE-WEB-TW-2025-MWN'
+  expect:
+    {
+      artist: Lee A Young,
+      album: Wasai,
+      year: 2025,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: null,
+      group: MWN,
+    }
+- name: 'Illintent_-_Good_Time-(DNZF2681)-WEB-2026-ZzZz'
+  expect:
+    {
+      artist: Illintent,
+      album: Good Time,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: DNZF2681,
+      group: ZzZz,
+    }
+- name: 'Dropzone_-_Silent_Blue-(DNZF2683)-WEB-2026-ZzZz'
+  expect:
+    {
+      artist: Dropzone,
+      album: Silent Blue,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: DNZF2683,
+      group: ZzZz,
+    }
+- name: 'Reflective_Rage_And_Rebel_Code_-_Hardcore_Unity-(TRAX0218-5)-WEB-2026-SRG'
+  expect:
+    {
+      artist: Reflective Rage And Rebel Code,
+      album: Hardcore Unity,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: TRAX0218-5,
+      group: SRG,
+    }
+- name: 'Yuuja_And_Stonecat_-_Energy_Shield-(K1R386)-SINGLE-WEB-2026-SRG'
+  expect:
+    {
+      artist: Yuuja And Stonecat,
+      album: Energy Shield,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: K1R386,
+      group: SRG,
+    }
+- name: 'JupiterGrandeTacheRo-Telethon-SINGLE-WEB-FR-2026-OND'
+  expect:
+    {
+      artist: JupiterGrandeTacheRo,
+      album: Telethon,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: null,
+      group: OND,
+    }
+- name: 'Bronx-Bullish-SINGLE-WEB-FR-2026-OND'
+  expect:
+    {
+      artist: Bronx,
+      album: Bullish,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: null,
+      group: OND,
+    }
+- name: 'M.R.T.N-Servants_EP-VVR111-WEB-2026-WAV'
+  expect:
+    {
+      artist: M.R.T.N,
+      album: Servants EP,
+      year: 2026,
+      codec: wav,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: VVR111,
+      group: null,
+    }
+- name: 'Mango_And_Palau-Parallax-TR580-WEB-2026-WAV'
+  expect:
+    {
+      artist: Mango And Palau,
+      album: Parallax,
+      year: 2026,
+      codec: wav,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: TR580,
+      group: null,
+    }
+- name: 'VA_-_Banyan_Records_12_Years_Anniversary_Compilation-WEB-2023-gEm'
+  expect:
+    {
+      artist: VA,
+      album: Banyan Records 12 Years Anniversary Compilation,
+      year: 2023,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: gEm,
+    }
+- name: 'Muirakitan_-_Pajelanca-(HWREP009)-WEB-2023-gEm'
+  expect:
+    {
+      artist: Muirakitan,
+      album: Pajelanca,
+      year: 2023,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: HWREP009,
+      group: gEm,
+    }
+- name: 'Stephen_Game_-_Running_In_A_Dream-(ELFX121)-SINGLE-WEB-2026-FMC'
+  expect:
+    {
+      artist: Stephen Game,
+      album: Running In A Dream,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: ELFX121,
+      group: FMC,
+    }
+- name: 'Majestic_And_Layton_Giordani_And_Jungle_70_And_HILLS_(US)_-_Bassline-(MADM018)-SINGLE-WEB-2026-FMC'
+  expect:
+    {
+      artist: Majestic And Layton Giordani And Jungle 70 And HILLS (US),
+      album: Bassline,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: MADM018,
+      group: FMC,
+    }
+- name: 'Gaya_Mazzantini-I_Keep_On_Dreaming_(Pop_Version)-WEB-1999-iNViNCiBLE_iNT'
+  expect:
+    {
+      artist: Gaya Mazzantini,
+      album: I Keep On Dreaming (Pop Version),
+      year: 1999,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: iNViNCiBLE_iNT,
+    }
+- name: 'Licia_E_I_Bee_Hive-Licia_E_I_Bee_Hive_Story-(0206123IMA)-5CD-IT-2010-iNViNCiBLE_iNT'
+  expect:
+    {
+      artist: Licia E I Bee Hive,
+      album: Licia E I Bee Hive Story,
+      year: 2010,
+      codec: mp3,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: 0206123IMA,
+      group: iNViNCiBLE_iNT,
+    }
+- name: 'John_Beltran--Soft_Rain-(ZZZCDS1003)-SINGLE-WEB-2026-dh'
+  expect:
+    {
+      artist: John Beltran,
+      album: Soft Rain,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: single,
+      catalog: ZZZCDS1003,
+      group: dh,
+    }
+- name: 'FNX_Omar--So_Deep-(W495)-WEB-2026-dh'
+  expect:
+    {
+      artist: FNX Omar,
+      album: So Deep,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: W495,
+      group: dh,
+    }
+- name: 'GilbR--Jai_Reve-WEB-2023-dh_int'
+  expect:
+    {
+      artist: GilbR,
+      album: Jai Reve,
+      year: 2023,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: dh_int,
+    }
+- name: 'Boddhi_Satva--In_Spite_Of_Everything-(OR0281)-WEB-2024-dh_int'
+  expect:
+    {
+      artist: Boddhi Satva,
+      album: In Spite Of Everything,
+      year: 2024,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: OR0281,
+      group: dh_int,
+    }
+- name: 'Highway_Yella-Coming_Down_Aint_Dead_(Remastered)-DOUBLE_ALBUM-WEB-2026-RAGEMP3'
+  expect:
+    {
+      artist: Highway Yella,
+      album: Coming Down Aint Dead (Remastered),
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: RAGEMP3,
+    }
+- name: 'DJKillaC-Kill_At_Will-WEB-2026-RAGEMP3'
+  expect:
+    {
+      artist: DJKillaC,
+      album: Kill At Will,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: RAGEMP3,
+    }
+- name: 'Benji_B_-_Radio1_(BBC)-SAT-09-23-2026-TALiON'
+  expect:
+    {
+      artist: Benji B,
+      album: Radio1 (BBC),
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: radio,
+      releaseType: null,
+      catalog: null,
+      group: TALiON,
+    }
+- name: 'VA-Burglar-OST-1987-GCP'
+  expect:
+    {
+      artist: VA,
+      album: Burglar,
+      year: 1987,
+      codec: mp3,
+      bitDepth: null,
+      source: null,
+      releaseType: null,
+      catalog: null,
+      group: GCP,
+    }
+- name: 'VA-Absolute_Rock_Classics-2CD-2001-ERP_INT'
+  expect:
+    {
+      artist: VA,
+      album: Absolute Rock Classics,
+      year: 2001,
+      codec: mp3,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: ERP_INT,
+    }
+- name: 'Caravan-For_Girls_Who_Grow_Plump_In_The_Night-Remastered-2001-ERP_INT'
+  expect:
+    {
+      artist: Caravan,
+      album: For Girls Who Grow Plump In The Night,
+      year: 2001,
+      codec: mp3,
+      bitDepth: null,
+      source: null,
+      releaseType: null,
+      catalog: null,
+      group: ERP_INT,
+    }
+- name: 'Siberia-Soldados_Del_Asfalto-ES-CDEP-2010-CEB'
+  expect:
+    {
+      artist: Siberia,
+      album: Soldados Del Asfalto,
+      year: 2010,
+      codec: mp3,
+      bitDepth: null,
+      source: cd,
+      releaseType: ep,
+      catalog: null,
+      group: CEB,
+    }
+- name: 'Evil_Killer-Evil_Killer-CDEP-2013-CEB'
+  expect:
+    {
+      artist: Evil Killer,
+      album: Evil Killer,
+      year: 2013,
+      codec: mp3,
+      bitDepth: null,
+      source: cd,
+      releaseType: ep,
+      catalog: null,
+      group: CEB,
+    }
+- name: 'VA-Charlies_Angels_Full_Throttle_Music_From_The_Motion_Picture-OST-2003-CR_INT'
+  expect:
+    {
+      artist: VA,
+      album: Charlies Angels Full Throttle Music From The Motion Picture,
+      year: 2003,
+      codec: mp3,
+      bitDepth: null,
+      source: null,
+      releaseType: null,
+      catalog: null,
+      group: CR_INT,
+    }
+- name: 'Dirty_Dozen_Brass_Band-Thats_A_Plenty-24BIT-48KHZ-WEB-FLAC-2026-OBZEN'
+  expect:
+    {
+      artist: Dirty Dozen Brass Band,
+      album: Thats A Plenty,
+      year: 2026,
+      codec: flac,
+      bitDepth: 24,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: OBZEN,
+    }
+- name: 'ANTI-KIN-Time_Blurs_in_Heartache-EP-16BIT-WEB-FLAC-2026-FLACCiD'
+  expect:
+    {
+      artist: ANTI,
+      album: KIN - Time Blurs in Heartache,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: ep,
+      catalog: null,
+      group: FLACCiD,
+    }
+- name: 'Vainoa__Vvorse-Vainoa_Vs_Vvorse-FI-Split-16BIT-WEB-FLAC-2026-VEXED'
+  expect:
+    {
+      artist: Vainoa Vvorse,
+      album: Vainoa Vs Vvorse,
+      year: 2026,
+      codec: flac,
+      bitDepth: 16,
+      source: web,
+      releaseType: null,
+      catalog: null,
+      group: VEXED,
+    }
+- name: 'Avail--One_Wrench-CD-FLAC-2000-MEOWZiK'
+  expect:
+    {
+      artist: Avail,
+      album: One Wrench,
+      year: 2000,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: null,
+      group: MEOWZiK,
+    }
+- name: 'In_Crowd-Natural_Rock_N_Reggae_Includes_Greatest_Hits_Free-(DB3CD165)-REISSUE_DELUXE_EDITION-3CD-FLAC-2025-YARD'
+  expect:
+    {
+      artist: In Crowd,
+      album: Natural Rock N Reggae Includes Greatest Hits Free,
+      year: 2025,
+      codec: flac,
+      bitDepth: null,
+      source: cd,
+      releaseType: null,
+      catalog: DB3CD165,
+      group: YARD,
+    }
+- name: 'Charlotte_De_Witte-The_Resistance_EP-(KNTXT034)-WEB-2026-PTC'
+  expect:
+    {
+      artist: Charlotte De Witte,
+      album: The Resistance EP,
+      year: 2026,
+      codec: mp3,
+      bitDepth: null,
+      source: web,
+      releaseType: null,
+      catalog: KNTXT034,
+      group: PTC,
+    }
+- name: 'DARKNESS-In_My_Dreams-(STR_5008)-CDM-1995-iNViNCiBLE_iNT'
+  expect:
+    {
+      artist: DARKNESS,
+      album: In My Dreams,
+      year: 1995,
+      codec: mp3,
+      bitDepth: null,
+      source: cd,
+      releaseType: single,
+      catalog: STR 5008,
+      group: iNViNCiBLE_iNT,
+    }

@@ -1,0 +1,38 @@
+# Hand-written music release names, one per convention or edge case, written from how P2P
+# trackers and Usenet posters name albums. Only the listed fields are checked.
+
+- name: Radiohead - In Rainbows (2007) [FLAC 24-96] [WEB]
+  expect:
+    {
+      artist: Radiohead,
+      album: In Rainbows,
+      year: 2007,
+      codec: flac,
+      bitDepth: 24,
+      sampleRate: 96,
+      source: web,
+    }
+- name: Pink Floyd - The Dark Side of the Moon [FLAC] [16B-44.1kHz] [CD]
+  expect:
+    { album: The Dark Side of the Moon, codec: flac, bitDepth: 16, sampleRate: 44.1, source: cd }
+- name: Radiohead - OK Computer (1997) [MP3 320]
+  expect: { codec: mp3, bitrate: 320 }
+- name: Radiohead - Kid A (2000) [MP3 V0] {Remastered}
+  expect: { codec: mp3, vbr: v0, album: Kid A }
+- name: Radiohead - Amnesiac (2001) (320 kbps)
+  # a bitrate alone means MP3
+  expect: { codec: mp3, bitrate: 320 }
+- name: Taylor Swift - 1989 (Taylor's Version) (2023) [24Bit-48kHz] FLAC
+  # a year as the album title, and a parenthesized part of the title kept
+  expect: { album: 1989 (Taylor's Version), year: 2023, bitDepth: 24, codec: flac }
+- name: Daft Punk - Discovery (2001) [ALAC]
+  expect: { codec: alac }
+- name: Björk - Homogenic [AAC 256]
+  expect: { artist: Björk, codec: aac, bitrate: 256 }
+- name: Radiohead-In_Rainbows-WEB-2007-GRP
+  # scene MP3 releases don't say MP3
+  expect: { artist: Radiohead, album: In Rainbows, codec: mp3, source: web, group: GRP }
+- name: Radiohead-In_Rainbows-2CD-FLAC-2007-GRP
+  expect: { codec: flac, source: cd, discs: 2 }
+- name: VA-Now_Thats_What_I_Call_Music_100-2CD-2018-GRP
+  expect: { artist: VA, various: true }

@@ -11,12 +11,15 @@
     "namespace": "music"
   },
   "dependencies": {
-    "@magpiejs/types": "0.0.0"
+    "@magpiejs/types": "0.0.0",
+    "@magpiejs/decision": "0.0.0",
+    "@magpiejs/parser": "0.0.0"
   },
   "peerDependencies": {
     "cordis": "4.0.0-rc.10"
   },
   "devDependencies": {
-    "cordis": "4.0.0-rc.10"
+    "cordis": "4.0.0-rc.10",
+    "yaml": "^2.9.1"
   }
 }

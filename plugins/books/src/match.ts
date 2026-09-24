@@ -2,28 +2,11 @@
 // first, so a release matches a book when its name holds the author and the title as whole
 // words, and what's left over is only edition noise, the subtitle or the series.
 
+import { foldedWords, WordCover } from '@magpiejs/parser'
 import type { ParsedBook } from './parse'
 
-/**
- * Words for comparing names: no accents, case or punctuation, and German and Scandinavian
- * spellings folded together (`Kvarnström`, `Kvarnstroem`, `Kvarnstrom`; `Gård`, `Gaard`).
- */
-export function words(text: string): string[] {
-  return text
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/ø/g, 'o')
-    .replace(/æ/g, 'ae')
-    .replace(/ß/g, 'ss')
-    .replace(/&/g, ' and ')
-    .replace(/['’`]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u').replace(/aa/g, 'a'))
-}
+/** Words for comparing names (see `foldedWords`). */
+export const words = foldedWords
 
 /** Words a release may add to a book's title. */
 const NOISE = new Set(
@@ -35,17 +18,6 @@ const NOISE = new Set(
   ),
 )
 
-/** Index of `needle` as consecutive words in `haystack`, or -1. */
-function find(haystack: string[], needle: string[], used: boolean[]) {
-  if (!needle.length) return -1
-  outer: for (let i = 0; i + needle.length <= haystack.length; i++) {
-    for (let j = 0; j < needle.length; j++)
-      if (used[i + j] || haystack[i + j] !== needle[j]) continue outer
-    return i
-  }
-  return -1
-}
-
 export interface BookCandidate {
   title: string
   subtitle?: string | null
@@ -53,14 +25,8 @@ export interface BookCandidate {
 
 /** Whether a release is this book by this author (any of the author's names). */
 export function matchBook(parsed: ParsedBook, authors: string[], book: BookCandidate) {
-  const name = words(parsed.name)
-  const used = name.map(() => false)
-  const take = (needle: string[]) => {
-    const at = find(name, needle, used)
-    if (at < 0) return false
-    for (let i = at; i < at + needle.length; i++) used[i] = true
-    return true
-  }
+  const name = new WordCover(parsed.name)
+  const take = (needle: string[]) => name.take(needle)
 
   // the title, with or without a leading article
   const title = words(book.title)
@@ -84,7 +50,7 @@ export function matchBook(parsed: ParsedBook, authors: string[], book: BookCandi
     ...NOISE,
     ...(byAuthor && parsed.author ? ['and', ...words(parsed.author)] : []),
   ])
-  return name.every((w, i) => used[i] || allowed.has(w) || /^\d+$/.test(w))
+  return name.rest().every((w) => allowed.has(w) || /^\d+$/.test(w))
 }
 
 /** The books a release could be, best match (longest title) first. */
