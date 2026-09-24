@@ -4,6 +4,12 @@
   "description": "Torznab and Newznab indexers (including Prowlarr) for Magpie",
   "type": "module",
   "license": "MIT",
+  "magpie": {
+    "provider": {
+      "kind": "indexer",
+      "label": "Torznab / Newznab (Prowlarr)"
+    }
+  },
   "exports": {
     ".": "./src/index.ts"
   },

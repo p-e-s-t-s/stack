@@ -3,10 +3,14 @@
 
 import type { MediaKind, MetadataProvider } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
+import console_ from './console'
 
 declare module 'cordis' {
   interface Context {
     metadata: MetadataService
+  }
+  interface Events {
+    'metadata/providers'(): void
   }
 }
 
@@ -17,12 +21,20 @@ export class MetadataService extends Service {
     super(ctx, 'metadata')
   }
 
+  [Service.init]() {
+    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+  }
+
   register(provider: MetadataProvider) {
     return this.ctx.effect(() => {
       if (this.providers.has(provider.id))
         throw new Error(`metadata provider ${provider.id} is already registered`)
       this.providers.set(provider.id, provider)
-      return () => this.providers.delete(provider.id)
+      this.ctx.emit('metadata/providers')
+      return () => {
+        this.providers.delete(provider.id)
+        this.ctx.emit('metadata/providers')
+      }
     }, `metadata.register(${provider.id})`)
   }
 

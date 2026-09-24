@@ -96,7 +96,7 @@ export function multipart(parts: Part[]) {
 
 export function apply(ctx: Context, config: Config) {
   const base = config.url.replace(/\/+$/, '')
-  const id = `qbittorrent:${(ctx.fiber as { entry?: { id: string } }).entry?.id ?? config.name}`
+  const id = `qbittorrent:${(ctx.fiber as { entry?: { options: { id: string } } }).entry?.options.id ?? config.name}`
   let cookie: string | undefined
 
   async function login() {

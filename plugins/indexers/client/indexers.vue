@@ -2,12 +2,12 @@
   <section class="ix">
     <h1>Indexers</h1>
     <p class="muted">
-      Add Prowlarr's Torznab/Newznab URL for each indexer as a
-      <code>@magpiejs/indexer-torznab</code> entry in <code>magpie.yml</code>. Editing them here
-      comes with the Settings pages.
+      In Prowlarr, each indexer has a Torznab URL (like <code>http://prowlarr:9696/1/api</code>) and
+      Prowlarr's API key. Add one entry per indexer.
     </p>
-    <p v-if="!data.indexers.length" class="muted">No indexers configured.</p>
-    <table v-else class="mp-card">
+    <k-slot name="provider-settings" :data="{ kind: 'indexer' }" />
+    <h2 v-if="data.indexers.length">Status</h2>
+    <table v-if="data.indexers.length" class="mp-card">
       <thead>
         <tr>
           <th>Name</th>

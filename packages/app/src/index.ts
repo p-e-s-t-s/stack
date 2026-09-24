@@ -29,7 +29,7 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/decision' },
     { name: '@cordisjs/plugin-http' },
     { name: '@magpiejs/metadata' },
-    // enable after adding your TMDB API key (Settings will manage this later)
+    // enabled from Settings → Metadata once it has an API key
     { name: '@magpiejs/metadata-tmdb', disabled: true, config: { apiKey: '' } },
     { name: '@magpiejs/library' },
     { name: '@magpiejs/indexers' },
@@ -39,6 +39,7 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/history' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
     { name: '@magpiejs/system' },
+    { name: '@magpiejs/settings' },
   ]
 }
 

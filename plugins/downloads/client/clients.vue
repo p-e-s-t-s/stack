@@ -2,11 +2,12 @@
   <section class="dl">
     <h1>Download clients</h1>
     <p class="muted">
-      Add qBittorrent as a <code>@magpiejs/downloader-qbittorrent</code> entry in
-      <code>magpie.yml</code>. Editing clients here comes with the Settings pages.
+      Magpie sends downloads to the client with the lowest priority for their protocol, in its own
+      category.
     </p>
-    <p v-if="!data.clients.length" class="muted">No download clients configured.</p>
-    <table v-else class="mp-card">
+    <k-slot name="provider-settings" :data="{ kind: 'download-client' }" />
+    <h2 v-if="data.clients.length">Status</h2>
+    <table v-if="data.clients.length" class="mp-card">
       <thead>
         <tr>
           <th>Name</th>

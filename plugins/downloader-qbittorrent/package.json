@@ -4,6 +4,12 @@
   "description": "qBittorrent download client for Magpie",
   "type": "module",
   "license": "MIT",
+  "magpie": {
+    "provider": {
+      "kind": "download-client",
+      "label": "qBittorrent"
+    }
+  },
   "exports": {
     ".": "./src/index.ts"
   },

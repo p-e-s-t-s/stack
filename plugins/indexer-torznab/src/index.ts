@@ -54,8 +54,9 @@ export const Config: z<Config> = z.object({
 })
 
 export function apply(ctx: Context, config: Config) {
-  // the loader entry id is stable across restarts, so health history survives
-  const id = `torznab:${(ctx.fiber as { entry?: { id: string } }).entry?.id ?? config.name}`
+  // the entry id in magpie.yml is stable across restarts, so health history survives (the
+  // full `entry.id` also has the include entry's id, which is not)
+  const id = `torznab:${(ctx.fiber as { entry?: { options: { id: string } } }).entry?.options.id ?? config.name}`
   let caps: ReturnType<typeof parseCaps> | undefined
 
   const request = async (params: Record<string, string | number | undefined>) => {

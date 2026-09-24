@@ -44,12 +44,16 @@ Every step is a job in `@magpiejs/jobs`, so a restart resumes where it stopped.
 | `@magpiejs/downloader-transmission` | Transmission RPC client                                                      | —                                                                                                | downloads, http         |
 | `@magpiejs/import`                  | import pipeline, rename, recycle bin                                         | —                                                                                                | library, downloads      |
 | `@magpiejs/history`                 | activity log                                                                 | `history_events`                                                                                 | database                |
-| `@magpiejs/auth`                    | login, sessions, API keys; guards the web console and API                    | `auth_users`, `auth_api_keys`                                                                    | database, server        |
+| `@magpiejs/auth`                    | login, sessions, API keys; guards the web console and API                    | `auth_users`, `auth_sessions`, `auth_api_keys`                                                   | database, server        |
 | `@magpiejs/api`                     | REST helper under `/api/v1`                                                  | —                                                                                                | server, auth            |
+| `@magpiejs/settings`                | add, edit, disable and remove providers; writes `magpie.yml` via the loader  | —                                                                                                | loader                  |
 
-Indexers and download clients are loader entries: adding one in Settings adds an entry
-to `magpie.yml` (URL, API key, category…), which starts a plugin instance that registers
-itself into `ctx.indexers` / `ctx.downloads`. Disabling it removes it immediately.
+Indexers, download clients and metadata providers are loader entries: adding one in
+Settings adds an entry to `magpie.yml` (URL, API key, category…), which starts a plugin
+instance that registers itself into `ctx.indexers` / `ctx.downloads` / `ctx.metadata`.
+Disabling it removes it immediately. Providers are the installed packages whose
+`package.json` has `magpie.provider` (`kind`, `label`, `single`); their form is built from
+the plugin's `Config` schema, and secrets never leave the server.
 
 ## 4. Key behaviors
 

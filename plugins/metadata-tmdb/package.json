@@ -4,6 +4,13 @@
   "description": "TMDB metadata provider for Magpie",
   "type": "module",
   "license": "MIT",
+  "magpie": {
+    "provider": {
+      "kind": "metadata",
+      "label": "TMDB",
+      "single": true
+    }
+  },
   "exports": {
     ".": "./src/index.ts"
   },
