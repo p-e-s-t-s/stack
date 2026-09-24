@@ -30,14 +30,17 @@ export const fileSystem = {
 }
 export type FileSystem = typeof fileSystem
 
-/** The main video file of a download: the largest video that isn't a sample or an extra. */
-export async function findVideo(
+/**
+ * The video files of a download (samples and extras skipped), largest first. A path that is
+ * itself a video file gives just that file.
+ */
+export async function findVideos(
   path: string,
   fsx: FileSystem = fileSystem,
-): Promise<{ path: string; size: number } | undefined> {
+): Promise<{ path: string; size: number }[]> {
   const stat = await fsx.stat(path)
   if (stat.isFile())
-    return VIDEO_EXTENSIONS.has(extname(path).toLowerCase()) ? { path, size: stat.size } : undefined
+    return VIDEO_EXTENSIONS.has(extname(path).toLowerCase()) ? [{ path, size: stat.size }] : []
   const candidates: { path: string; size: number }[] = []
   const walk = async (dir: string, depth: number) => {
     for (const entry of await fsx.readdir(dir, { withFileTypes: true })) {
@@ -57,7 +60,12 @@ export async function findVideo(
     }
   }
   await walk(path, 0)
-  return candidates.sort((a, b) => b.size - a.size)[0]
+  return candidates.sort((a, b) => b.size - a.size)
+}
+
+/** The main video file of a download: the largest video that isn't a sample or an extra. */
+export async function findVideo(path: string, fsx: FileSystem = fileSystem) {
+  return (await findVideos(path, fsx))[0]
 }
 
 const CROSS_DEVICE = new Set(['EXDEV', 'EPERM', 'ENOTSUP', 'EMLINK'])

@@ -46,12 +46,17 @@ const LABELS = {
 }
 
 function details(e: HistoryRow) {
-  const d = e.data as Record<string, string | boolean | undefined>
+  const d = e.data as Record<string, string | number | boolean | undefined>
   switch (e.type) {
     case 'grabbed':
       return [d.quality, d.manual && 'by you'].filter(Boolean).join(' · ')
     case 'imported':
-      return [d.quality, d.method, d.replaced && `replaced ${d.replaced}`]
+      return [
+        d.quality,
+        d.method,
+        typeof d.files === 'number' && d.files > 1 && `${d.files} files`,
+        d.replaced && `replaced ${d.replaced}`,
+      ]
         .filter(Boolean)
         .join(' · ')
     default:

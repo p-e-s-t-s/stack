@@ -1,13 +1,16 @@
 // @magpiejs/import: moves finished downloads into the library (docs/phase-3.md §4.4).
+// Each kind of media registers how its downloads are imported; movies are built in, series
+// register theirs from the series plugin (docs/phase-4.md §4.3).
 
 import { extname, join, relative } from 'node:path'
 import { isBetter, profileRanks, QUALITY_NAMES, type Quality } from '@magpiejs/decision'
 import type { Grab } from '@magpiejs/downloads'
 import type {} from '@magpiejs/jobs'
 import { type MediaItem, renderName } from '@magpiejs/library'
-import { parse } from '@magpiejs/parser'
+import { parse, type Revision } from '@magpiejs/parser'
+import type { MediaKind } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
-import { fileSystem, findVideo, recycle, transfer } from './files'
+import { type FileSystem, fileSystem, findVideo, findVideos, recycle, transfer } from './files'
 
 export * from './files'
 
@@ -16,13 +19,44 @@ declare module 'cordis' {
     import: ImportService
   }
   interface Events {
-    'import/completed'(
-      item: MediaItem,
-      grab: Grab,
-      details: { path: string; method: string; replaced?: string },
-    ): void
+    'import/completed'(item: MediaItem, grab: Grab, details: ImportResult): void
     'import/failed'(item: MediaItem | undefined, grab: Grab, reason: string): void
   }
+}
+
+/** What an import did, for logs and history. */
+export interface ImportResult {
+  /** The imported file, or the first of several. */
+  path: string
+  method: string
+  replaced?: string
+  /** For downloads with several files (season packs). */
+  files?: number
+  /** Files that were left out, with the reason. */
+  skipped?: string[]
+}
+
+/** Imports one finished download for a library item of one kind. */
+export type Importer = (item: MediaItem, grab: Grab, tools: ImportTools) => Promise<ImportResult>
+
+/** Shared helpers for importers. */
+export interface ImportTools {
+  fs: FileSystem
+  /** The video files of the download; throws an ImportError when there is none. */
+  videos(): Promise<{ path: string; size: number }[]>
+  /** Hardlink/copy (torrents) or move (usenet) a file into place, as the settings say. */
+  place(source: string, dest: string): Promise<string>
+  /** Moves a replaced file to the recycle bin, or deletes it. */
+  recycle(path: string): Promise<void>
+  /** Whether a release of this quality beats an existing file, per the item's profile. */
+  isUpgrade(
+    candidate: {
+      quality: string
+      formatScore: number
+      revision: Revision
+    },
+    existing: { quality: string; formatScore: number; revision: Revision },
+  ): boolean
 }
 
 /** A reason to stop importing that is shown to the user as-is. */
@@ -32,6 +66,7 @@ export class ImportService extends Service {
   static inject = ['downloads', 'library', 'decision', 'jobs']
 
   fs = fileSystem
+  private importers = new Map<MediaKind, Importer>()
 
   constructor(ctx: Context) {
     super(ctx, 'import')
@@ -50,6 +85,15 @@ export class ImportService extends Service {
         if (grab.state === 'import_pending') this.enqueue(grab.id)
     })
     this.ctx.jobs.schedule('import.sweep', 'import.sweep', 5 * 60_000)
+    this.register('movie', (item, grab, tools) => this.importMovie(item, grab, tools))
+  }
+
+  /** Sets how downloads for a kind of media are imported, for the caller's lifetime. */
+  register(kind: MediaKind, importer: Importer) {
+    return this.ctx.effect(() => {
+      this.importers.set(kind, importer)
+      return () => this.importers.delete(kind)
+    }, `import.register(${kind})`)
   }
 
   enqueue(grabId: number) {
@@ -63,8 +107,10 @@ export class ImportService extends Service {
     const item = this.ctx.library.get(grab.mediaId)
     this.ctx.downloads.setState(grab.id, 'importing')
     try {
-      if (!item) throw new ImportError('the movie is no longer in the library')
-      const result = await this.importInto(item, grab)
+      if (!item) throw new ImportError('the item is no longer in the library')
+      const importer = this.importers.get(item.kind)
+      if (!importer) throw new ImportError(`nothing can import ${item.kind} downloads right now`)
+      const result = await importer(item, grab, this.tools(item, grab))
       this.ctx.downloads.setState(grab.id, 'imported')
       this.ctx.logger.info('imported %s to %s (%s)', grab.title, result.path, result.method)
       this.ctx.emit('import/completed', item, grab, result)
@@ -78,45 +124,64 @@ export class ImportService extends Service {
     }
   }
 
-  private async importInto(item: MediaItem, grab: Grab) {
-    if (!grab.outputPath)
-      throw new ImportError('the download client did not report where the download is')
-    let video: Awaited<ReturnType<typeof findVideo>>
-    try {
-      video = await findVideo(grab.outputPath, this.fs)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        throw new ImportError(
-          `${grab.outputPath} does not exist (check that Magpie and the download client see the same paths)`,
+  private tools(item: MediaItem, grab: Grab): ImportTools {
+    const naming = this.ctx.library.naming()
+    const profile = this.ctx.decision.profile(item.profileId)
+    return {
+      fs: this.fs,
+      videos: async () => {
+        if (!grab.outputPath)
+          throw new ImportError('the download client did not report where the download is')
+        let videos: { path: string; size: number }[]
+        try {
+          videos = await findVideos(grab.outputPath, this.fs)
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            throw new ImportError(
+              `${grab.outputPath} does not exist (check that Magpie and the download client see the same paths)`,
+            )
+          }
+          throw error
+        }
+        if (!videos.length) throw new ImportError(`no video file found in ${grab.outputPath}`)
+        return videos
+      },
+      place: (source, dest) => {
+        const mode = grab.protocol === 'usenet' ? 'move' : naming.useHardlinks ? 'hardlink' : 'copy'
+        return transfer(source, dest, mode, this.fs)
+      },
+      recycle: (path) => recycle(path, naming.recycleBin, this.fs),
+      isUpgrade: (candidate, existing) => {
+        if (!profile) return true
+        const { rankOf } = profileRanks(profile)
+        return isBetter(
+          { ...candidate, rank: rankOf(candidate.quality as Quality) },
+          { ...existing, rank: rankOf(existing.quality as Quality) },
         )
-      }
-      throw error
+      },
     }
-    if (!video) throw new ImportError(`no video file found in ${grab.outputPath}`)
+  }
 
+  private async importMovie(
+    item: MediaItem,
+    grab: Grab,
+    tools: ImportTools,
+  ): Promise<ImportResult> {
+    const video = (await tools.videos())[0]!
     const parsed = parse(grab.title)
     const quality = grab.quality as Quality
     const existing = this.ctx.library.files(item.id)[0]
 
     // it may no longer be an upgrade (another import won, or the profile changed)
-    if (existing && !grab.manual) {
-      const profile = this.ctx.decision.profile(item.profileId)
-      if (profile) {
-        const { rankOf } = profileRanks(profile)
-        const candidate = {
-          rank: rankOf(quality),
-          formatScore: grab.formatScore,
-          revision: parsed.revision,
-        }
-        const current = {
-          rank: rankOf(existing.quality),
-          formatScore: existing.formatScore,
-          revision: existing.revision,
-        }
-        if (!isBetter(candidate, current))
-          throw new ImportError('not an upgrade over the existing file')
-      }
-    }
+    if (
+      existing &&
+      !grab.manual &&
+      !tools.isUpgrade(
+        { quality, formatScore: grab.formatScore, revision: parsed.revision },
+        existing,
+      )
+    )
+      throw new ImportError('not an upgrade over the existing file')
 
     const naming = this.ctx.library.naming()
     const folder = this.ctx.library.folderOf(item)
@@ -133,12 +198,11 @@ export class ImportService extends Service {
 
     // replace the old file first when it has the same name
     const oldPath = existing ? join(folder, existing.path) : undefined
-    if (oldPath && oldPath === dest) await recycle(oldPath, naming.recycleBin, this.fs)
+    if (oldPath && oldPath === dest) await tools.recycle(oldPath)
 
-    const mode = grab.protocol === 'usenet' ? 'move' : naming.useHardlinks ? 'hardlink' : 'copy'
-    const method = await transfer(video.path, dest, mode, this.fs)
+    const method = await tools.place(video.path, dest)
 
-    if (oldPath && oldPath !== dest) await recycle(oldPath, naming.recycleBin, this.fs)
+    if (oldPath && oldPath !== dest) await tools.recycle(oldPath)
     if (existing) this.ctx.library.removeFile(existing.id)
     this.ctx.library.addFile({
       mediaId: item.id,
@@ -155,4 +219,5 @@ export class ImportService extends Service {
   }
 }
 
+export { findVideo }
 export default ImportService

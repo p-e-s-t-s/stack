@@ -14,10 +14,12 @@ import type { EpisodeMetadata, SeriesMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { and, eq, inArray } from 'drizzle-orm'
 import console_ from './console'
+import episodeImport from './import'
 import episodeSearch, { type EpisodeResult, type EpisodeSearch, pickReleases } from './search'
 import * as schema from './schema'
 
 export * from './schema'
+export { episodeFileName } from './import'
 export {
   episodesFor,
   matchesSeries,
@@ -147,6 +149,7 @@ export class SeriesService extends Service {
     })
     this.ctx.jobs.schedule('series.refresh-all', 'series.refresh', DAY)
     this.ctx.inject(['indexers'], (ctx) => void ctx.plugin(episodeSearch, this))
+    this.ctx.inject(['import'], (ctx) => void ctx.plugin(episodeImport, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
         this.grabber = async (seriesId, { release, decision, episodeIds }, manual) => {
