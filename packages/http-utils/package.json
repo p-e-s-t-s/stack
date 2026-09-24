@@ -1,0 +1,10 @@
+{
+  "name": "@magpiejs/http-utils",
+  "version": "0.0.0",
+  "description": "Per-host rate limiting and retry helpers",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

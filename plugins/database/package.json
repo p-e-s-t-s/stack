@@ -1,0 +1,24 @@
+{
+  "name": "@magpiejs/database",
+  "version": "0.0.0",
+  "description": "Plugin-owned SQLite schemas with versioned migrations for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./runner": "./src/runner.ts",
+    "./ownership": "./src/ownership.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "0.45.3",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "0.31.11"
+  }
+}

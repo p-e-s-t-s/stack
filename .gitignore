@@ -1,0 +1,6 @@
+node_modules
+dist
+.cordis
+data
+*.log
+.DS_Store

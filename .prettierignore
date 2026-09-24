@@ -1,0 +1,7 @@
+node_modules
+dist
+.cordis
+data
+package-lock.json
+**/migrations/**
+docs/PLAN.md

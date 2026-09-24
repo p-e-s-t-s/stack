@@ -1,0 +1,10 @@
+{
+  "name": "@magpiejs/types",
+  "version": "0.0.0",
+  "description": "Shared types and provider contracts for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
