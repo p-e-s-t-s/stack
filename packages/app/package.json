@@ -25,6 +25,7 @@
     "@magpiejs/calendar": "0.0.0",
     "@magpiejs/database": "0.0.0",
     "@magpiejs/decision": "0.0.0",
+    "@magpiejs/downloader-http": "0.0.0",
     "@magpiejs/downloader-qbittorrent": "0.0.0",
     "@magpiejs/downloads": "0.0.0",
     "@magpiejs/history": "0.0.0",

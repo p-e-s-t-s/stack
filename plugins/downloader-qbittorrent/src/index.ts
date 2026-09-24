@@ -150,6 +150,7 @@ export function apply(ctx: Context, config: Config) {
 
     async add(payload, options) {
       if (payload.type === 'nzb') throw new Error('qBittorrent cannot download usenet releases')
+      if (payload.type === 'url') throw new Error('qBittorrent only downloads torrents')
       const parts: Part[] = [
         payload.type === 'magnet'
           ? { name: 'urls', value: payload.uri }

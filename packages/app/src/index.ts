@@ -36,6 +36,8 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/movies' },
     { name: '@magpiejs/series' },
     { name: '@magpiejs/downloads' },
+    // direct downloads (podcast episodes); needs no settings
+    { name: '@magpiejs/downloader-http' },
     { name: '@magpiejs/import' },
     { name: '@magpiejs/history' },
     { name: '@magpiejs/calendar' },

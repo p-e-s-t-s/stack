@@ -166,9 +166,11 @@ export type DownloadPayload =
   | { type: 'magnet'; uri: string; hash: string; release: ReleaseInfo }
   | { type: 'torrent'; data: Uint8Array; hash: string; release: ReleaseInfo }
   | { type: 'nzb'; data: Uint8Array; release: ReleaseInfo }
+  /** A direct download (`http` protocol). */
+  | { type: 'url'; url: string; release: ReleaseInfo }
 
 export interface DownloadStatus {
-  /** Torrent info hash (lower case) or usenet job id. */
+  /** Torrent info hash (lower case), usenet job id, or the direct-download client's id. */
   downloadId: string
   name: string
   state: 'queued' | 'downloading' | 'stalled' | 'completed' | 'failed' | 'paused'

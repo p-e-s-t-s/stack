@@ -191,6 +191,7 @@ export class DownloadsService extends Service {
 
   /** Turns a release's download URL into what a client accepts. */
   async resolve(release: ReleaseInfo): Promise<DownloadPayload> {
+    if (release.protocol === 'http') return { type: 'url', url: release.downloadUrl, release }
     if (release.protocol === 'usenet') {
       const data = new Uint8Array(
         await this.ctx.http.get(release.downloadUrl, {
