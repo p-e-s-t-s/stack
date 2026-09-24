@@ -1,0 +1,31 @@
+{
+  "name": "@magpiejs/decision",
+  "version": "0.0.0",
+  "description": "Qualities, profiles, custom formats and release decisions for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./qualities": "./src/qualities.ts"
+  },
+  "magpie": {
+    "namespace": "decision"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/parser": "0.0.0",
+    "@magpiejs/types": "0.0.0",
+    "drizzle-orm": "0.45.3"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "0.31.11"
+  }
+}
