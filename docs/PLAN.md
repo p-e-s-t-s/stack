@@ -1,7 +1,7 @@
 # Implementation Plan: Unified Media Manager
 
-A single-process replacement for Radarr, Sonarr and Bazarr that works with Prowlarr for
-indexers, built on the
+A single-process replacement for Radarr, Sonarr and Bazarr (and later Lidarr, Readarr and a
+podcast manager) that works with Prowlarr for indexers, built on the
 [Cordis](https://github.com/cordiverse/cordis) plugin kernel with a Cordis WebUI console
 that plugins extend with their own pages, widgets and actions.
 
@@ -48,7 +48,8 @@ Consequences:
 ## 1. Goals and non-goals
 
 **Goals**
-- One process, one SQLite file, one web UI for movies, TV, indexers and subtitles.
+- One process, one SQLite file, one web UI for movies, TV, indexers and subtitles, and then
+  podcasts, books (ebooks and audiobooks) and music.
 - Every integration (metadata source, indexer, download client, subtitle provider,
   notifier) is a Cordis plugin that can be enabled, reconfigured or removed at runtime
   without restarting.
@@ -58,7 +59,7 @@ Consequences:
   Overseerr/Jellyseerr work unchanged.
 
 **Non-goals (v1)**
-- Music/books (Lidarr/Readarr). The media model shouldn't rule them out, but no work.
+- Playing, streaming or hosting media (podcasts included): Magpie fetches and organizes.
 - Multi-user accounts and permissions beyond a single admin + API keys.
 - Transcoding or playback.
 - Clustering/horizontal scaling.
@@ -124,7 +125,11 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
 | `@magpiejs/history` | activity log | `history` | database |
 | `@magpiejs/notify` | `ctx.notify` registry | — | — |
 | `@magpiejs/subtitles` | `ctx.subtitles` registry, wanted/upgrade logic | `subtitle_profiles`, `subtitle_assignments` (media_id → `media_items`), `subtitle_files` (media_file_id → `media_files`) | library, jobs |
-| `@magpiejs/calendar` | calendar page + iCal | — | series or movies (optional) |
+| `@magpiejs/calendar` | calendar page + iCal; `ctx.calendar` sources (Phase 4.5) | — | — |
+| `@magpiejs/podcasts` | podcast kind, feeds, retention, pages (Phase 4.6) | `podcasts_details`, `podcasts_episodes`, `podcasts_episode_files` | library, downloads |
+| `@magpiejs/downloader-http` | direct downloads over HTTP (`http` protocol) (Phase 4.6) | — | downloads, http |
+| `@magpiejs/books` | book kind: authors, books, ebook + audiobook families, pages (Phase 4.7) | `books_authors`, `books_books`, `books_book_files`, `books_grab_books` | library, decision |
+| `@magpiejs/music` | music kind: artists, albums, tracks, audio family, pages (Phase 4.8) | `music_artists`, `music_albums`, `music_tracks`, `music_track_files`, `music_grab_albums` | library, decision |
 | `@magpiejs/compat-api` | `/api/v3` shims for Prowlarr/Overseerr | — | api, library |
 
 What this buys:
@@ -515,6 +520,70 @@ scene numbering, and TMDB episode groups for alternate orderings.
 **Exit (met, with fake services):** a standard, a daily and an anime series each go from
 search → import correctly, including a season pack.
 
+### Phase 4.5 — Generic media kinds
+
+Detailed in [phase-4.5.md](phase-4.5.md). Makes a new kind of media a new plugin, with no
+edits to core plugins: open `MediaKind`; **quality families** (video built in) with their own
+parser, size rule and default profiles, and profiles per family; indexer **search types**
+and Torznab categories per kind; naming templates per kind; import by file extension;
+calendar sources; an `http` download protocol.
+
+**Exit:** existing tests and data upgrade unchanged, and a fixture kind defined in a test
+goes search → grab → import without touching core plugins.
+
+### Phase 4.6 — Podcasts
+
+- `metadata-itunes`: podcast search (no key needed). Feeds (RSS 2.0, iTunes and
+  `podcast:` namespaces) are read by the podcasts plugin itself.
+- `downloader-http`: a download client for direct URLs (resume, progress, retries), used
+  through the normal downloads queue with the `http` protocol.
+- `podcasts`: add by search or feed URL, OPML import/export; per podcast: download all,
+  new episodes only, or the last N; keep the last N and delete older ones (optional);
+  feed refresh every hour. No indexers or quality profiles: each episode has one file.
+- Naming `{Podcast Title}/{Published Date} - {Episode Title}`; Podcasts pages; calendar
+  source (new episodes).
+
+**Exit:** a podcast added by search and one added by feed URL download new episodes on
+refresh, and retention keeps only the last N.
+
+### Phase 4.7 — Books (ebooks and audiobooks)
+
+- `metadata-openlibrary`: authors, works, editions, ISBNs, covers (no key); optional
+  `metadata-googlebooks`.
+- `books`: authors are library items and books are their units (like series and episodes);
+  monitor all, future or selected books; ebooks and audiobooks are tracked separately per
+  book, each with its own root folder and profile.
+- Quality families `ebook` (EPUB, AZW3, MOBI, PDF, CBZ/CBR) and `audiobook` (M4B, MP3,
+  FLAC); a book release parser (`Author - Title (Year) [EPUB]`, `Title by Author`, retail
+  tags, narrators) with golden fixtures.
+- Search type `t=book` (author, title), categories 7000/7020 (ebooks) and 3030
+  (audiobooks). Import keeps multi-file audiobooks together as one folder.
+- Pages: Authors, Author detail, Add; calendar source (release dates).
+
+**Exit:** add an author, and a wanted book is found by a fake Newznab book search, then
+imported as an ebook and as an audiobook into their own folders with the right names.
+
+### Phase 4.8 — Music
+
+- `metadata-musicbrainz`: artists, release groups, releases, track lists (1 request per
+  second), covers from the Cover Art Archive.
+- `music`: artists are library items and albums are their units, with tracks per album.
+  Monitoring: all, future or selected albums, filtered by type (album, EP, single, live,
+  compilation), like Lidarr's metadata profiles.
+- Quality family `audio` (MP3 128–320, V0/V2, AAC, Opus/Vorbis, FLAC 16-bit and 24-bit,
+  ALAC, WAV) with size per minute of album length; a music release parser
+  (`Artist - Album (2020) [FLAC 24-96] [WEB]`) and a track file-name parser, with golden
+  fixtures.
+- Search type `t=music` (artist, album), categories 3000/3010/3040. Import matches files to
+  the track list by disc, track number, title and duration, refuses albums that don't
+  match, handles multi-disc releases, and names
+  `{Artist}/{Album} ({Year})/{Disc}{Track:00} - {Title}`. Writing tags is optional.
+- Pages: Artists, Artist detail (albums by type), Album detail (tracks), Add; calendar
+  source (album releases).
+
+**Exit:** add an artist; a wanted album is found, and a FLAC release is imported with
+correct per-track names; a later FLAC 24-bit release replaces an MP3 album as an upgrade.
+
 ### Phase 5 — Migration & library scan
 - Library scan / existing folder import (§5.5).
 - `plugins/migrate-arr`: read Radarr/Sonarr SQLite DBs (read-only) and import media,
@@ -613,6 +682,8 @@ search and replace works from the UI.
 | Calendar + iCal | Phase 4 |
 | Import lists | Phase 8 |
 | Subtitles | Phase 7 |
+| New media kinds without core changes | Phase 4.5 |
+| Podcasts, books (ebooks + audiobooks), music | Phases 4.6–4.8 |
 | Prowlarr integration | Phase 6 |
 | TMDB + TVDB + others as plugins | §3.1, §3.3, Phases 3/4/8 |
 | Docker, PUID/PGID, config dir layout | §8 |
