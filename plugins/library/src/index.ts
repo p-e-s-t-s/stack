@@ -33,6 +33,16 @@ export interface Naming {
   movieFolder: string
   /** Movie file without extension, e.g. `{Title} ({Year}) [{Quality}]`. */
   movieFile: string
+  /** Series folder, e.g. `{Series Title} ({Year})`. */
+  seriesFolder: string
+  /** Season folder inside it, e.g. `Season {season:00}`; empty for no season folders. */
+  seasonFolder: string
+  /** Episode file without extension. */
+  episodeFile: string
+  /** Episode file for daily series. */
+  dailyEpisodeFile: string
+  /** Episode file for anime series. */
+  animeEpisodeFile: string
   /** Hardlink finished torrents (falls back to copy across filesystems). */
   useHardlinks: boolean
   /** Replaced and deleted files go here instead of being deleted; empty to delete. */
@@ -42,6 +52,12 @@ export interface Naming {
 export const DEFAULT_NAMING: Naming = {
   movieFolder: '{Title} ({Year})',
   movieFile: '{Title} ({Year}) [{Quality}]',
+  seriesFolder: '{Series Title} ({Year})',
+  seasonFolder: 'Season {season:00}',
+  episodeFile: '{Series Title} - S{season:00}E{episode:00} - {Episode Title} [{Quality}]',
+  dailyEpisodeFile: '{Series Title} - {Air Date} - {Episode Title} [{Quality}]',
+  animeEpisodeFile:
+    '{Series Title} - S{season:00}E{episode:00} - {absolute:000} - {Episode Title} [{Quality}]',
   useHardlinks: true,
   recycleBin: '',
 }
@@ -58,14 +74,29 @@ export function cleanFileName(name: string) {
   )
 }
 
-/** Fills a naming template: `{Title}`, `{Year}`, `{Quality}`, `{Edition}`, `{Group}`… */
+/**
+ * Fills a naming template: `{Title}`, `{Year}`, `{Quality}`, `{Series Title}`… Numbers can be
+ * zero-padded: `{season:00}` → `01`. Keys match case-insensitively.
+ */
 export function renderName(template: string, values: Record<string, string | number | undefined>) {
-  const out = template.replace(/\{([A-Za-z]+)\}/g, (_, key: string) => {
-    const value = values[key] ?? values[key.toLowerCase()]
-    return value === undefined || value === '' ? '' : String(value)
-  })
-  // tidy empty placeholders: "Title () [ ]" → "Title"
-  return cleanFileName(out.replace(/\(\s*\)|\[\s*\]|\{\s*\}/g, '').replace(/\s{2,}/g, ' '))
+  const lower = Object.fromEntries(Object.entries(values).map(([k, v]) => [k.toLowerCase(), v]))
+  const out = template.replace(
+    /\{([A-Za-z][A-Za-z ]*?)(?::(0+))?\}/g,
+    (_, key: string, pad?: string) => {
+      const value = values[key] ?? lower[key.toLowerCase()]
+      if (value === undefined || value === '') return ''
+      return pad && typeof value === 'number'
+        ? String(value).padStart(pad.length, '0')
+        : String(value)
+    },
+  )
+  // tidy empty placeholders: "Title () [ ]" → "Title", "Show - S01E01 - [HD]" → "Show - S01E01 [HD]"
+  return cleanFileName(
+    out
+      .replace(/\(\s*\)|\[\s*\]|\{\s*\}/g, '')
+      .replace(/\s+-\s+(?=-|\[|$)/g, ' ')
+      .replace(/\s{2,}/g, ' '),
+  )
 }
 
 export function sortTitle(title: string) {

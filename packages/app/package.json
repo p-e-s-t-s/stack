@@ -35,6 +35,7 @@
     "@magpiejs/metadata": "0.0.0",
     "@magpiejs/metadata-tmdb": "0.0.0",
     "@magpiejs/movies": "0.0.0",
+    "@magpiejs/series": "0.0.0",
     "@magpiejs/settings": "0.0.0",
     "@magpiejs/system": "0.0.0",
     "@magpiejs/webui": "0.0.0",

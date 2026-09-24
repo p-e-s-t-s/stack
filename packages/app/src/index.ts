@@ -34,6 +34,7 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/library' },
     { name: '@magpiejs/indexers' },
     { name: '@magpiejs/movies' },
+    { name: '@magpiejs/series' },
     { name: '@magpiejs/downloads' },
     { name: '@magpiejs/import' },
     { name: '@magpiejs/history' },

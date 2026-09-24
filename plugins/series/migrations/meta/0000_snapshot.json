@@ -1,0 +1,412 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "b0a837d1-1de1-452e-b95f-a3ec60e86533",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "series_details": {
+      "name": "series_details",
+      "columns": {
+        "media_id": {
+          "name": "media_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tmdb_id": {
+          "name": "tmdb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tvdb_id": {
+          "name": "tvdb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "imdb_id": {
+          "name": "imdb_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "series_type": {
+          "name": "series_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'standard'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "network": {
+          "name": "network",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "runtime_minutes": {
+          "name": "runtime_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "original_language": {
+          "name": "original_language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "backdrop_url": {
+          "name": "backdrop_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "genres": {
+          "name": "genres",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "first_aired": {
+          "name": "first_aired",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "season_folders": {
+          "name": "season_folders",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "monitor_new": {
+          "name": "monitor_new",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "last_searched_at": {
+          "name": "last_searched_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "series_details_tmdb_id_unique": {
+          "name": "series_details_tmdb_id_unique",
+          "columns": [
+            "tmdb_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "series_details_media_id_library_media_items_id_fk": {
+          "name": "series_details_media_id_library_media_items_id_fk",
+          "tableFrom": "series_details",
+          "tableTo": "library_media_items",
+          "columnsFrom": [
+            "media_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "series_episode_files": {
+      "name": "series_episode_files",
+      "columns": {
+        "file_id": {
+          "name": "file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "episode_id": {
+          "name": "episode_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "series_episode_files_episode_idx": {
+          "name": "series_episode_files_episode_idx",
+          "columns": [
+            "episode_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "series_episode_files_file_id_library_media_files_id_fk": {
+          "name": "series_episode_files_file_id_library_media_files_id_fk",
+          "tableFrom": "series_episode_files",
+          "tableTo": "library_media_files",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "series_episode_files_episode_id_series_episodes_id_fk": {
+          "name": "series_episode_files_episode_id_series_episodes_id_fk",
+          "tableFrom": "series_episode_files",
+          "tableTo": "series_episodes",
+          "columnsFrom": [
+            "episode_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "series_episode_files_file_id_episode_id_pk": {
+          "columns": [
+            "file_id",
+            "episode_id"
+          ],
+          "name": "series_episode_files_file_id_episode_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "series_episodes": {
+      "name": "series_episodes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "media_id": {
+          "name": "media_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "season": {
+          "name": "season",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "absolute_number": {
+          "name": "absolute_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "overview": {
+          "name": "overview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "air_date": {
+          "name": "air_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "runtime_minutes": {
+          "name": "runtime_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "monitored": {
+          "name": "monitored",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "last_searched_at": {
+          "name": "last_searched_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "series_episodes_number_idx": {
+          "name": "series_episodes_number_idx",
+          "columns": [
+            "media_id",
+            "season",
+            "number"
+          ],
+          "isUnique": true
+        },
+        "series_episodes_air_date_idx": {
+          "name": "series_episodes_air_date_idx",
+          "columns": [
+            "air_date"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "series_episodes_media_id_library_media_items_id_fk": {
+          "name": "series_episodes_media_id_library_media_items_id_fk",
+          "tableFrom": "series_episodes",
+          "tableTo": "library_media_items",
+          "columnsFrom": [
+            "media_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "series_seasons": {
+      "name": "series_seasons",
+      "columns": {
+        "media_id": {
+          "name": "media_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "poster_url": {
+          "name": "poster_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "monitored": {
+          "name": "monitored",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "series_seasons_media_id_library_media_items_id_fk": {
+          "name": "series_seasons_media_id_library_media_items_id_fk",
+          "tableFrom": "series_seasons",
+          "tableTo": "library_media_items",
+          "columnsFrom": [
+            "media_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "series_seasons_media_id_number_pk": {
+          "columns": [
+            "media_id",
+            "number"
+          ],
+          "name": "series_seasons_media_id_number_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

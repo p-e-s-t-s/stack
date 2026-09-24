@@ -49,6 +49,14 @@ export interface SeriesMetadata extends MetadataSearchResult {
   kind: 'series'
   status?: 'continuing' | 'ended' | 'upcoming'
   network?: string
+  runtimeMinutes?: number
+  originalLanguage?: string
+  backdropUrl?: string
+  genres?: string[]
+  alternateTitles?: string[]
+  /** ISO date of the first episode. */
+  firstAired?: string
+  seasons: { number: number; title?: string; episodeCount: number; posterUrl?: string }[]
 }
 
 export interface EpisodeOrdering {
@@ -61,7 +69,10 @@ export interface EpisodeMetadata {
   number: number
   absoluteNumber?: number
   title?: string
-  airDateUtc?: string
+  overview?: string
+  /** ISO date (the provider's local air date; no time of day). */
+  airDate?: string
+  runtimeMinutes?: number
 }
 
 export interface MetadataProvider {

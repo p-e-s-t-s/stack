@@ -1,12 +1,14 @@
-// @magpiejs/metadata-tmdb: movie metadata from The Movie Database (themoviedb.org).
+// @magpiejs/metadata-tmdb: movie and TV metadata from The Movie Database (themoviedb.org).
 
 import type {} from '@cordisjs/plugin-http'
 import type {} from '@magpiejs/metadata'
 import type {
+  EpisodeMetadata,
   MetadataProvider,
   MetadataSearchResult,
   MovieMetadata,
   SearchQuery,
+  SeriesMetadata,
 } from '@magpiejs/types'
 import type { Context } from 'cordis'
 import z from 'schemastery'
@@ -72,6 +74,62 @@ function base(movie: TmdbMovie): MetadataSearchResult {
   }
 }
 
+interface TmdbSeries {
+  id: number
+  name: string
+  original_name?: string
+  original_language?: string
+  first_air_date?: string
+  overview?: string
+  poster_path?: string | null
+  backdrop_path?: string | null
+  status?: string
+  networks?: { name: string }[]
+  genres?: { name: string }[]
+  episode_run_time?: number[]
+  seasons?: {
+    season_number: number
+    name?: string
+    episode_count: number
+    poster_path?: string | null
+  }[]
+  external_ids?: { imdb_id?: string | null; tvdb_id?: number | null }
+  alternative_titles?: { results: { title: string }[] }
+}
+
+interface TmdbEpisode {
+  season_number: number
+  episode_number: number
+  name?: string
+  overview?: string
+  air_date?: string | null
+  runtime?: number | null
+}
+
+function seriesBase(series: TmdbSeries): MetadataSearchResult {
+  const year = series.first_air_date ? Number(series.first_air_date.slice(0, 4)) : undefined
+  const ids: MetadataSearchResult['ids'] = { tmdb: String(series.id) }
+  if (series.external_ids?.imdb_id) ids.imdb = series.external_ids.imdb_id
+  if (series.external_ids?.tvdb_id) ids.tvdb = String(series.external_ids.tvdb_id)
+  return {
+    kind: 'series',
+    title: series.name,
+    year: year || undefined,
+    overview: series.overview || undefined,
+    posterUrl: series.poster_path ? `${IMAGE}w500${series.poster_path}` : undefined,
+    ids,
+  }
+}
+
+const STATUS: Record<string, SeriesMetadata['status']> = {
+  'Returning Series': 'continuing',
+  'In Production': 'continuing',
+  Planned: 'upcoming',
+  Pilot: 'upcoming',
+  Ended: 'ended',
+  Canceled: 'ended',
+}
+
 export function apply(ctx: Context, config: Config) {
   const bearer = config.apiKey.length > 40
   const get = <T>(path: string, params: Record<string, string | number | undefined> = {}) =>
@@ -89,9 +147,17 @@ export function apply(ctx: Context, config: Config) {
 
   const provider: MetadataProvider = {
     id: 'tmdb',
-    kinds: ['movie'],
+    kinds: ['movie', 'series'],
 
     async search(query: SearchQuery) {
+      if (query.kind === 'series') {
+        const result = await get<{ results: TmdbSeries[] }>('/search/tv', {
+          query: query.term,
+          first_air_date_year: query.year,
+          include_adult: 'false',
+        })
+        return result.results.map(seriesBase)
+      }
       const result = await get<{ results: TmdbMovie[] }>('/search/movie', {
         query: query.term,
         year: query.year,
@@ -125,6 +191,63 @@ export function apply(ctx: Context, config: Config) {
           physical: earliest(movie, [5]),
         },
       }
+    },
+
+    async getSeries(tmdbId: string): Promise<SeriesMetadata> {
+      const series = await get<TmdbSeries>(`/tv/${tmdbId}`, {
+        append_to_response: 'external_ids,alternative_titles',
+      })
+      return {
+        ...seriesBase(series),
+        kind: 'series',
+        status: STATUS[series.status ?? ''],
+        network: series.networks?.[0]?.name,
+        runtimeMinutes: series.episode_run_time?.[0] || undefined,
+        originalLanguage: series.original_language,
+        backdropUrl: series.backdrop_path ? `${IMAGE}w1280${series.backdrop_path}` : undefined,
+        genres: series.genres?.map((g) => g.name),
+        firstAired: series.first_air_date || undefined,
+        alternateTitles: [
+          ...new Set(
+            [
+              series.original_name,
+              ...(series.alternative_titles?.results ?? []).map((t) => t.title),
+            ].filter((t): t is string => !!t && t !== series.name),
+          ),
+        ],
+        seasons: (series.seasons ?? []).map((season) => ({
+          number: season.season_number,
+          title: season.name || undefined,
+          episodeCount: season.episode_count,
+          posterUrl: season.poster_path ? `${IMAGE}w342${season.poster_path}` : undefined,
+        })),
+      }
+    },
+
+    async getEpisodes(tmdbId: string): Promise<EpisodeMetadata[]> {
+      const series = await get<TmdbSeries>(`/tv/${tmdbId}`)
+      const numbers = (series.seasons ?? []).map((s) => s.season_number)
+      const episodes: EpisodeMetadata[] = []
+      // TMDB appends up to 20 sub-requests per call
+      for (let i = 0; i < numbers.length; i += 20) {
+        const chunk = numbers.slice(i, i + 20)
+        const result = await get<Record<string, { episodes?: TmdbEpisode[] }>>(`/tv/${tmdbId}`, {
+          append_to_response: chunk.map((n) => `season/${n}`).join(','),
+        })
+        for (const n of chunk) {
+          for (const e of result[`season/${n}`]?.episodes ?? []) {
+            episodes.push({
+              season: e.season_number,
+              number: e.episode_number,
+              title: e.name || undefined,
+              overview: e.overview || undefined,
+              airDate: e.air_date || undefined,
+              runtimeMinutes: e.runtime || undefined,
+            })
+          }
+        }
+      }
+      return episodes
     },
 
     async mapIds(ids) {
