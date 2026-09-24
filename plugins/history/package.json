@@ -1,0 +1,33 @@
+{
+  "name": "@magpiejs/history",
+  "version": "0.0.0",
+  "description": "Activity history for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "magpie": {
+    "namespace": "history"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/decision": "0.0.0",
+    "@magpiejs/downloads": "0.0.0",
+    "@magpiejs/import": "0.0.0",
+    "@magpiejs/library": "0.0.0",
+    "drizzle-orm": "0.45.3"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/webui": "0.0.0",
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "0.31.11"
+  }
+}

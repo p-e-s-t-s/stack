@@ -1,0 +1,24 @@
+{
+  "name": "@magpiejs/import",
+  "version": "0.0.0",
+  "description": "Imports finished downloads into the Magpie library",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/decision": "0.0.0",
+    "@magpiejs/downloads": "0.0.0",
+    "@magpiejs/jobs": "0.0.0",
+    "@magpiejs/library": "0.0.0",
+    "@magpiejs/parser": "0.0.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10",
+    "@magpiejs/history": "0.0.0"
+  }
+}
