@@ -26,7 +26,8 @@ function checkError(doc: Record<string, any>) {
     )
 }
 
-export function parseCaps(xml: string): IndexerCaps & { movieIds: string[]; tvIds: string[] } {
+/** Capabilities: categories, and the parameters of each search mode it offers. */
+export function parseCaps(xml: string): IndexerCaps {
   const doc = parser.parse(xml)
   checkError(doc)
   const caps = doc.caps ?? {}
@@ -44,13 +45,17 @@ export function parseCaps(xml: string): IndexerCaps & { movieIds: string[]; tvId
       name: `${c['@_name']}/${s['@_name']}`,
     })),
   ])
-  const movie = params(searching['movie-search'])
-  const tv = params(searching['tv-search'])
+  const music = params(searching['music-search'])
   return {
     categories,
-    searchParams: { movie, tv, search: params(searching.search) },
-    movieIds: movie.filter((p: string) => p.endsWith('id')),
-    tvIds: tv.filter((p: string) => p.endsWith('id')),
+    searchParams: {
+      search: params(searching.search),
+      movie: params(searching['movie-search']),
+      tv: params(searching['tv-search']),
+      // Newznab calls it audio-search, Torznab music-search
+      music: music.length ? music : params(searching['audio-search']),
+      book: params(searching['book-search']),
+    },
   }
 }
 

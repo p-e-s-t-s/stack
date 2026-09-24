@@ -232,6 +232,12 @@ export default function episodeSearch(ctx: Context, series: SeriesService) {
     },
   }
 
+  ctx.indexers.searchType('series', {
+    mode: 'tvsearch',
+    ids: { tvdb: 'tvdbid', imdb: 'imdbid' },
+    defaultCategories: [5000],
+  })
+
   ctx.effect(() => {
     series.searcher = api
     return () => (series.searcher = undefined)

@@ -100,7 +100,22 @@ export interface MetadataProvider {
 
 export interface IndexerCaps {
   categories: { id: number; name: string }[]
-  searchParams: { movie: string[]; tv: string[]; search: string[] }
+  /** Parameters each Newznab search mode supports (`search`, `movie`, `tv`, `music`, `book`). */
+  searchParams: Record<string, string[]>
+}
+
+/** Newznab/Torznab search modes (`t=` values). */
+export type NewznabMode = 'search' | 'movie' | 'tvsearch' | 'music' | 'book'
+
+/** How a kind of media is searched on Newznab/Torznab indexers. */
+export interface SearchType {
+  mode: NewznabMode
+  /** Query parameters for external ids, by id kind: `{ imdb: 'imdbid', tvdb: 'tvdbid' }`. */
+  ids?: Partial<Record<keyof ExternalIds, string>>
+  /** Named fields the mode takes (`artist`, `album`, `author`, `title`). */
+  fields?: string[]
+  /** Categories searched when an indexer doesn't set its own for this kind. */
+  defaultCategories: number[]
 }
 
 export interface ReleaseQuery {

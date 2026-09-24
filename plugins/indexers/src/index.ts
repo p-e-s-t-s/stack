@@ -3,7 +3,14 @@
 
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@magpiejs/jobs'
-import type { IndexerProvider, Protocol, ReleaseInfo, ReleaseQuery } from '@magpiejs/types'
+import type {
+  IndexerProvider,
+  MediaKind,
+  Protocol,
+  ReleaseInfo,
+  ReleaseQuery,
+  SearchType,
+} from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq } from 'drizzle-orm'
 import console_ from './console'
@@ -126,6 +133,26 @@ export class IndexersService extends Service {
     )
     if (fresh.length) this.ctx.emit('indexers/rss', fresh)
     return fresh
+  }
+
+  private searchTypes = new Map<MediaKind, SearchType>()
+
+  /** Says how a kind of media is searched, for the lifetime of the calling plugin. */
+  searchType(kind: MediaKind, type: SearchType) {
+    return this.ctx.effect(() => {
+      this.searchTypes.set(kind, type)
+      return () => this.searchTypes.delete(kind)
+    }, `indexers.searchType(${kind})`)
+  }
+
+  /** How a kind is searched; a plain text search when no plugin said. */
+  searchTypeOf(kind: MediaKind): SearchType {
+    return this.searchTypes.get(kind) ?? { mode: 'search', defaultCategories: [] }
+  }
+
+  /** Kinds with a search type, with their default categories (for RSS). */
+  searchKinds() {
+    return [...this.searchTypes.entries()]
   }
 
   /** Registers an indexer for the lifetime of the calling plugin. */

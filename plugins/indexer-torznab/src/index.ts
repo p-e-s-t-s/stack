@@ -3,7 +3,7 @@
 
 import type {} from '@cordisjs/plugin-http'
 import type {} from '@magpiejs/indexers'
-import type { IndexerProvider, ReleaseQuery } from '@magpiejs/types'
+import type { IndexerProvider, NewznabMode, ReleaseQuery } from '@magpiejs/types'
 import type { Context } from 'cordis'
 import z from 'schemastery'
 import { parseCaps, parseResults } from './xml'
@@ -16,8 +16,11 @@ export interface Config {
   url: string
   apiKey: string
   protocol: 'torrent' | 'usenet'
-  movieCategories: number[]
-  tvCategories: number[]
+  /** Categories per kind of media; kinds not listed use their defaults. */
+  categories: Record<string, number[]>
+  /** Before per-kind categories: read as the movie and series categories. */
+  movieCategories?: number[]
+  tvCategories?: number[]
   priority: number
   enableRss: boolean
   enableAutomatic: boolean
@@ -39,11 +42,14 @@ export const Config: z<Config> = z.object({
     .union(['torrent', 'usenet'])
     .default('torrent')
     .description('Torznab is torrent, Newznab is usenet.'),
-  movieCategories: z
-    .array(z.natural())
-    .default([2000])
-    .description('Categories searched for movies.'),
-  tvCategories: z.array(z.natural()).default([5000]).description('Categories searched for series.'),
+  categories: z
+    .dict(z.array(z.natural()))
+    .default({})
+    .description(
+      'Categories per kind, e.g. movie = 2000 and series = 5000. Kinds left out use their usual categories.',
+    ),
+  movieCategories: z.array(z.natural()).hidden(),
+  tvCategories: z.array(z.natural()).hidden(),
   priority: z
     .natural()
     .default(25)
@@ -52,6 +58,15 @@ export const Config: z<Config> = z.object({
   enableAutomatic: z.boolean().default(true),
   enableInteractive: z.boolean().default(true),
 })
+
+/** Where each search mode's parameters are in the capabilities. */
+const CAPS: Record<NewznabMode, string> = {
+  search: 'search',
+  movie: 'movie',
+  tvsearch: 'tv',
+  music: 'music',
+  book: 'book',
+}
 
 export function apply(ctx: Context, config: Config) {
   // the entry id in magpie.yml is stable across restarts, so health history survives (the
@@ -74,6 +89,16 @@ export function apply(ctx: Context, config: Config) {
 
   const capabilities = async () => (caps ??= parseCaps(await request({ t: 'caps' })))
 
+  /** This indexer's categories for a kind, else the older movie/TV settings, else defaults. */
+  const categoriesFor = (kind: string) =>
+    config.categories?.[kind] ??
+    (kind === 'movie'
+      ? config.movieCategories
+      : kind === 'series'
+        ? config.tvCategories
+        : undefined) ??
+    ctx.indexers.searchTypeOf(kind as never).defaultCategories
+
   const provider: IndexerProvider = {
     id,
     protocol: config.protocol,
@@ -82,21 +107,35 @@ export function apply(ctx: Context, config: Config) {
 
     async search(q: ReleaseQuery) {
       const c = await capabilities()
-      const cat = (q.kind === 'movie' ? config.movieCategories : config.tvCategories).join(',')
-      const params: Record<string, string | number | undefined> = { cat, extended: 1, limit: 100 }
-      const imdb = q.ids?.imdb?.replace(/^tt/, '')
-      if (q.kind === 'movie' && c.searchParams.movie.length) {
-        params.t = 'movie'
-        if (imdb && c.movieIds.includes('imdbid')) params.imdbid = imdb
-        if (q.ids?.tmdb && c.movieIds.includes('tmdbid')) params.tmdbid = q.ids.tmdb
-        if (!params.imdbid && !params.tmdbid) params.q = q.term
-      } else if (q.kind === 'series' && c.searchParams.tv.length) {
-        params.t = 'tvsearch'
-        if (q.ids?.tvdb && c.tvIds.includes('tvdbid')) params.tvdbid = q.ids.tvdb
-        if (imdb && c.tvIds.includes('imdbid')) params.imdbid = imdb
-        if (!params.tvdbid && !params.imdbid) params.q = q.term
-        params.season = q.season
-        params.ep = q.episode
+      const type = ctx.indexers.searchTypeOf(q.kind)
+      const params: Record<string, string | number | undefined> = {
+        cat: categoriesFor(q.kind).join(',') || undefined,
+        extended: 1,
+        limit: 100,
+      }
+      const supported = c.searchParams[CAPS[type.mode]] ?? []
+      if (type.mode !== 'search' && supported.length) {
+        params.t = type.mode
+        let specific = false
+        for (const [idKind, param] of Object.entries(type.ids ?? {})) {
+          let value = q.ids?.[idKind as keyof typeof q.ids]
+          if (idKind === 'imdb') value = value?.replace(/^tt/, '')
+          if (value && supported.includes(param!)) {
+            params[param!] = value
+            specific = true
+          }
+        }
+        for (const [field, value] of Object.entries(q.fields ?? {})) {
+          if (value && supported.includes(field)) {
+            params[field] = value
+            specific = true
+          }
+        }
+        if (!specific) params.q = q.term
+        if (type.mode === 'tvsearch') {
+          params.season = q.season
+          params.ep = q.episode
+        }
       } else {
         params.t = 'search'
         params.q = q.term
@@ -105,9 +144,9 @@ export function apply(ctx: Context, config: Config) {
     },
 
     async rss() {
-      const cat = [...config.movieCategories, ...config.tvCategories].join(',')
+      const cat = [...new Set(ctx.indexers.searchKinds().flatMap(([kind]) => categoriesFor(kind)))]
       return parseResults(
-        await request({ t: 'search', cat, extended: 1, limit: 100 }),
+        await request({ t: 'search', cat: cat.join(',') || undefined, extended: 1, limit: 100 }),
         id,
         config.protocol,
       )

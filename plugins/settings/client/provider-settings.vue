@@ -167,6 +167,14 @@ const FieldInput = defineComponent({
           },
           f.options!.map((o) => h('option', { value: o }, o)),
         )
+      if (f.type === 'numberDict')
+        return h('textarea', {
+          ...common,
+          rows: 3,
+          value: values[f.key] ?? '',
+          placeholder: 'movie = 2000\nseries = 5000',
+          onInput: (e: Event) => (values[f.key] = (e.target as HTMLTextAreaElement).value),
+        })
       const secretSet = f.type === 'secret' && p.form.secrets.includes(f.key)
       return h('input', {
         ...common,
@@ -189,7 +197,14 @@ function toForm(provider: Provider, config: Record<string, unknown>) {
   const values: Record<string, unknown> = {}
   for (const f of provider.fields) {
     const value = config[f.key] ?? f.default
-    values[f.key] = f.type === 'numbers' && Array.isArray(value) ? value.join(', ') : value
+    values[f.key] =
+      f.type === 'numbers' && Array.isArray(value)
+        ? value.join(', ')
+        : f.type === 'numberDict' && value && typeof value === 'object'
+          ? Object.entries(value as Record<string, number[]>)
+              .map(([k, v]) => `${k} = ${v.join(', ')}`)
+              .join('\n')
+          : value
   }
   return values
 }
@@ -217,7 +232,22 @@ async function save() {
   const config: Record<string, unknown> = {}
   for (const field of f.provider.fields) {
     let value = f.values[field.key]
-    if (field.type === 'numbers')
+    if (field.type === 'numberDict')
+      value = Object.fromEntries(
+        String(value ?? '')
+          .split('\n')
+          .map((line) => line.split('='))
+          .filter(([k, v]) => k?.trim() && v !== undefined)
+          .map(([k, v]) => [
+            k!.trim(),
+            v!
+              .split(',')
+              .map((x) => x.trim())
+              .filter(Boolean)
+              .map(Number),
+          ]),
+      )
+    else if (field.type === 'numbers')
       value = String(value ?? '')
         .split(',')
         .map((x) => x.trim())

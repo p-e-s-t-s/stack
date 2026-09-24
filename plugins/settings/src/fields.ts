@@ -5,7 +5,8 @@ import type z from 'schemastery'
 export interface Field {
   key: string
   label: string
-  type: 'string' | 'secret' | 'number' | 'boolean' | 'select' | 'numbers'
+  /** `numberDict`: lists of numbers by key, e.g. categories per kind. */
+  type: 'string' | 'secret' | 'number' | 'boolean' | 'select' | 'numbers' | 'numberDict'
   required: boolean
   default?: unknown
   description?: string
@@ -59,6 +60,8 @@ export function fieldsOf(config: z): Field[] {
       fields.push({ ...base, type: 'select', options: s.list.map((x) => String(x.value)) })
     else if (s.type === 'array' && s.inner?.type === 'number')
       fields.push({ ...base, type: 'numbers' })
+    else if (s.type === 'dict' && s.inner?.type === 'array' && s.inner.inner?.type === 'number')
+      fields.push({ ...base, type: 'numberDict' })
   }
   return fields
 }

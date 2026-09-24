@@ -111,6 +111,12 @@ export default function movieSearch(ctx: Context, movies: MoviesService) {
     },
   }
 
+  ctx.indexers.searchType('movie', {
+    mode: 'movie',
+    ids: { imdb: 'imdbid', tmdb: 'tmdbid' },
+    defaultCategories: [2000],
+  })
+
   ctx.effect(() => {
     movies.searcher = api
     return () => (movies.searcher = undefined)
