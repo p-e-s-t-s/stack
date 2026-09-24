@@ -33,6 +33,13 @@
               <th>Folder</th>
               <td class="muted">{{ folder }}</td>
             </tr>
+            <tr v-if="movie.download">
+              <th>Download</th>
+              <td>
+                {{ stateLabel(movie.download.state) }} ·
+                {{ (movie.download.progress * 100).toFixed(1) }}%
+              </td>
+            </tr>
             <tr>
               <th>File</th>
               <td>
@@ -126,8 +133,16 @@
           <td>{{ r.size ? (r.size / 1024 ** 3).toFixed(1) + ' GB' : '' }}</td>
           <td>{{ r.protocol === 'torrent' ? `${r.seeders ?? '?'}/${r.leechers ?? '?'}` : '' }}</td>
           <td>{{ age(r.publishedAt) }}</td>
-          <td>
+          <td style="white-space: nowrap">
             <span :class="r.accepted ? 'ok' : 'no'">{{ r.accepted ? '✓' : '✕' }}</span>
+            <button
+              :data-testid="'grab-' + r.guid"
+              :title="r.accepted ? 'Download' : 'Download anyway'"
+              :disabled="grabbing === r.guid"
+              @click="grab(r)"
+            >
+              {{ grabbed.has(r.guid) ? 'Sent' : 'Grab' }}
+            </button>
           </td>
         </tr>
       </tbody>
@@ -177,6 +192,32 @@ async function search() {
     searching.value = false
   }
 }
+
+const grabbing = ref<string>()
+const grabbed = ref(new Set<string>())
+async function grab(r: ReleaseRow) {
+  grabbing.value = r.guid
+  searchError.value = ''
+  try {
+    await data.value.grab(movie.value!.id, r.guid)
+    grabbed.value.add(r.guid)
+  } catch (e) {
+    searchError.value = (e as Error).message
+  } finally {
+    grabbing.value = undefined
+  }
+}
+
+const STATES: Record<string, string> = {
+  grabbed: 'Sent to client',
+  queued: 'Queued',
+  downloading: 'Downloading',
+  paused: 'Paused',
+  stalled: 'Stalled',
+  import_pending: 'Waiting to import',
+  importing: 'Importing',
+}
+const stateLabel = (s: string) => STATES[s] ?? s
 
 function age(date?: string) {
   if (!date) return ''

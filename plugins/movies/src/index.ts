@@ -4,6 +4,7 @@
 import { rmSync } from 'node:fs'
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@cordisjs/plugin-timer'
+import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/jobs'
 import { type MediaFile, type MediaItem, renderName } from '@magpiejs/library'
 import type {} from '@magpiejs/metadata'
@@ -11,7 +12,7 @@ import type { MovieMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq } from 'drizzle-orm'
 import console_ from './console'
-import movieSearch, { type MovieSearch } from './search'
+import movieSearch, { type MovieSearch, type SearchResult } from './search'
 import * as schema from './schema'
 
 export * from './schema'
@@ -85,6 +86,8 @@ export class MoviesService extends Service {
   db!: Drizzle<typeof schema>
   /** Set while an indexers plugin is loaded. */
   searcher?: MovieSearch
+  /** Set while a downloads plugin is loaded. */
+  grabber?: (movieId: number, result: SearchResult, manual: boolean) => Promise<unknown>
 
   constructor(ctx: Context) {
     super(ctx, 'movies')
@@ -102,7 +105,26 @@ export class MoviesService extends Service {
     })
     this.ctx.jobs.schedule('movies.refresh-all', 'movies.refresh', DAY)
     this.ctx.inject(['indexers'], (ctx) => void ctx.plugin(movieSearch, this))
+    this.ctx.inject(['downloads'], (ctx) => {
+      ctx.effect(() => {
+        this.grabber = (movieId, { release, decision }, manual) =>
+          ctx.downloads.grab(movieId, release, {
+            quality: decision.quality,
+            formatScore: decision.formatScore,
+            manual,
+          })
+        return () => (this.grabber = undefined)
+      }, 'movies.grabber')
+    })
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+  }
+
+  /** Grabs a release from the last search of a movie (interactive "Grab"). */
+  async grab(movieId: number, guid: string) {
+    const result = this.searcher?.cached(movieId, guid)
+    if (!result) throw new Error('search results expired; search again')
+    if (!this.grabber) throw new Error('no download clients are enabled')
+    return this.grabber(movieId, result, true)
   }
 
   /** Searches the indexers for a movie; throws if no indexers plugin is loaded. */

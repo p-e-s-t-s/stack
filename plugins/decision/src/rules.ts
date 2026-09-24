@@ -8,6 +8,8 @@ import type { Profile, QualitySize, Restriction } from './schema'
 
 export interface DecisionTarget {
   kind: 'movie' | 'episode' | 'season'
+  /** Library item being searched for (used by rules such as the blocklist). */
+  mediaId?: number
   profileId: number
   runtimeMinutes?: number
   originalLanguage?: string

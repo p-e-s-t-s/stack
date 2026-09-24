@@ -32,6 +32,7 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/library' },
     { name: '@magpiejs/indexers' },
     { name: '@magpiejs/movies' },
+    { name: '@magpiejs/downloads' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
     { name: '@magpiejs/system' },
   ]

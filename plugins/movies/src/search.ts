@@ -44,6 +44,7 @@ export function matchesMovie(
 export function targetFor(movie: Movie): DecisionTarget {
   return {
     kind: 'movie',
+    mediaId: movie.id,
     profileId: movie.profileId,
     runtimeMinutes: movie.details.runtimeMinutes ?? undefined,
     originalLanguage: movie.details.originalLanguage ?? undefined,

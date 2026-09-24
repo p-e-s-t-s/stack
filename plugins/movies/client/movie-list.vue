@@ -41,6 +41,8 @@ const shown = computed(() =>
 )
 
 function status(m: MovieSummary) {
+  if (m.download)
+    return { text: `Downloading ${Math.floor(m.download.progress * 100)}%`, class: 'waiting' }
   if (m.file) return { text: 'Downloaded', class: 'have' }
   if (!m.monitored) return { text: 'Not monitored', class: 'waiting' }
   if (!m.available) return { text: 'Not available yet', class: 'waiting' }

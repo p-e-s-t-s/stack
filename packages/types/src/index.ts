@@ -117,34 +117,39 @@ export interface IndexerProvider {
 
 // Download clients
 
-export interface DownloadRef {
-  clientId: string
-  /** torrent info hash or usenet job id */
-  downloadId: string
-}
-
 export interface AddOptions {
   category?: string
   paused?: boolean
 }
 
-export interface DownloadStatus extends DownloadRef {
+/** What gets sent to a client: resolved by the downloads plugin from a release's URL. */
+export type DownloadPayload =
+  | { type: 'magnet'; uri: string; hash: string; release: ReleaseInfo }
+  | { type: 'torrent'; data: Uint8Array; hash: string; release: ReleaseInfo }
+  | { type: 'nzb'; data: Uint8Array; release: ReleaseInfo }
+
+export interface DownloadStatus {
+  /** Torrent info hash (lower case) or usenet job id. */
+  downloadId: string
   name: string
   state: 'queued' | 'downloading' | 'stalled' | 'completed' | 'failed' | 'paused'
+  /** 0 to 1. */
   progress: number
   sizeBytes?: number
   etaSeconds?: number
+  /** Where the finished download is, as the client sees it. */
+  outputPath?: string
   error?: string
 }
 
 export interface DownloadClient {
   id: string
   protocol: Protocol
-  add(release: ReleaseInfo, options: AddOptions): Promise<DownloadRef>
+  /** Returns the download id (info hash or job id). */
+  add(payload: DownloadPayload, options: AddOptions): Promise<string>
+  /** Downloads in Magpie's category. */
   list(): Promise<DownloadStatus[]>
-  remove(ref: DownloadRef, deleteData: boolean): Promise<void>
-  /** Path as the client sees it; path mapping converts it to a local path. */
-  outputPath(ref: DownloadRef): Promise<string>
+  remove(downloadId: string, deleteData: boolean): Promise<void>
   test(): Promise<TestResult>
 }
 

@@ -7,6 +7,11 @@ import { QUALITY_NAMES } from '@magpiejs/decision/qualities'
 import { isAvailable, type Movie, type MoviesService } from './index'
 import type { MinimumAvailability } from './schema'
 
+export interface DownloadState {
+  state: string
+  progress: number
+}
+
 export interface MovieSummary {
   id: number
   title: string
@@ -27,6 +32,7 @@ export interface MovieSummary {
   available: boolean
   genres: string[]
   file?: { path: string; size: number; quality: string; releaseName: string | null }
+  download?: DownloadState
 }
 
 export interface MoviesData {
@@ -47,6 +53,7 @@ export interface MoviesData {
   ): Promise<void>
   remove(id: number, deleteFiles: boolean): Promise<void>
   refresh(id: number): Promise<void>
+  grab(id: number, guid: string): Promise<void>
   search(
     id: number,
   ): Promise<{ results: ReleaseRow[]; errors: { indexer: string; message: string }[] }>
@@ -100,8 +107,39 @@ function summarize(m: Movie): MovieSummary {
 }
 
 export default function console_(ctx: Context, movies: MoviesService) {
+  // live download state per movie, from the downloads plugin's events
+  const downloads = new Map<number, DownloadState>()
+  const ACTIVE = [
+    'grabbed',
+    'queued',
+    'downloading',
+    'paused',
+    'stalled',
+    'import_pending',
+    'importing',
+  ]
+  const track = (grab: { mediaId: number; state: string; progress: number }) => {
+    if (ACTIVE.includes(grab.state))
+      downloads.set(grab.mediaId, { state: grab.state, progress: grab.progress })
+    else downloads.delete(grab.mediaId)
+  }
+  ctx.inject(['downloads'], (ctx) => {
+    for (const grab of ctx.downloads.active()) track(grab)
+    refresh()
+    ctx.effect(() => () => {
+      downloads.clear()
+      refresh()
+    })
+  })
+  for (const event of ['downloads/grabbed', 'downloads/updated'] as const) {
+    ctx.on(event, (grab) => {
+      track(grab)
+      refresh()
+    })
+  }
+
   const snapshot = () => ({
-    movies: movies.list().map(summarize),
+    movies: movies.list().map((m) => ({ ...summarize(m), download: downloads.get(m.id) })),
     profiles: ctx.decision.profiles().map((p) => ({ id: p.id, name: p.name })),
     rootFolders: ctx.library.rootFolders('movie').map((f) => ({ id: f.id, path: f.path })),
   })
@@ -131,6 +169,9 @@ export default function console_(ctx: Context, movies: MoviesService) {
       movies.remove(id, deleteFiles)
     },
     refresh: (id) => movies.refresh(id),
+    async grab(id, guid) {
+      await movies.grab(id, guid)
+    },
     async search(id) {
       const { results, errors } = await movies.search(id, 'interactive')
       return {
