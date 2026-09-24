@@ -18,6 +18,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import api from './api'
 import automation from './automation'
 import bookCalendar from './calendar'
+import console_ from './console'
 import { audiobookFamily, ebookFamily } from './families'
 import bookImport from './import'
 import { BOOK_NAMING } from './naming'
@@ -159,6 +160,7 @@ export class BooksService extends Service {
     this.ctx.inject(['indexers', 'downloads'], (ctx) => void ctx.plugin(automation, this))
     this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(bookCalendar, this))
     this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
+    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
         this.grabber = async (mediaId, { release, decision, bookIds }, manual) => {

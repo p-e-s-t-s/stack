@@ -128,7 +128,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
 | `@magpiejs/calendar` | calendar page + iCal; `ctx.calendar` sources (Phase 4.5) | — | — |
 | `@magpiejs/podcasts` | podcast kind, feeds, retention, pages (Phase 4.6) | `podcasts_details`, `podcasts_episodes`, `podcasts_episode_files`, `podcasts_grab_episodes` | library, decision (downloads, import, calendar optional) |
 | `@magpiejs/downloader-http` | direct downloads over HTTP (`http` protocol) (Phase 4.6) | — | downloads, http |
-| `@magpiejs/books` | book kind: authors, books, ebook + audiobook families, pages (Phase 4.7) | `books_authors`, `books_books`, `books_book_files`, `books_grab_books` | library, decision |
+| `@magpiejs/books` | `ebook` and `audiobook` kinds: authors, books, ebook + audiobook families, pages (Phase 4.7) | `books_authors`, `books_books`, `books_followed`, `books_monitoring`, `books_book_files`, `books_grab_books` | library, decision (indexers, downloads, import, calendar optional) |
 | `@magpiejs/music` | music kind: artists, albums, tracks, audio family, pages (Phase 4.8) | `music_artists`, `music_albums`, `music_tracks`, `music_track_files`, `music_grab_albums` | library, decision |
 | `@magpiejs/compat-api` | `/api/v3` shims for Prowlarr/Overseerr | — | api, library |
 
@@ -562,7 +562,7 @@ Notes from building it:
 - Direct downloads use `ctx.http`, so the HTTP proxy setting applies and tracking redirects
   (podtrac, chartable…) are followed.
 
-### Phase 4.7 — Books (ebooks and audiobooks)
+### Phase 4.7 — Books (ebooks and audiobooks) (done)
 
 - `metadata-openlibrary`: authors, works, editions, ISBNs, covers (no key); optional
   `metadata-googlebooks`.
@@ -576,8 +576,31 @@ Notes from building it:
   (audiobooks). Import keeps multi-file audiobooks together as one folder.
 - Pages: Authors, Author detail, Add; calendar source (release dates).
 
-**Exit:** add an author, and a wanted book is found by a fake Newznab book search, then
-imported as an ebook and as an audiobook into their own folders with the right names.
+**Exit (met):** add an author, and a wanted book is found by a fake Newznab book search, then
+imported as an ebook and as an audiobook into their own folders with the right names
+(`plugins/books/tests/exit.test.ts`; the pages were also checked by hand against the real Open
+Library).
+
+How it was built, and where it differs from the list above:
+
+- Ebooks and audiobooks are two media kinds, `ebook` and `audiobook`. An author followed in a
+  format is one library item (one root folder, one profile, one family), so per-kind search
+  categories, naming, import extensions and calendar sources come from Phase 4.5 as they are.
+  The author and their books are shared rows (`books_authors`, `books_books`); monitoring is per
+  format (`books_monitoring`). The pages show an author once, with both formats side by side.
+- Open Library's search API gives an author's works with first publication year, languages and
+  edition counts; anthologies (other first author), omnibuses (`A / B / C`), stubs (no editions)
+  and other languages are left out. Release dates come from edition publish dates in the first
+  year (1 January is ignored as a placeholder). ISBNs and editions aren't stored yet, and
+  `metadata-googlebooks` wasn't needed.
+- Scene names often run the author into the title (`Stacia.Stark.A.Kingdom…`), so the parser
+  only splits them when the release does; `matchBook` then checks a release against the known
+  author and title in either order, allowing edition words, the subtitle, the series and
+  co-authors, and folding `ö`/`oe`/`o` and `å`/`aa`/`a`. Golden fixtures: 51 real scene names
+  (predb.net) and 18 hand-written P2P names.
+- Many wanted books (more than 10) are searched with one author query instead of one per book.
+- Qualities: EPUB > AZW3 > MOBI > CBZ > CBR > PDF, and M4B > FLAC > MP3; each family rejects
+  the other kind, and abridged audiobooks are rejected unless a custom format rewards them.
 
 ### Phase 4.8 — Music
 

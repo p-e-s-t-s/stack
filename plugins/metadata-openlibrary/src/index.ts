@@ -84,6 +84,9 @@ export function parsePublishDate(value: string): string | undefined {
   if (m) return make(+m[3]!, MONTHS.indexOf(m[2]!.toLowerCase()) + 1, +m[1]!)
 }
 
+/** Summaries and study guides of a book, whose authors a title search would otherwise list. */
+const COMPANION = /\b(?:summary|summaries|study guide|analysis|workbook|sparknotes|cliffsnotes)\b/i
+
 const LATIN = /^[\p{Script=Latin}\p{N}\p{P}\p{Zs}\p{S}]+$/u
 
 /** Whether a work belongs on the author's book list. */
@@ -144,7 +147,7 @@ export function apply(ctx: Context, config: Config) {
       }
       for (const w of works.docs) {
         const authorId = w.author_key?.[0]
-        if (!authorId || results.has(authorId)) continue
+        if (!authorId || results.has(authorId) || COMPANION.test(w.title)) continue
         results.set(authorId, {
           kind: query.kind ?? 'ebook',
           title: w.author_name?.[0] ?? authorId,
