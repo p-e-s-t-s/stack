@@ -20,6 +20,7 @@ import { desc, eq, inArray } from 'drizzle-orm'
 import z from 'schemastery'
 import api from './api'
 import podcastCalendar from './calendar'
+import console_ from './console'
 import podcastDownloads from './downloads'
 import { type FeedEpisode, parseFeed } from './feed'
 import podcastImport from './import'
@@ -177,6 +178,7 @@ export class PodcastsService extends Service {
     this.ctx.inject(['import'], (ctx) => void ctx.plugin(podcastImport, this))
     this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(podcastCalendar, this))
     this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
+    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.jobs.schedule(
       'podcasts.refresh-all',
       'podcasts.refresh',

@@ -2,14 +2,14 @@
   <section>
     <div class="mp-head"><h1>Metadata</h1></div>
     <p class="mp-lead">
-      Titles, release dates and posters come from TMDB. Get a free API key at
+      Titles, release dates and posters. Movies and series come from TMDB (get a free API key at
       <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer"
         >themoviedb.org → Settings → API</a
-      >.
+      >); podcast search uses iTunes and needs no key.
     </p>
     <k-slot name="provider-settings" :data="{ kind: 'metadata' }" />
-    <p v-if="!data.providers.length" class="mp-card warn">
-      TMDB isn't running yet: add or enable it with your API key to look up movies.
+    <p v-if="!data.providers.some((p) => p.kinds.includes('movie'))" class="mp-card warn">
+      TMDB isn't running yet: add or enable it with your API key to look up movies and series.
     </p>
   </section>
 </template>

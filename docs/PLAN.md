@@ -126,7 +126,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
 | `@magpiejs/notify` | `ctx.notify` registry | — | — |
 | `@magpiejs/subtitles` | `ctx.subtitles` registry, wanted/upgrade logic | `subtitle_profiles`, `subtitle_assignments` (media_id → `media_items`), `subtitle_files` (media_file_id → `media_files`) | library, jobs |
 | `@magpiejs/calendar` | calendar page + iCal; `ctx.calendar` sources (Phase 4.5) | — | — |
-| `@magpiejs/podcasts` | podcast kind, feeds, retention, pages (Phase 4.6) | `podcasts_details`, `podcasts_episodes`, `podcasts_episode_files` | library, downloads |
+| `@magpiejs/podcasts` | podcast kind, feeds, retention, pages (Phase 4.6) | `podcasts_details`, `podcasts_episodes`, `podcasts_episode_files`, `podcasts_grab_episodes` | library, decision (downloads, import, calendar optional) |
 | `@magpiejs/downloader-http` | direct downloads over HTTP (`http` protocol) (Phase 4.6) | — | downloads, http |
 | `@magpiejs/books` | book kind: authors, books, ebook + audiobook families, pages (Phase 4.7) | `books_authors`, `books_books`, `books_book_files`, `books_grab_books` | library, decision |
 | `@magpiejs/music` | music kind: artists, albums, tracks, audio family, pages (Phase 4.8) | `music_artists`, `music_albums`, `music_tracks`, `music_track_files`, `music_grab_albums` | library, decision |
@@ -532,7 +532,7 @@ calendar sources; an `http` download protocol.
 test (`packages/app/tests/fixture-kind.test.ts`) goes search → grab → import → calendar
 without touching core plugins.
 
-### Phase 4.6 — Podcasts
+### Phase 4.6 — Podcasts (done)
 
 - `metadata-itunes`: podcast search (no key needed). Feeds (RSS 2.0, iTunes and
   `podcast:` namespaces) are read by the podcasts plugin itself.
@@ -544,8 +544,23 @@ without touching core plugins.
 - Naming `{Podcast Title}/{Published Date} - {Episode Title}`; Podcasts pages; calendar
   source (new episodes).
 
-**Exit:** a podcast added by search and one added by feed URL download new episodes on
-refresh, and retention keeps only the last N.
+**Exit (met):** a podcast added by search and one added by feed URL download new episodes on
+refresh, and retention keeps only the last N (`plugins/podcasts/tests/podcasts.test.ts`,
+against a fake directory and feeds; also checked by hand with real iTunes search and real
+feeds).
+
+Notes from building it:
+
+- Podcasts still get a quality profile, because every library item has one: a one-quality
+  `podcast` family with a single `Podcast` profile, never shown on the podcast pages.
+- Episodes are grabbed with a made-up release (`protocol: 'http'`, the enclosure URL) through
+  `ctx.downloads.grab`, so they show in Activity and History like anything else.
+- Episodes that fail 3 times stop being retried until downloaded by hand or monitored again.
+- Episodes removed by retention are unmonitored, so the next refresh doesn't fetch them again.
+- Show notes are stored as plain text; feeds are read with conditional GET (ETag and
+  Last-Modified).
+- Direct downloads use `ctx.http`, so the HTTP proxy setting applies and tracking redirects
+  (podtrac, chartable…) are followed.
 
 ### Phase 4.7 — Books (ebooks and audiobooks)
 

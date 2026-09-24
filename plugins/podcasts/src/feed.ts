@@ -45,6 +45,33 @@ function text(node: unknown): string | undefined {
   return value || undefined
 }
 
+const ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+}
+
+/** Show notes are often HTML; the pages show them as plain text. */
+export function plainText(value: string | undefined) {
+  if (!value) return undefined
+  const result = value
+    // block elements separate words, inline ones (<em>, <a>) don't
+    .replace(/<\/?(?:p|br|div|li|ul|ol|h\d|tr|td|blockquote)\b[^>]*>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, code: string) => {
+      if (code[0] !== '#') return ENTITIES[code.toLowerCase()] ?? entity
+      const n =
+        code[1] === 'x' || code[1] === 'X' ? parseInt(code.slice(2), 16) : Number(code.slice(1))
+      return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : entity
+    })
+    .replace(/\s+/g, ' ')
+    .trim()
+  return result || undefined
+}
+
 /** `1:02:03`, `62:03` or `3723` seconds. */
 export function parseDuration(value: string | undefined) {
   if (!value) return undefined
@@ -79,7 +106,7 @@ export function parseFeed(xml: string): Feed {
     episodes.push({
       guid: text(item.guid) ?? url,
       title: text(item.title) ?? text(item['itunes:title']) ?? 'Untitled',
-      description: text(item['itunes:summary']) ?? text(item.description),
+      description: plainText(text(item['itunes:summary']) ?? text(item.description)),
       publishedAt: isoDate(text(item.pubDate)),
       enclosure: {
         url,
@@ -95,7 +122,7 @@ export function parseFeed(xml: string): Feed {
   return {
     title: text(channel.title) ?? 'Untitled podcast',
     author: text(channel['itunes:author']) ?? text(channel['itunes:owner']?.['itunes:name']),
-    description: text(channel['itunes:summary']) ?? text(channel.description),
+    description: plainText(text(channel['itunes:summary']) ?? text(channel.description)),
     link: text(channel.link),
     language: text(channel.language),
     imageUrl: image,

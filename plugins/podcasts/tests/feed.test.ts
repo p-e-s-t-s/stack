@@ -7,6 +7,7 @@ const FEED = `<?xml version="1.0"?>
   <title>Test Cast</title>
   <itunes:author>Ann</itunes:author>
   <itunes:image href="https://x/cover.jpg"/>
+  <description><![CDATA[<p>Talk about <em>tests</em> &amp; more.</p><br>Weekly]]></description>
   <item>
     <title>Episode 2</title>
     <guid isPermaLink="false">0042</guid>
@@ -30,7 +31,12 @@ const FEED = `<?xml version="1.0"?>
 
 it('reads a podcast feed', () => {
   const feed = parseFeed(FEED)
-  expect(feed).toMatchObject({ title: 'Test Cast', author: 'Ann', imageUrl: 'https://x/cover.jpg' })
+  expect(feed).toMatchObject({
+    title: 'Test Cast',
+    author: 'Ann',
+    imageUrl: 'https://x/cover.jpg',
+    description: 'Talk about tests & more. Weekly', // show notes' HTML as plain text
+  })
   expect(feed.episodes).toEqual([
     {
       guid: '0042', // kept as written, not read as a number

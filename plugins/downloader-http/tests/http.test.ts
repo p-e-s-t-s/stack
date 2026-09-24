@@ -20,6 +20,9 @@ let base: string
 const ranges: (string | undefined)[] = []
 beforeAll(async () => {
   server = createServer((req, res) => {
+    // podcast hosts send audio through tracking redirects
+    if (req.url!.startsWith('/feed/'))
+      return res.writeHead(302, { location: req.url!.replace('/feed/', '/cdn/') }).end()
     ranges.push(req.headers.range)
     const start = Number(/bytes=(\d+)-/.exec(req.headers.range ?? '')?.[1] ?? 0)
     res.writeHead(start ? 206 : 200, {

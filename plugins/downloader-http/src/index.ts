@@ -9,13 +9,14 @@ import { basename, join, resolve } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
+import type {} from '@cordisjs/plugin-http'
 import type {} from '@magpiejs/downloads'
 import type { DownloadClient, DownloadStatus } from '@magpiejs/types'
 import type { Context } from 'cordis'
 import z from 'schemastery'
 
 export const name = 'downloader-http'
-export const inject = ['downloads']
+export const inject = ['downloads', 'http']
 
 export interface Config {
   name: string
@@ -120,11 +121,13 @@ export function apply(ctx: Context, config: Config) {
       // resume a partial file when the server supports ranges
       const partial = entry.file ? join(entry.dir, entry.file) : undefined
       const have = partial && existsSync(partial) ? statSync(partial).size : 0
-      const response = await fetch(entry.url, {
+      // through the http service, so its proxy setting applies
+      const response = await ctx.http(entry.url, {
         headers: have ? { Range: `bytes=${have}-` } : {},
         signal: controller.signal,
         redirect: 'follow',
-      })
+        validateStatus: () => true,
+      } as never)
       if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`)
       const resumed = have > 0 && response.status === 206
       if (!entry.file)
