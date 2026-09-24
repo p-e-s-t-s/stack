@@ -11,9 +11,11 @@ import type { MovieMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq } from 'drizzle-orm'
 import console_ from './console'
+import movieSearch, { type MovieSearch } from './search'
 import * as schema from './schema'
 
 export * from './schema'
+export { matchesMovie, targetFor, type MovieSearch, type SearchResult } from './search'
 
 declare module 'cordis' {
   interface Context {
@@ -81,6 +83,8 @@ export class MoviesService extends Service {
   static inject = ['database', 'library', 'metadata', 'jobs', 'decision', 'timer']
 
   db!: Drizzle<typeof schema>
+  /** Set while an indexers plugin is loaded. */
+  searcher?: MovieSearch
 
   constructor(ctx: Context) {
     super(ctx, 'movies')
@@ -97,7 +101,14 @@ export class MoviesService extends Service {
       for (const id of ids) await this.refresh(id)
     })
     this.ctx.jobs.schedule('movies.refresh-all', 'movies.refresh', DAY)
+    this.ctx.inject(['indexers'], (ctx) => void ctx.plugin(movieSearch, this))
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+  }
+
+  /** Searches the indexers for a movie; throws if no indexers plugin is loaded. */
+  search(id: number, kind: 'automatic' | 'interactive' = 'automatic') {
+    if (!this.searcher) throw new Error('no indexers are enabled')
+    return this.searcher.search(id, kind)
   }
 
   private provider() {

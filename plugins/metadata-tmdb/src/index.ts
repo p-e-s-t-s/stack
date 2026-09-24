@@ -76,7 +76,13 @@ export function apply(ctx: Context, config: Config) {
   const bearer = config.apiKey.length > 40
   const get = <T>(path: string, params: Record<string, string | number | undefined> = {}) =>
     ctx.http.get<T>(config.baseUrl + path, {
-      params: { language: config.language, ...(!bearer && { api_key: config.apiKey }), ...params },
+      params: Object.fromEntries(
+        Object.entries({
+          language: config.language,
+          ...(!bearer && { api_key: config.apiKey }),
+          ...params,
+        }).filter(([, value]) => value !== undefined),
+      ),
       headers: bearer ? { Authorization: `Bearer ${config.apiKey}` } : {},
       timeout: 15_000,
     })

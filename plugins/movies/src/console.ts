@@ -3,6 +3,7 @@
 import type {} from '@magpiejs/webui'
 import type { MetadataSearchResult } from '@magpiejs/types'
 import type { Context } from 'cordis'
+import { QUALITY_NAMES } from '@magpiejs/decision/qualities'
 import { isAvailable, type Movie, type MoviesService } from './index'
 import type { MinimumAvailability } from './schema'
 
@@ -46,6 +47,26 @@ export interface MoviesData {
   ): Promise<void>
   remove(id: number, deleteFiles: boolean): Promise<void>
   refresh(id: number): Promise<void>
+  search(
+    id: number,
+  ): Promise<{ results: ReleaseRow[]; errors: { indexer: string; message: string }[] }>
+}
+
+export interface ReleaseRow {
+  guid: string
+  title: string
+  indexer: string
+  protocol: 'torrent' | 'usenet'
+  size?: number
+  seeders?: number
+  leechers?: number
+  publishedAt?: string
+  infoUrl?: string
+  quality: string
+  formatScore: number
+  matchedFormats: string[]
+  accepted: boolean
+  rejections: { rule: string; reason: string }[]
 }
 
 function summarize(m: Movie): MovieSummary {
@@ -110,6 +131,28 @@ export default function console_(ctx: Context, movies: MoviesService) {
       movies.remove(id, deleteFiles)
     },
     refresh: (id) => movies.refresh(id),
+    async search(id) {
+      const { results, errors } = await movies.search(id, 'interactive')
+      return {
+        errors,
+        results: results.map(({ release: r, decision: d }) => ({
+          guid: r.guid,
+          title: r.title,
+          indexer: r.indexerName,
+          protocol: r.protocol,
+          size: r.size,
+          seeders: r.seeders,
+          leechers: r.leechers,
+          publishedAt: r.publishedAt,
+          infoUrl: r.infoUrl,
+          quality: QUALITY_NAMES[d.quality] ?? d.quality,
+          formatScore: d.formatScore,
+          matchedFormats: d.matchedFormats,
+          accepted: d.accepted,
+          rejections: d.rejections.map(({ rule, reason }) => ({ rule, reason })),
+        })),
+      }
+    },
   }
 
   const entry = ctx.webui.addEntry(

@@ -77,16 +77,71 @@
         </div>
       </div>
     </div>
-    <!-- other plugins add sections here (interactive search, history…) -->
+    <h2>Search</h2>
+    <div class="row">
+      <button
+        class="primary"
+        data-testid="interactive-search"
+        :disabled="searching"
+        @click="search"
+      >
+        {{ searching ? 'Searching…' : 'Interactive search' }}
+      </button>
+      <span v-if="searchError" class="error">{{ searchError }}</span>
+      <span v-for="e in indexerErrors" :key="e.indexer" class="error"
+        >{{ e.indexer }}: {{ e.message }}</span
+      >
+    </div>
+    <table v-if="results" class="mp-card releases" data-testid="releases">
+      <thead>
+        <tr>
+          <th>Release</th>
+          <th>Indexer</th>
+          <th>Quality</th>
+          <th>Score</th>
+          <th>Size</th>
+          <th>Peers</th>
+          <th>Age</th>
+          <th />
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-if="!results.length">
+          <td colspan="8" class="muted">No results.</td>
+        </tr>
+        <tr v-for="r in results" :key="r.guid" :class="{ rejected: !r.accepted }">
+          <td class="release">
+            <a v-if="r.infoUrl" :href="r.infoUrl" target="_blank" rel="noreferrer">{{ r.title }}</a
+            ><span v-else>{{ r.title }}</span>
+            <div v-if="r.rejections.length" class="reasons">
+              {{ r.rejections.map((x) => x.reason).join(' · ') }}
+            </div>
+            <div v-else-if="r.matchedFormats.length" class="muted">
+              {{ r.matchedFormats.join(', ') }}
+            </div>
+          </td>
+          <td>{{ r.indexer }}</td>
+          <td>{{ r.quality }}</td>
+          <td>{{ r.formatScore }}</td>
+          <td>{{ r.size ? (r.size / 1024 ** 3).toFixed(1) + ' GB' : '' }}</td>
+          <td>{{ r.protocol === 'torrent' ? `${r.seeders ?? '?'}/${r.leechers ?? '?'}` : '' }}</td>
+          <td>{{ age(r.publishedAt) }}</td>
+          <td>
+            <span :class="r.accepted ? 'ok' : 'no'">{{ r.accepted ? '✓' : '✕' }}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <!-- other plugins add sections here (history, grab…) -->
     <k-slot name="movie-detail" :data="{ movie }" />
   </section>
   <section v-else class="mv"><p class="muted">Movie not found.</p></section>
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
-import type { MoviesData } from '../src/console'
+import type { MoviesData, ReleaseRow } from '../src/console'
 
 const data = useRpc<MoviesData>()
 const route = useRoute()
@@ -99,6 +154,35 @@ const folder = computed(() => {
 
 const update = (patch: Parameters<MoviesData['update']>[1]) =>
   data.value.update(movie.value!.id, patch)
+
+const results = ref<ReleaseRow[]>()
+const indexerErrors = ref<{ indexer: string; message: string }[]>([])
+const searchError = ref('')
+const searching = ref(false)
+watch(
+  () => route.params.id,
+  () => (results.value = undefined),
+)
+
+async function search() {
+  searching.value = true
+  searchError.value = ''
+  try {
+    const outcome = await data.value.search(movie.value!.id)
+    results.value = outcome.results
+    indexerErrors.value = outcome.errors
+  } catch (e) {
+    searchError.value = (e as Error).message
+  } finally {
+    searching.value = false
+  }
+}
+
+function age(date?: string) {
+  if (!date) return ''
+  const days = (Date.now() - Date.parse(date)) / 86_400_000
+  return days < 1 ? `${Math.max(1, Math.round(days * 24))} h` : `${Math.round(days)} d`
+}
 
 async function remove() {
   const deleteFiles = !!movie.value!.file && confirm('Also delete the movie folder and its files?')

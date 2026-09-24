@@ -175,6 +175,15 @@ export class LibraryService extends Service {
     return rows.map((r) => r.item)
   }
 
+  alternateTitlesOf(mediaId: number) {
+    return this.db
+      .select({ title: schema.alternateTitles.title })
+      .from(schema.alternateTitles)
+      .where(eq(schema.alternateTitles.mediaId, mediaId))
+      .all()
+      .map((r) => r.title)
+  }
+
   /** Absolute folder of an item. */
   folderOf(item: schema.MediaItem) {
     const root = this.db

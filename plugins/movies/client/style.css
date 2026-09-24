@@ -101,3 +101,34 @@
   text-align: left;
   font-size: 14px;
 }
+.mv .releases {
+  width: 100%;
+}
+.mv .releases th,
+.mv .releases td {
+  border-bottom: 1px solid var(--mp-border);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+.mv .releases .release {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+.mv .releases .reasons {
+  color: #d33;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  margin-top: 2px;
+}
+.mv .releases tr.rejected td {
+  opacity: 0.75;
+}
+.mv .ok {
+  color: #2ea44f;
+  font-weight: 700;
+}
+.mv .no {
+  color: #d33;
+  font-weight: 700;
+}

@@ -30,6 +30,7 @@ export function defaultConfig(options: StartOptions) {
     // enable after adding your TMDB API key (Settings will manage this later)
     { name: '@magpiejs/metadata-tmdb', disabled: true, config: { apiKey: '' } },
     { name: '@magpiejs/library' },
+    { name: '@magpiejs/indexers' },
     { name: '@magpiejs/movies' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
     { name: '@magpiejs/system' },
