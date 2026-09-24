@@ -14,6 +14,7 @@ import type { EpisodeMetadata, SeriesMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { and, eq, inArray } from 'drizzle-orm'
 import console_ from './console'
+import automation from './automation'
 import episodeImport from './import'
 import episodeSearch, { type EpisodeResult, type EpisodeSearch, pickReleases } from './search'
 import * as schema from './schema'
@@ -150,6 +151,7 @@ export class SeriesService extends Service {
     this.ctx.jobs.schedule('series.refresh-all', 'series.refresh', DAY)
     this.ctx.inject(['indexers'], (ctx) => void ctx.plugin(episodeSearch, this))
     this.ctx.inject(['import'], (ctx) => void ctx.plugin(episodeImport, this))
+    this.ctx.inject(['indexers', 'downloads'], (ctx) => void ctx.plugin(automation, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
         this.grabber = async (seriesId, { release, decision, episodeIds }, manual) => {
@@ -430,6 +432,25 @@ export class SeriesService extends Service {
       meta.alternateTitles,
     )
     this.ctx.emit('series/episodes', id)
+  }
+
+  /** Library series a release could be for: by indexer ids, else by title. */
+  findForRelease(
+    release: { ids?: { tvdb?: string; tmdb?: string; imdb?: string } },
+    parsed: { title: string },
+  ): Series[] {
+    const byId = (column: 'tvdbId' | 'tmdbId' | 'imdbId', value: string | number) =>
+      this.db.select().from(schema.details).where(eq(schema.details[column], value)).get()
+    const ids = release.ids ?? {}
+    const found =
+      (ids.tvdb && byId('tvdbId', Number(ids.tvdb))) ||
+      (ids.tmdb && byId('tmdbId', Number(ids.tmdb))) ||
+      (ids.imdb && byId('imdbId', ids.imdb))
+    if (found) return [this.get(found.mediaId)!]
+    return this.ctx.library
+      .findByTitle(parsed.title, 'series')
+      .map((item) => this.get(item.id))
+      .filter((s): s is Series => !!s)
   }
 
   get(id: number): Series | undefined {

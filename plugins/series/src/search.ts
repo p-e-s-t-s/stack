@@ -36,6 +36,8 @@ export interface EpisodeSearch {
     kind?: 'automatic' | 'interactive',
   ): Promise<{ results: EpisodeResult[]; errors: { indexer: string; message: string }[] }>
   cached(seriesId: number, guid: string): EpisodeResult | undefined
+  /** Matches and evaluates releases for a series, best first (used by search and RSS). */
+  evaluate(seriesId: number, releases: FoundRelease[], wantedIds: Set<number>): EpisodeResult[]
 }
 
 /** Normalized titles a release for this series may use: title, alternates, "title year". */
@@ -154,8 +156,20 @@ export default function episodeSearch(ctx: Context, series: SeriesService) {
         errors.push(...outcome.errors)
       }
 
-      const titles = titlesOf(show, ctx.library.alternateTitlesOf(show.id))
       const wantedIds = new Set(wanted.map((e) => e.id))
+      const results = api.evaluate(seriesId, releases, wantedIds)
+      cache.set(seriesId, {
+        at: Date.now(),
+        results: new Map(results.map((r) => [r.release.guid, r])),
+      })
+      series.markSearched([...wantedIds])
+      return { results, errors }
+    },
+    evaluate(seriesId, releases, wantedIds) {
+      const show = series.get(seriesId)
+      if (!show) return []
+      const all = series.episodes(seriesId)
+      const titles = titlesOf(show, ctx.library.alternateTitlesOf(show.id))
       const seen = new Set<string>()
       const results: EpisodeResult[] = []
       for (const release of releases) {
@@ -181,17 +195,11 @@ export default function episodeSearch(ctx: Context, series: SeriesService) {
         decision.rank.push(-release.indexerPriority)
         results.push({ release, decision, episodeIds: covered.map((e) => e.id) })
       }
-      results.sort(
+      return results.sort(
         (a, b) =>
           Number(b.decision.accepted) - Number(a.decision.accepted) ||
           compareDecisions(a.decision, b.decision),
       )
-      cache.set(seriesId, {
-        at: Date.now(),
-        results: new Map(results.map((r) => [r.release.guid, r])),
-      })
-      series.markSearched([...wantedIds])
-      return { results, errors }
     },
     cached(seriesId, guid) {
       const entry = cache.get(seriesId)

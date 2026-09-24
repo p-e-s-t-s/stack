@@ -27,12 +27,14 @@ const release = (title: string, size = 2 * GB): ReleaseInfo => ({
 
 let ctx: Context
 let results: ReleaseInfo[]
+let feed: ReleaseInfo[]
 const queries: ReleaseQuery[] = []
 const added: string[] = []
 let seriesId: number
 
 beforeEach(async () => {
   results = []
+  feed = []
   queries.length = 0
   added.length = 0
   ctx = new Context()
@@ -71,6 +73,7 @@ beforeEach(async () => {
         searchParams: { movie: [], tv: ['q', 'season', 'ep'], search: ['q'] },
       }),
       search: async (q) => (queries.push(q), results),
+      rss: async () => feed,
       test: async () => ({ ok: true }),
     },
     { name: 'Fake', priority: 1, enableRss: true, enableAutomatic: true, enableInteractive: true },
@@ -140,5 +143,23 @@ describe('episode search', () => {
     expect(single.decision.rejections.map((r) => r.rule)).toContain('episode-in-queue')
     const other = again.results.find((r) => r.release.title.startsWith('Other'))!
     expect(other.decision.rejections.map((r) => r.rule)).toContain('series-match')
+  })
+
+  it('searches when a series is added, and grabs wanted episodes from RSS', async () => {
+    results = [release('Test.Show.S01.1080p.WEB-DL.x264-GRP', 6 * GB)]
+    const show = ctx.series.get(seriesId)!
+    ctx.emit('series/added', show, { search: true })
+    await ctx.jobs.tick()
+    // season 1 as a pack; nothing for season 2 in the results
+    expect(added).toEqual(['Test.Show.S01.1080p.WEB-DL.x264-GRP'])
+
+    feed = [
+      release('Test.Show.S02E03.1080p.WEB-DL.x264-GRP'),
+      release('Test.Show.S01E01.1080p.WEB-DL.x264-GRP'), // already downloading in the pack
+      release('Test.Show.S02E03.720p.HDTV.x264-LOL'), // worse than the one above
+    ]
+    await ctx.indexers.syncRss()
+    await new Promise((r) => setTimeout(r, 10))
+    expect(added.slice(1)).toEqual(['Test.Show.S02E03.1080p.WEB-DL.x264-GRP'])
   })
 })
