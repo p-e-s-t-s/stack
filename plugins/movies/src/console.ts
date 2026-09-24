@@ -7,7 +7,6 @@ import type {} from '@magpiejs/webui'
 import type { MetadataSearchResult, Protocol } from '@magpiejs/types'
 import type { Context } from 'cordis'
 import { cutoffMet } from '@magpiejs/decision'
-import { QUALITY_NAMES } from '@magpiejs/decision/qualities'
 import { isAvailable, type Movie, type MoviesService } from './index'
 import type { MinimumAvailability } from './schema'
 
@@ -163,7 +162,7 @@ export default function console_(ctx: Context, movies: MoviesService) {
   const snapshot = () => ({
     setup: setup(),
     movies: movies.list().map((m) => ({ ...summarize(m), download: downloads.get(m.id) })),
-    profiles: ctx.decision.profiles().map((p) => ({ id: p.id, name: p.name })),
+    profiles: ctx.decision.profiles('video').map((p) => ({ id: p.id, name: p.name })),
     rootFolders: ctx.library.rootFolders('movie').map((f) => ({ id: f.id, path: f.path })),
   })
   const refresh = ctx.debounce(() => entry.mutate((d) => Object.assign(d, snapshot())), 100)
@@ -223,7 +222,7 @@ export default function console_(ctx: Context, movies: MoviesService) {
           leechers: r.leechers,
           publishedAt: r.publishedAt,
           infoUrl: r.infoUrl,
-          quality: QUALITY_NAMES[d.quality] ?? d.quality,
+          quality: ctx.decision.qualityName(d.quality),
           formatScore: d.formatScore,
           matchedFormats: d.matchedFormats,
           accepted: d.accepted,

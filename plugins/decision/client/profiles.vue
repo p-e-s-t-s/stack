@@ -8,9 +8,20 @@
       A profile decides which releases Magpie accepts for a movie, which one it prefers, and when it
       stops upgrading.
     </p>
+    <div v-if="data.families.length > 1" class="mp-row families">
+      <button
+        v-for="f in data.families"
+        :key="f.id"
+        class="small"
+        :class="{ primary: f.id === familyId }"
+        @click="pickFamily(f.id)"
+      >
+        {{ f.label }}
+      </button>
+    </div>
     <div class="mp-tabs">
       <button
-        v-for="p in data.profiles"
+        v-for="p in familyProfiles"
         :key="p.id"
         :class="{ active: draft?.id === p.id }"
         @click="edit(p)"
@@ -125,7 +136,14 @@
       <summary>Size limits and required terms (all profiles)</summary>
 
       <h2>Size limits</h2>
-      <p class="mp-lead">Megabytes per minute of runtime. Releases outside these are rejected.</p>
+      <p class="mp-lead">
+        {{
+          family?.sizeRule === 'total'
+            ? 'Megabytes per release.'
+            : 'Megabytes per minute of runtime.'
+        }}
+        Releases outside these are rejected.
+      </p>
       <table class="mp-table">
         <thead>
           <tr>
@@ -137,7 +155,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="s in sizes" :key="s.quality">
+          <tr v-for="s in familySizes" :key="s.quality">
             <td>{{ qualityName(s.quality) }}</td>
             <td><input v-model.number="s.min" type="number" class="score" /></td>
             <td><input v-model.number="s.preferred" type="number" class="score" /></td>
@@ -199,11 +217,45 @@ function edit(p: Profile) {
   message.value = ''
 }
 
+// profiles belong to a quality family (video, audio…); the page shows one family at a time
+const familyId = ref(data.value.families[0]?.id ?? 'video')
+const family = computed(() => data.value.families.find((f) => f.id === familyId.value))
+const familyProfiles = computed(() =>
+  data.value.profiles.filter((p) => p.family === familyId.value),
+)
+const familySizes = computed(() =>
+  sizes.value.filter((s) => family.value?.qualities.some((q) => q.id === s.quality)),
+)
+
+function pickFamily(id: string) {
+  familyId.value = id
+  const first = familyProfiles.value[0]
+  if (first) edit(first)
+  else create()
+}
+
 function create() {
-  const any = data.value.profiles.find((p) => p.name === 'Any') ?? data.value.profiles[0]!
-  const { id: _, ...rest } = clone(any)
-  draft.value = { ...rest, name: 'New profile' }
-  languages.value = rest.languages.join(', ')
+  const template = familyProfiles.value.find((p) => p.name === 'Any') ?? familyProfiles.value[0]
+  if (template) {
+    const { id: _, ...rest } = clone(template)
+    draft.value = { ...rest, name: 'New profile' }
+  } else {
+    // a family without profiles: every quality allowed, the best as cutoff
+    const qualities = family.value?.qualities ?? []
+    draft.value = {
+      name: 'New profile',
+      family: familyId.value,
+      items: qualities.map((q) => ({ quality: q.id, allowed: true })),
+      cutoff: qualities.at(-1)?.id ?? '',
+      minFormatScore: 0,
+      cutoffFormatScore: 0,
+      upgradesAllowed: true,
+      languages: [],
+      minSeeders: 1,
+      minAgeMinutes: 0,
+    }
+  }
+  languages.value = draft.value.languages.join(', ')
   for (const k of Object.keys(scores)) delete scores[+k]
 }
 
@@ -232,9 +284,8 @@ async function remove() {
   draft.value = undefined
 }
 
-if (data.value.profiles[0]) edit(data.value.profiles[0])
-
 const sizes = ref(clone(data.value.sizes))
+if (familyProfiles.value[0]) edit(familyProfiles.value[0])
 type RestrictionDraft = { id?: number; requiredText: string; ignoredText: string }
 const restrictions = ref<RestrictionDraft[]>([])
 watch(

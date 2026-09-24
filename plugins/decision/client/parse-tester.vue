@@ -12,17 +12,25 @@
       placeholder="The.Matrix.1999.2160p.UHD.BluRay.REMUX.HDR.HEVC.TrueHD.Atmos.7.1-GROUP"
     />
     <div class="dc-row">
+      <template v-if="data.families.length > 1">
+        <label>Type</label>
+        <select v-model="familyId" data-testid="family">
+          <option v-for="f in data.families" :key="f.id" :value="f.id">{{ f.label }}</option>
+        </select>
+      </template>
       <label>Profile</label>
       <select v-model="profileId">
         <option :value="undefined">— none —</option>
-        <option v-for="p in data.profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
+        <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
       </select>
       <label>Runtime (min)</label>
       <input v-model.number="runtime" type="number" style="width: 80px" />
       <label>Existing file</label>
       <select v-model="current">
         <option value="">— none —</option>
-        <option v-for="q in data.qualities" :key="q.id" :value="q.id">{{ q.name }}</option>
+        <option v-for="q in family?.qualities ?? []" :key="q.id" :value="q.id">
+          {{ q.name }}
+        </option>
       </select>
       <button class="primary" data-testid="run" @click="run">Test</button>
     </div>
@@ -64,13 +72,21 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRpc } from '@cordisjs/client'
 import type { DecisionData, TestResult } from '../src/console'
 
 const data = useRpc<DecisionData>()
 const input = ref('')
-const profileId = ref<number | undefined>(data.value.profiles[0]?.id)
+const familyId = ref(data.value.families[0]?.id ?? 'video')
+const family = computed(() => data.value.families.find((f) => f.id === familyId.value))
+const profiles = computed(() => data.value.profiles.filter((p) => p.family === familyId.value))
+const profileId = ref<number | undefined>(profiles.value[0]?.id)
+watch(familyId, () => {
+  profileId.value = profiles.value[0]?.id
+  current.value = ''
+  results.value = []
+})
 const runtime = ref(120)
 const current = ref('')
 const results = ref<TestResult[]>([])
@@ -84,13 +100,14 @@ async function run() {
     profileId.value,
     current.value ? { quality: current.value as never, formatScore: 0, revision } : undefined,
     runtime.value || undefined,
+    familyId.value,
   )
 }
 
 function pieces(p: TestResult['parsed']) {
   const out: { text: string; field?: string }[] = []
   let at = 0
-  for (const s of [...p.spans].sort((a, b) => a.start - b.start)) {
+  for (const s of [...(p.spans ?? [])].sort((a, b) => a.start - b.start)) {
     if (s.start < at) continue
     if (s.start > at) out.push({ text: p.input.slice(at, s.start) })
     out.push({ text: s.text, field: s.field })
@@ -100,7 +117,14 @@ function pieces(p: TestResult['parsed']) {
   return out
 }
 
-function fields(p: TestResult['parsed']): [string, string][] {
+/** Parsed fields to show. Video has a curated list; other families show what they return. */
+function fields(parsed: TestResult['parsed']): [string, string][] {
+  if (familyId.value !== 'video') {
+    return Object.entries(parsed)
+      .filter(([k, v]) => !['input', 'spans'].includes(k) && v !== undefined && v !== '')
+      .map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
+  }
+  const p = parsed as any
   const e = p.episodes
   const rows: [string, unknown][] = [
     ['title', p.title],

@@ -1,9 +1,10 @@
-// Built-in decision rules (docs/phase-2.md §3.4). A rule returns a rejection reason, or
-// nothing to accept. Other plugins add rules with `ctx.decision.rule()`.
+// Built-in decision rules (docs/phase-2.md §3.4), for every quality family. A rule returns a
+// rejection reason, or nothing to accept. Families add their own rules (video: hardcoded
+// subtitles, episode match); other plugins add rules with `ctx.decision.rule()`.
 
-import type { ParsedRelease, Revision } from '@magpiejs/parser'
+import type { Revision } from '@magpiejs/parser'
 import type { ReleaseInfo } from '@magpiejs/types'
-import { type Quality, QUALITY_NAMES } from './qualities'
+import type { BaseParsed, QualityFamily } from './families'
 import type { Profile, QualitySize, Restriction } from './schema'
 
 export interface DecisionTarget {
@@ -22,15 +23,19 @@ export interface DecisionTarget {
    */
   unitIds?: number[]
   /** The file already on disk, if any. */
-  current?: { quality: Quality; formatScore: number; revision: Revision }
+  current?: { quality: string; formatScore: number; revision: Revision }
 }
 
 export interface RuleContext {
   info: ReleaseInfo
-  parsed: ParsedRelease
+  /** The family's parse of the release name (a `ParsedRelease` for video). */
+  parsed: BaseParsed
   target: DecisionTarget
   profile: Profile
-  quality: Quality
+  family: QualityFamily
+  quality: string
+  /** Display name of a quality. */
+  qualityName(quality: string): string
   /** Position in the profile (groups share one); -1 when not in the profile. */
   qualityRank: number
   qualityAllowed: boolean
@@ -80,22 +85,26 @@ export const BUILTIN_RULES: Record<string, Rule> = {
     if (parsed.flags.includes('extras')) return { reason: 'contains only extras', permanent: true }
   },
 
-  'quality-allowed': ({ quality, qualityAllowed }) => {
+  'quality-allowed': ({ quality, qualityAllowed, qualityName }) => {
     if (!qualityAllowed)
-      return { reason: `${QUALITY_NAMES[quality]} is not allowed by the profile`, permanent: true }
+      return { reason: `${qualityName(quality)} is not allowed by the profile`, permanent: true }
   },
 
-  size: ({ info, size, target, quality }) => {
-    if (!size || !info.size || !target.runtimeMinutes) return
-    const mbPerMinute = info.size / 1024 ** 2 / target.runtimeMinutes
-    if (mbPerMinute < size.min)
+  size: ({ info, size, target, quality, family, qualityName }) => {
+    if (!size || !info.size || family.sizeRule === 'none') return
+    // MB per minute of runtime (video, audio) or MB in total (books)
+    const perMinute = family.sizeRule === 'perMinute'
+    if (perMinute && !target.runtimeMinutes) return
+    const mb = info.size / 1024 ** 2 / (perMinute ? target.runtimeMinutes! : 1)
+    const unit = perMinute ? 'MB/min' : 'MB'
+    if (mb < size.min)
       return {
-        reason: `too small for ${QUALITY_NAMES[quality]} (${mbPerMinute.toFixed(1)} MB/min, minimum ${size.min})`,
+        reason: `too small for ${qualityName(quality)} (${mb.toFixed(1)} ${unit}, minimum ${size.min})`,
         permanent: true,
       }
-    if (size.max && mbPerMinute > size.max)
+    if (size.max && mb > size.max)
       return {
-        reason: `too large for ${QUALITY_NAMES[quality]} (${mbPerMinute.toFixed(1)} MB/min, maximum ${size.max})`,
+        reason: `too large for ${qualityName(quality)} (${mb.toFixed(1)} ${unit}, maximum ${size.max})`,
         permanent: true,
       }
   },
@@ -127,12 +136,6 @@ export const BUILTIN_RULES: Record<string, Rule> = {
     }
   },
 
-  'hardcoded-subs': ({ parsed, formatScore }) => {
-    // allowed only when a custom format explicitly rewards them
-    if (parsed.hardcodedSubs && formatScore <= 0)
-      return { reason: 'has hardcoded subtitles', permanent: true }
-  },
-
   seeders: ({ info, profile }) => {
     if (info.protocol !== 'torrent' || info.seeders === undefined) return
     if (info.seeders < profile.minSeeders)
@@ -144,35 +147,6 @@ export const BUILTIN_RULES: Record<string, Rule> = {
     const age = (now - Date.parse(info.publishedAt)) / 60_000
     if (age < profile.minAgeMinutes)
       return `only ${Math.floor(age)} minutes old (minimum ${profile.minAgeMinutes})`
-  },
-
-  'episode-match': ({ parsed, target }) => {
-    if (target.kind === 'movie') {
-      if (parsed.kind === 'episode' || parsed.kind === 'season')
-        return { reason: 'is a series release', permanent: true }
-      return
-    }
-    const wanted = target.episodes
-    if (!wanted) return
-    const eps = parsed.episodes
-    if (!eps) return { reason: 'has no episode information', permanent: true }
-    if (eps.airDate) return // daily shows are matched by date in the library
-    const seasons = eps.seasons ?? (eps.season !== undefined ? [eps.season] : [])
-    if (seasons.length && !seasons.includes(wanted.season))
-      return { reason: `is season ${seasons.join(', ')}, not ${wanted.season}`, permanent: true }
-    if (target.kind === 'season') {
-      if (parsed.kind !== 'season')
-        return { reason: 'is a single episode, a season pack is wanted', permanent: true }
-      return
-    }
-    if (parsed.kind === 'season')
-      return { reason: 'is a season pack, single episodes are wanted', permanent: true }
-    if (eps.numbers.length && !eps.numbers.some((n) => wanted.numbers.includes(n))) {
-      return {
-        reason: `is episode ${eps.numbers.join(', ')}, not ${wanted.numbers.join(', ')}`,
-        permanent: true,
-      }
-    }
   },
 
   upgrade: ({ target, profile, qualityRank, formatScore, parsed, rankOf, cutoffRank }) => {

@@ -1,7 +1,7 @@
 // @magpiejs/history: records what happened to each library item (grabs, failures, imports).
 
 import type { Drizzle } from '@magpiejs/database'
-import { QUALITY_NAMES, type Quality } from '@magpiejs/decision/qualities'
+import type {} from '@magpiejs/decision'
 import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/import'
 import { type Context, Service } from 'cordis'
@@ -21,7 +21,7 @@ declare module 'cordis' {
 }
 
 export class HistoryService extends Service {
-  static inject = ['database', 'library']
+  static inject = ['database', 'library', 'decision']
 
   db!: Drizzle<typeof schema>
 
@@ -35,7 +35,7 @@ export class HistoryService extends Service {
       schema,
       migrations: new URL('../migrations', import.meta.url),
     })
-    const quality = (q: string) => QUALITY_NAMES[q as Quality] ?? q
+    const quality = (q: string) => this.ctx.decision.qualityName(q)
     this.ctx.on('downloads/grabbed', (g) =>
       this.add(g.mediaId, 'grabbed', g.title, {
         quality: quality(g.quality),

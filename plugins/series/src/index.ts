@@ -291,6 +291,8 @@ export class SeriesService extends Service {
   }
 
   async add(options: AddSeriesOptions): Promise<Series> {
+    if (this.ctx.decision.profile(options.profileId)?.family !== 'video')
+      throw new Error('choose a video quality profile')
     const found = this.db
       .select()
       .from(schema.details)

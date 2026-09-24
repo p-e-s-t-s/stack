@@ -1,0 +1,1 @@
+ALTER TABLE `decision_profiles` ADD `family` text DEFAULT 'video' NOT NULL;

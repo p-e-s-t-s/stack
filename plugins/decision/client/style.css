@@ -106,3 +106,7 @@
 .sp-revision {
   background: #e6d6ff66;
 }
+
+.dc .families {
+  margin-bottom: 4px;
+}

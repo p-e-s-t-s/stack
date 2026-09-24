@@ -6,7 +6,7 @@ export type ProfileItem =
 
 export const qualitySizes = sqliteTable('decision_quality_sizes', {
   quality: text('quality').primaryKey(),
-  /** MB per minute of runtime. */
+  /** MB per minute of runtime, or MB in total, per the quality's family. */
   min: integer('min').notNull().default(0),
   preferred: integer('preferred'),
   max: integer('max'),
@@ -15,6 +15,8 @@ export const qualitySizes = sqliteTable('decision_quality_sizes', {
 export const profiles = sqliteTable('decision_profiles', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull().unique(),
+  /** The quality family this profile's items come from (`video`, `audio`…). */
+  family: text('family').notNull().default('video'),
   /** Worst to best. */
   items: text('items', { mode: 'json' }).$type<ProfileItem[]>().notNull(),
   /** A quality, or a group name from `items`. */
@@ -28,20 +30,9 @@ export const profiles = sqliteTable('decision_profiles', {
   minAgeMinutes: integer('min_age_minutes').notNull().default(0),
 })
 
-export type ConditionType =
-  | 'title'
-  | 'group'
-  | 'edition'
-  | 'source'
-  | 'resolution'
-  | 'modifier'
-  | 'language'
-  | 'hdr'
-  | 'videoCodec'
-  | 'audioCodec'
-  | 'streamingService'
-  | 'size'
-  | 'indexerFlag'
+/** Conditions every family understands; families add their own (`resolution`, `bitrate`…). */
+export type GenericCondition = 'title' | 'group' | 'language' | 'size' | 'indexerFlag'
+export type ConditionType = GenericCondition | (string & {})
 
 export interface Condition {
   type: ConditionType

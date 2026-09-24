@@ -162,6 +162,8 @@ export class MoviesService extends Service {
   }
 
   async add(options: AddMovieOptions): Promise<Movie> {
+    if (this.ctx.decision.profile(options.profileId)?.family !== 'video')
+      throw new Error('choose a video quality profile')
     const found = this.db
       .select()
       .from(schema.details)

@@ -1,7 +1,6 @@
 // Web console entry: Series, Add series and Series detail pages.
 
 import type {} from '@magpiejs/webui'
-import { QUALITY_NAMES, type Quality } from '@magpiejs/decision/qualities'
 import type { MetadataSearchResult, Protocol } from '@magpiejs/types'
 import type { Context } from 'cordis'
 import { hasAired, type SeriesService, type SeriesStats } from './index'
@@ -134,7 +133,7 @@ export default function console_(ctx: Context, series: SeriesService) {
 
   const snapshot = () => ({
     series: summaries(),
-    profiles: ctx.decision.profiles().map((p) => ({ id: p.id, name: p.name })),
+    profiles: ctx.decision.profiles('video').map((p) => ({ id: p.id, name: p.name })),
     rootFolders: ctx.library.rootFolders('series').map((f) => ({ id: f.id, path: f.path })),
   })
 
@@ -185,7 +184,7 @@ export default function console_(ctx: Context, series: SeriesService) {
           monitored: e.monitored,
           file: file && {
             path: file.path,
-            quality: QUALITY_NAMES[file.quality as Quality] ?? file.quality,
+            quality: ctx.decision.qualityName(file.quality),
             size: file.size,
           },
           download: downloads.get(e.id),
@@ -221,7 +220,7 @@ export default function console_(ctx: Context, series: SeriesService) {
           publishedAt: r.publishedAt,
           infoUrl: r.infoUrl,
           covers: describe(covered.map((e) => episodes.get(e)!).filter(Boolean)),
-          quality: QUALITY_NAMES[d.quality] ?? d.quality,
+          quality: ctx.decision.qualityName(d.quality),
           formatScore: d.formatScore,
           matchedFormats: d.matchedFormats,
           accepted: d.accepted,

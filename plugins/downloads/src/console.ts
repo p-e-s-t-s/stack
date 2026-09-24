@@ -2,7 +2,6 @@
 
 import type {} from '@magpiejs/library'
 import type {} from '@magpiejs/webui'
-import { QUALITY_NAMES } from '@magpiejs/decision/qualities'
 import type { Context } from 'cordis'
 import type { ClientHealth, DownloadsService } from './index'
 import { ACTIVE_STATES, type Grab, type GrabState } from './schema'
@@ -44,7 +43,7 @@ export default function console_(ctx: Context, downloads: DownloadsService) {
     mediaId: g.mediaId,
     mediaTitle: title(g.mediaId),
     title: g.title,
-    quality: QUALITY_NAMES[g.quality as keyof typeof QUALITY_NAMES] ?? g.quality,
+    quality: ctx.decision.qualityName(g.quality),
     client: clientName(g.clientId),
     state: g.state,
     progress: g.progress,

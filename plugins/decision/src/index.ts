@@ -2,13 +2,12 @@
 // (docs/phase-2.md §3).
 
 import type { Drizzle } from '@magpiejs/database'
-import { type ParsedRelease, parse } from '@magpiejs/parser'
 import type { ReleaseInfo } from '@magpiejs/types'
 import type BetterSqlite3 from 'better-sqlite3'
 import { type Context, Service } from 'cordis'
 import { and, eq } from 'drizzle-orm'
+import { type BaseParsed, type QualityFamily, VIDEO_PROFILES, videoFamily } from './families'
 import { formatMatches } from './formats'
-import { QUALITIES, type Quality, qualityOf } from './qualities'
 import {
   BUILTIN_RULES,
   type DecisionTarget,
@@ -19,6 +18,7 @@ import {
 import * as schema from './schema'
 import console_ from './console'
 
+export * from './families'
 export * from './formats'
 export * from './qualities'
 export * from './rules'
@@ -28,22 +28,27 @@ declare module 'cordis' {
   interface Context {
     decision: DecisionService
   }
+  interface Events {
+    'decision/families'(): void
+  }
 }
 
 export interface Decision {
   accepted: boolean
-  quality: Quality
+  /** A quality id of the profile's family. */
+  quality: string
   formatScore: number
   matchedFormats: string[]
   rejections: { rule: string; reason: string; permanent: boolean }[]
   /** Higher is better; compare element by element (see `compareDecisions`). */
   rank: number[]
-  parsed: ParsedRelease
+  /** The family's parse of the release name (a `ParsedRelease` for video). */
+  parsed: BaseParsed
 }
 
 export interface Candidate {
   info: ReleaseInfo & { flags?: string[] }
-  parsed?: ParsedRelease
+  parsed?: BaseParsed
 }
 
 /** Sort comparator: best decision first. */
@@ -60,6 +65,7 @@ export class DecisionService extends Service {
 
   db!: Drizzle<typeof schema>
   private rules = new Map<string, Rule>()
+  private familyMap = new Map<string, QualityFamily>([['video', videoFamily as QualityFamily]])
 
   constructor(ctx: Context) {
     super(ctx, 'decision')
@@ -72,16 +78,88 @@ export class DecisionService extends Service {
       migrations: new URL('../migrations', import.meta.url),
       steps: { '0000_init': seedDefaults },
     })
-    for (const [name, rule] of Object.entries(BUILTIN_RULES)) this.rules.set(name, rule)
     // web console pages, only when the web console is loaded
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     yield () => this.rules.clear()
   }
 
+  // ---- quality families
+
+  /**
+   * Adds a quality family for the lifetime of the calling plugin. The first time a family is
+   * seen, its default sizes and profiles are created.
+   */
+  family(definition: QualityFamily<any>) {
+    return this.ctx.effect(() => {
+      if (this.familyMap.has(definition.id))
+        throw new Error(`quality family ${definition.id} already exists`)
+      const taken = new Set(this.families().flatMap((f) => f.qualities.map((q) => q.id)))
+      const clash = definition.qualities.find((q) => taken.has(q.id))
+      if (clash) throw new Error(`quality ${clash.id} already belongs to another family`)
+      this.familyMap.set(definition.id, definition)
+      this.seed(definition)
+      this.ctx.emit('decision/families')
+      return () => {
+        this.familyMap.delete(definition.id)
+        this.ctx.emit('decision/families')
+      }
+    }, `decision.family(${definition.id})`)
+  }
+
+  families(): QualityFamily[] {
+    return [...this.familyMap.values()]
+  }
+
+  familyOf(profile: Pick<schema.Profile, 'family'>) {
+    const family = this.familyMap.get(profile.family)
+    if (!family) throw new Error(`the ${profile.family} quality family is not loaded`)
+    return family
+  }
+
+  /** Display name of a quality of any family. */
+  qualityName(quality: string) {
+    for (const family of this.familyMap.values()) {
+      const found = family.qualities.find((q) => q.id === quality)
+      if (found) return found.name
+    }
+    return quality
+  }
+
+  /** Default sizes, and default profiles when the family has none yet. */
+  private seed(family: QualityFamily) {
+    this.db.transaction((tx) => {
+      for (const q of family.qualities) {
+        tx.insert(schema.qualitySizes)
+          .values({ quality: q.id, min: family.defaultSizes?.[q.id] ?? 0 })
+          .onConflictDoNothing()
+          .run()
+      }
+      const existing = tx
+        .select({ id: schema.profiles.id })
+        .from(schema.profiles)
+        .where(eq(schema.profiles.family, family.id))
+        .get()
+      if (existing) return
+      for (const p of family.defaultProfiles) {
+        tx.insert(schema.profiles)
+          .values({
+            name: p.name,
+            family: family.id,
+            items: p.items,
+            cutoff: p.cutoff,
+            languages: p.languages ?? [],
+          })
+          .onConflictDoNothing()
+          .run()
+      }
+    })
+  }
+
   /** Adds a rule for the lifetime of the calling plugin (e.g. `blocklist` from downloads). */
   rule(name: string, rule: Rule) {
     return this.ctx.effect(() => {
-      if (this.rules.has(name)) throw new Error(`decision rule ${name} already exists`)
+      if (this.rules.has(name) || name in BUILTIN_RULES)
+        throw new Error(`decision rule ${name} already exists`)
       this.rules.set(name, rule)
       return () => this.rules.delete(name)
     }, `decision.rule(${name})`)
@@ -89,15 +167,17 @@ export class DecisionService extends Service {
 
   // ---- settings
 
-  profiles() {
-    return this.db.select().from(schema.profiles).all()
+  /** Quality profiles, optionally only those of one family. */
+  profiles(family?: string) {
+    const q = this.db.select().from(schema.profiles)
+    return (family ? q.where(eq(schema.profiles.family, family)) : q).all()
   }
 
   profile(id: number) {
     return this.db.select().from(schema.profiles).where(eq(schema.profiles.id, id)).get()
   }
 
-  saveProfile(profile: Omit<schema.Profile, 'id'> & { id?: number }) {
+  saveProfile(profile: Omit<schema.Profile, 'id' | 'family'> & { id?: number; family?: string }) {
     const { id, ...values } = profile
     if (id) {
       this.db.update(schema.profiles).set(values).where(eq(schema.profiles.id, id)).run()
@@ -216,6 +296,7 @@ export class DecisionService extends Service {
   evaluator(target: DecisionTarget, now = Date.now()) {
     const profile = this.profile(target.profileId)
     if (!profile) throw new Error(`quality profile ${target.profileId} not found`)
+    const family = this.familyOf(profile)
     const scores = this.scores(profile.id)
     const formats = this.formats().filter((f) => scores[f.id])
     const sizes = new Map(this.sizes().map((s) => [s.quality, s]))
@@ -223,20 +304,29 @@ export class DecisionService extends Service {
     const { rankOf, allowed } = profileRanks(profile)
     const cutoffRank =
       rankOf(profile.cutoff) >= 0 ? rankOf(profile.cutoff) : groupRank(profile, profile.cutoff)
-    const rules = [...this.rules]
+    // generic rules, then the family's, then rules added by other plugins
+    const rules: [string, Rule][] = [
+      ...Object.entries(BUILTIN_RULES),
+      ...Object.entries(family.rules ?? {}),
+      ...this.rules,
+    ]
+    const qualityName = (q: string) => this.qualityName(q)
+    const hint = { kind: target.kind === 'movie' ? 'movie' : 'series' }
 
     return (candidate: Candidate): Decision => {
-      const parsed = candidate.parsed ?? parse(candidate.info.title)
-      const quality = qualityOf(parsed)
+      const parsed = candidate.parsed ?? family.parse(candidate.info.title, hint)
+      const quality = family.qualityOf(parsed)
       const input = { parsed, info: candidate.info, originalLanguage: target.originalLanguage }
-      const matched = formats.filter((f) => formatMatches(f, input))
+      const matched = formats.filter((f) => formatMatches(f, input, family.conditions))
       const formatScore = matched.reduce((sum, f) => sum + scores[f.id]!, 0)
       const context: RuleContext = {
         info: candidate.info,
         parsed,
         target,
         profile,
+        family,
         quality,
+        qualityName,
         qualityRank: rankOf(quality),
         qualityAllowed: allowed.has(quality),
         formatScore,
@@ -304,90 +394,12 @@ function groupRank(profile: schema.Profile, name: string) {
 
 // ---- defaults, written by the first migration
 
-const MIN_SIZE: Partial<Record<Quality, number>> = {
-  'webdl-480p': 1,
-  'webrip-480p': 1,
-  'bluray-480p': 1,
-  'hdtv-720p': 3,
-  'webrip-720p': 3,
-  'webdl-720p': 3,
-  'bluray-720p': 4,
-  'hdtv-1080p': 5,
-  'webrip-1080p': 5,
-  'webdl-1080p': 5,
-  'bluray-1080p': 7,
-  'remux-1080p': 15,
-  'hdtv-2160p': 15,
-  'webrip-2160p': 15,
-  'webdl-2160p': 15,
-  'bluray-2160p': 20,
-  'remux-2160p': 35,
-}
-
-function items(allowed: Quality[], groups: { name: string; qualities: Quality[] }[] = []) {
-  const result: schema.ProfileItem[] = []
-  for (const quality of QUALITIES) {
-    const group = groups.find((g) => g.qualities.includes(quality))
-    if (group) {
-      if (group.qualities[0] === quality) {
-        result.push({
-          name: group.name,
-          qualities: group.qualities,
-          allowed: group.qualities.some((q) => allowed.includes(q)),
-        })
-      }
-      continue
-    }
-    result.push({ quality, allowed: allowed.includes(quality) })
-  }
-  return result
-}
-
-const WEB_GROUPS = [
-  { name: 'WEB 720p', qualities: ['webrip-720p', 'webdl-720p'] as Quality[] },
-  { name: 'WEB 1080p', qualities: ['webrip-1080p', 'webdl-1080p'] as Quality[] },
-  { name: 'WEB 2160p', qualities: ['webrip-2160p', 'webdl-2160p'] as Quality[] },
-]
-
-export const DEFAULT_PROFILES = [
-  {
-    name: 'Any',
-    items: items(
-      QUALITIES.filter((q) => q !== 'unknown'),
-      WEB_GROUPS,
-    ),
-    cutoff: 'WEB 1080p',
-  },
-  {
-    name: 'HD',
-    items: items(
-      [
-        'hdtv-720p',
-        'webrip-720p',
-        'webdl-720p',
-        'bluray-720p',
-        'hdtv-1080p',
-        'webrip-1080p',
-        'webdl-1080p',
-        'bluray-1080p',
-      ],
-      WEB_GROUPS,
-    ),
-    cutoff: 'bluray-1080p',
-  },
-  {
-    name: 'Ultra HD',
-    items: items(
-      ['hdtv-2160p', 'webrip-2160p', 'webdl-2160p', 'bluray-2160p', 'remux-2160p'],
-      WEB_GROUPS,
-    ),
-    cutoff: 'remux-2160p',
-  },
-]
+/** The video family's default profiles (`Any`, `HD`, `Ultra HD`). */
+export const DEFAULT_PROFILES = VIDEO_PROFILES
 
 function seedDefaults(db: BetterSqlite3.Database) {
   const size = db.prepare('INSERT INTO decision_quality_sizes (quality, min) VALUES (?, ?)')
-  for (const quality of QUALITIES) size.run(quality, MIN_SIZE[quality] ?? 0)
+  for (const { id } of videoFamily.qualities) size.run(id, videoFamily.defaultSizes?.[id] ?? 0)
   const profile = db.prepare(
     'INSERT INTO decision_profiles (name, items, cutoff, languages) VALUES (?, ?, ?, ?)',
   )

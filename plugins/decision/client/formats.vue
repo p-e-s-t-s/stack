@@ -114,52 +114,30 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRpc } from '@cordisjs/client'
 import type { DecisionData } from '../src/console'
-import { formatMatches } from '../src/formats'
 import type { CustomFormat } from '../src/schema'
 
 const data = useRpc<DecisionData>()
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 
-const types = [
-  { id: 'title', name: 'Release name' },
-  { id: 'group', name: 'Release group' },
-  { id: 'edition', name: 'Edition' },
-  { id: 'source', name: 'Source' },
-  { id: 'resolution', name: 'Resolution' },
-  { id: 'modifier', name: 'Modifier' },
-  { id: 'hdr', name: 'HDR format' },
-  { id: 'videoCodec', name: 'Video codec' },
-  { id: 'audioCodec', name: 'Audio codec' },
-  { id: 'language', name: 'Language' },
-  { id: 'streamingService', name: 'Streaming service' },
-  { id: 'size', name: 'Size' },
-  { id: 'indexerFlag', name: 'Indexer flag' },
-]
-const options: Record<string, string[]> = {
-  source: ['cam', 'telesync', 'telecine', 'workprint', 'dvd', 'hdtv', 'webrip', 'webdl', 'bluray'],
-  resolution: ['480p', '576p', '720p', '1080p', '2160p'],
-  modifier: ['remux', 'brdisk', 'rawhd', 'regional', 'screener'],
-  hdr: ['dv', 'hdr10plus', 'hdr10', 'hlg'],
-  videoCodec: ['x264', 'x265', 'av1', 'vc1', 'mpeg2', 'xvid'],
-  audioCodec: [
-    'truehd',
-    'dtsx',
-    'dtshdma',
-    'dtshd',
-    'dts',
-    'ddp',
-    'dd',
-    'aac',
-    'flac',
-    'opus',
-    'mp3',
-    'pcm',
-  ],
+// condition types: generic ones, then each family's (named after the family when several)
+const types = computed(() =>
+  data.value.conditions.map((c) => {
+    const family = data.value.families.find((f) => f.id === c.family)
+    return {
+      id: c.type,
+      name: family && data.value.families.length > 1 ? `${c.label} (${family.label})` : c.label,
+    }
+  }),
+)
+const options = computed<Record<string, string[]>>(() => ({
   indexerFlag: ['freeleech', 'halfleech', 'internal', 'scene'],
-}
+  ...Object.fromEntries(
+    data.value.conditions.filter((c) => c.values).map((c) => [c.type, c.values!]),
+  ),
+}))
 
 const draft = ref<(Omit<CustomFormat, 'id'> & { id?: number }) | undefined>()
 const message = ref('')
@@ -175,17 +153,12 @@ function create() {
   message.value = ''
 }
 
-// the parser runs on the server; matching runs here so the result updates while typing
+// parsing and matching run on the server, with the family the conditions belong to
 watch(
   [sample, draft],
   async () => {
     if (!sample.value.trim() || !draft.value) return (matches.value = undefined)
-    const [result] = await data.value.test([sample.value])
-    if (!result) return
-    matches.value = formatMatches(draft.value, {
-      parsed: result.parsed,
-      info: { title: sample.value },
-    })
+    matches.value = await data.value.testFormat(clone(draft.value), sample.value)
   },
   { deep: true },
 )

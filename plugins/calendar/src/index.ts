@@ -4,7 +4,7 @@
 
 import type {} from '@cordisjs/plugin-timer'
 import type {} from '@magpiejs/api'
-import { QUALITY_NAMES, type Quality } from '@magpiejs/decision/qualities'
+import type {} from '@magpiejs/decision'
 import type {} from '@magpiejs/movies'
 import type {} from '@magpiejs/series'
 import type { Context } from 'cordis'
@@ -35,7 +35,7 @@ const pad = (n: number) => String(n).padStart(2, '0')
 export function entries(ctx: Context, from: string, to: string, now = Date.now()): CalendarEntry[] {
   const today = isoDate(now)
   const out: CalendarEntry[] = []
-  const quality = (q: string) => QUALITY_NAMES[q as Quality] ?? q
+  const quality = (q: string) => ctx.get('decision')?.qualityName(q) ?? q
 
   for (const { series, episode, file } of ctx.get('series')?.airing(from, to) ?? []) {
     const monitored = series.monitored && episode.monitored
