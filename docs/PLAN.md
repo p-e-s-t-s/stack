@@ -480,6 +480,9 @@ Detailed plan: [phase-2.md](phase-2.md).
 unit tests; the new pages work in the production build.
 
 ### Phase 3 — MVP: movies end-to-end
+
+Detailed plan: [phase-3.md](phase-3.md).
+
 - `plugins/metadata-tmdb`: search, movie details, images, IMDb mapping.
 - `plugins/indexer-torznab` and `plugins/indexer-newznab` (shared XML parser + caps).
 - `plugins/downloader-qbittorrent` (Web API v2, categories, auth, tags).
