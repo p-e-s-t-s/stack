@@ -4,20 +4,31 @@
 // kind. There are no indexers or quality choices: each episode has one file.
 
 import { rmSync } from 'node:fs'
+import { join } from 'node:path'
 import type {} from '@cordisjs/plugin-http'
 import type {} from '@cordisjs/plugin-timer'
+import type {} from '@magpiejs/api'
+import type {} from '@magpiejs/calendar'
 import type { Drizzle } from '@magpiejs/database'
 import { type BaseParsed, profileItems } from '@magpiejs/decision'
+import { recycle } from '@magpiejs/import'
 import type {} from '@magpiejs/jobs'
 import { type MediaFile, type MediaItem, type NamingScheme, renderName } from '@magpiejs/library'
 import type {} from '@magpiejs/metadata'
 import { type Context, Service } from 'cordis'
 import { desc, eq, inArray } from 'drizzle-orm'
 import z from 'schemastery'
+import api from './api'
+import podcastCalendar from './calendar'
+import podcastDownloads from './downloads'
 import { type FeedEpisode, parseFeed } from './feed'
+import podcastImport from './import'
+import { parseOpml } from './opml'
 import * as schema from './schema'
 
 export * from './feed'
+export { PODCAST_EXTENSIONS } from './import'
+export * from './opml'
 export * from './schema'
 
 declare module '@magpiejs/types' {
@@ -34,6 +45,8 @@ declare module 'cordis' {
     'podcasts/added'(podcast: Podcast, options: { download: boolean }): void
     /** Episodes were added or changed (refresh, monitoring, files, downloads). */
     'podcasts/episodes'(mediaId: number): void
+    /** A feed was read again (new episodes may be waiting to download). */
+    'podcasts/refreshed'(mediaId: number): void
   }
 }
 
@@ -133,6 +146,8 @@ export class PodcastsService extends Service {
 
   db!: Drizzle<typeof schema>
   config: Config
+  /** Set while a downloads plugin is loaded: downloads episodes (the wanted ones by default). */
+  downloader?: (mediaId: number, episodeIds?: number[]) => Promise<number>
 
   constructor(ctx: Context, config: Config = { refreshMinutes: 60 }) {
     super(ctx, 'podcasts')
@@ -158,6 +173,10 @@ export class PodcastsService extends Service {
         }
       }
     })
+    this.ctx.inject(['downloads'], (ctx) => void ctx.plugin(podcastDownloads, this))
+    this.ctx.inject(['import'], (ctx) => void ctx.plugin(podcastImport, this))
+    this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(podcastCalendar, this))
+    this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
     this.ctx.jobs.schedule(
       'podcasts.refresh-all',
       'podcasts.refresh',
@@ -176,7 +195,7 @@ export class PodcastsService extends Service {
 
   /** Search a podcast directory (iTunes); results already followed carry their library id. */
   async lookup(term: string) {
-    const provider = this.ctx.metadata.for('podcast')
+    const provider = this.ctx.get('metadata')?.for('podcast')
     if (!provider) throw new Error('no podcast search is enabled (add iTunes in Settings)')
     const results = await provider.search({ term, kind: 'podcast' })
     const followed = new Map(
@@ -365,6 +384,27 @@ export class PodcastsService extends Service {
     })
     if (added) this.ctx.logger.info('%s: %d new episode(s)', feed.title, added)
     this.ctx.emit('podcasts/episodes', id)
+    this.ctx.emit('podcasts/refreshed', id)
+  }
+
+  /** Follows every feed in an OPML file that isn't followed yet. */
+  async importOpml(xml: string, options: Pick<AddPodcastOptions, 'rootFolderId' | 'monitor'>) {
+    const result = { added: [] as string[], skipped: [] as string[], failed: [] as string[] }
+    const followed = new Set(this.list().map((p) => p.details.feedUrl))
+    for (const { title, feedUrl } of parseOpml(xml)) {
+      if (followed.has(feedUrl)) {
+        result.skipped.push(title ?? feedUrl)
+        continue
+      }
+      try {
+        const podcast = await this.add({ ...options, feedUrl, monitor: options.monitor ?? 'new' })
+        followed.add(feedUrl)
+        result.added.push(podcast.title)
+      } catch (error) {
+        result.failed.push(`${title ?? feedUrl}: ${error instanceof Error ? error.message : error}`)
+      }
+    }
+    return result
   }
 
   // ---- reading
@@ -451,6 +491,7 @@ export class PodcastsService extends Service {
     if (Object.keys(details).length)
       this.db.update(schema.details).set(details).where(eq(schema.details.mediaId, id)).run()
     if (monitored !== undefined) this.ctx.library.update(id, { monitored })
+    if (patch.keepLatest) void this.applyRetention(id)
     this.ctx.emit('podcasts/episodes', id)
     return this.get(id)
   }
@@ -484,6 +525,34 @@ export class PodcastsService extends Service {
       .where(eq(schema.episodes.id, episodeId))
       .run()
     this.ctx.emit('podcasts/episodes', episode.mediaId)
+  }
+
+  /**
+   * Keeps only the files of the newest `keepLatest` episodes: older files go to the recycle
+   * bin (or are deleted) and their episodes are no longer monitored, so they aren't downloaded
+   * again. Returns how many files were removed.
+   */
+  async applyRetention(id: number) {
+    const podcast = this.get(id)
+    const keep = podcast?.details.keepLatest
+    if (!podcast || !keep) return 0
+    const files = this.episodeFiles(id)
+    const withFiles = this.episodes(id).filter((e) => files.has(e.id))
+    const old = withFiles.slice(keep)
+    if (!old.length) return 0
+    const folder = this.ctx.library.folderOf(podcast)
+    const { recycleBin } = this.ctx.library.fileHandling()
+    for (const episode of old) {
+      const file = files.get(episode.id)!
+      await recycle(join(folder, file.path), recycleBin)
+      this.ctx.library.removeFile(file.id)
+    }
+    this.monitorEpisodes(
+      old.map((e) => e.id),
+      false,
+    )
+    this.ctx.logger.info('%s: removed %d older episode(s)', podcast.title, old.length)
+    return old.length
   }
 
   remove(id: number, deleteFiles = false) {
