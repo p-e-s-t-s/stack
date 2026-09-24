@@ -4,8 +4,7 @@ A single-process replacement for Radarr, Sonarr, Prowlarr and Bazarr, built on t
 [Cordis](https://github.com/cordiverse/cordis) plugin kernel with a Cordis WebUI console
 that plugins extend with their own pages, widgets and actions.
 
-> **Working name:** `cordarr` (npm scope `@cordarr/*`). Placeholder only; renaming is a
-> search-and-replace until the first release.
+> **Name:** Magpie (npm scope `@magpiejs/*`; the `@magpie` scope is already taken).
 
 ---
 
@@ -163,7 +162,7 @@ its form with the `@cordisjs/components` schema form, and a "Test" button calls 
 Because we don't ship `plugin-loader-webui`, our own **Settings → Integrations** pages
 are the plugin manager for end users: adding an indexer/client/provider instance,
 editing it, disabling it or removing it calls the `@cordisjs/plugin-loader` API
-(add/update/remove entry in `cordarr.yml`), which hot-reloads that one plugin. Users
+(add/update/remove entry in `magpie.yml`), which hot-reloads that one plugin. Users
 never see raw Cordis plugin names or YAML.
 
 ### 3.2 Events
@@ -308,7 +307,7 @@ Each phase ends with a runnable build and explicit exit criteria. Phase 3 is the
 - MIT `LICENSE`; root `package.json` (workspaces), `tsconfig.base.json`, project references, ESLint,
   Prettier, Vitest, `tsup`, GitHub Actions CI (lint, typecheck, test on Node 24).
 - `packages/core`: app bootstrap with `@cordisjs/plugin-loader`, config dir resolution
-  (`--config`, `CORDARR_CONFIG_DIR`), logger, the provider registries and service
+  (`--config`, `MAGPIE_CONFIG_DIR`), logger, the provider registries and service
   interfaces from §3.1, thin wrappers over Cordis APIs.
 - `packages/db`: Drizzle schema (§4), migrations, backup-before-migrate, `ctx.db` service.
 - `packages/jobs`: persisted job queue on the `jobs` table (retry with backoff, locking,
@@ -483,16 +482,16 @@ search and replace works from the UI.
 - **Config dir layout:**
   ```
   /config
-    cordarr.yml        # cordis loader config: which plugins, their settings
-    cordarr.db         # SQLite (WAL mode)
+    magpie.yml        # cordis loader config: which plugins, their settings
+    magpie.db         # SQLite (WAL mode)
     backups/
     logs/
     cache/             # images, cardigann definitions
     plugins/           # user-installed plugins (via plugin-market)
   ```
-- Secrets (API keys) can come from env vars referenced in `cordarr.yml`
+- Secrets (API keys) can come from env vars referenced in `magpie.yml`
   (`${TMDB_API_KEY}`); never logged.
-- Bare-metal: `npx cordarr` with the same layout under the OS data dir.
+- Bare-metal: `npx magpie` with the same layout under the OS data dir.
 
 ## 9. Testing strategy
 
@@ -527,6 +526,7 @@ search and replace works from the UI.
 
 | Decision | Choice |
 |---|---|
+| Name | Magpie (`@magpiejs/*`) |
 | License | MIT (clean-room; see §10) |
 | Download clients | qBittorrent first, Transmission second (both in the MVP) |
 | UI | Cordis WebUI core packages only; all pages are ours; no stock pages, no standalone fallback |
@@ -535,7 +535,6 @@ search and replace works from the UI.
 | Subtitles | Built in (Phase 7) |
 
 Still open (not blocking Phase 1):
-1. **Final name** (placeholder `cordarr`).
-2. **Database layer:** Drizzle (current plan) vs the Cordis ecosystem's own
+1. **Database layer:** Drizzle (current plan) vs the Cordis ecosystem's own
    `minato` / `@cordisjs/plugin-database` + `@minatojs/driver-sqlite`, which lets plugins
    extend tables with `ctx.model.extend()` and ties table lifetime to plugin lifetime.
