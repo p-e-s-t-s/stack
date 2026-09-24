@@ -1,7 +1,7 @@
 {
   "name": "@magpiejs/system",
   "version": "0.0.0",
-  "description": "System page: plugins, database and job queue status",
+  "description": "System status page: uptime, background jobs and database migrations",
   "type": "module",
   "license": "MIT",
   "exports": {
@@ -11,12 +11,10 @@
     "@magpiejs/database": "0.0.0",
     "@magpiejs/jobs": "0.0.0",
     "@magpiejs/webui": "0.0.0",
-    "drizzle-orm": "0.45.3",
-    "schemastery": "^3.18.0"
+    "drizzle-orm": "0.45.3"
   },
   "peerDependencies": {
-    "cordis": "4.0.0-rc.10",
-    "@cordisjs/plugin-loader": "1.0.0-rc.7"
+    "cordis": "4.0.0-rc.10"
   },
   "devDependencies": {
     "cordis": "4.0.0-rc.10"

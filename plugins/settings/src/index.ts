@@ -34,6 +34,8 @@ export interface Provider {
   /** Only one entry of this provider makes sense (e.g. TMDB). */
   single: boolean
   fields: Field[]
+  /** Fields shown up front; the rest are under "More options". All when unset. */
+  basic?: string[]
 }
 
 export interface ProviderEntry {
@@ -91,6 +93,7 @@ export class SettingsService extends Service {
           kind: info.kind,
           label: info.label ?? pkg.name,
           single: !!info.single,
+          basic: info.basic,
           fields: fieldsOf(schema),
           schema,
           keys: new Set(Object.keys((schema as { dict?: object }).dict ?? {})),

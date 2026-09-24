@@ -5,7 +5,7 @@ export default function (ctx: Context) {
   ctx.client.router.page({
     path: '/settings/media',
     name: 'Media management',
-    order: -100,
+    order: 90,
     component: MediaManagement,
   })
 }

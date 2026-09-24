@@ -1,7 +1,4 @@
 <template>
-  <section>
-    <h1>Magpie</h1>
-    <p>Pages from enabled plugins appear in the sidebar.</p>
-    <k-slot name="home-widgets" />
-  </section>
+  <!-- there is no home page: the shell sends `/` to Movies -->
+  <p class="mp-empty">Loading…</p>
 </template>

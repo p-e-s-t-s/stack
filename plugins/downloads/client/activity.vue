@@ -1,96 +1,76 @@
 <template>
   <section class="dl">
-    <h1>Activity</h1>
-    <div class="tabs">
+    <div class="mp-head"><h1>Activity</h1></div>
+    <div class="mp-tabs">
       <button :class="{ active: tab === 'queue' }" @click="tab = 'queue'">
-        Queue ({{ data.queue.length }})
+        Downloading ({{ queue.length }})
       </button>
-      <button :class="{ active: tab === 'recent' }" @click="tab = 'recent'">Recent</button>
       <button :class="{ active: tab === 'blocklist' }" @click="tab = 'blocklist'">
         Blocklist ({{ data.blocklist.length }})
       </button>
     </div>
 
     <template v-if="tab === 'queue'">
-      <p v-if="!data.queue.length" class="muted">Nothing downloading.</p>
-      <table v-else class="mp-card" data-testid="queue">
+      <p v-if="!queue.length" class="mp-empty">Nothing is downloading.</p>
+      <table v-else class="mp-table" data-testid="queue">
         <thead>
           <tr>
             <th>Movie</th>
             <th>Quality</th>
-            <th>Progress</th>
-            <th>State</th>
-            <th>Client</th>
+            <th style="width: 200px">Progress</th>
             <th />
           </tr>
         </thead>
         <tbody>
-          <tr v-for="g in data.queue" :key="g.id">
+          <tr v-for="g in queue" :key="g.id">
             <td>
-              {{ g.mediaTitle }}
+              <strong>{{ g.mediaTitle }}</strong>
               <div class="release">{{ g.title }}</div>
             </td>
             <td>{{ g.quality }}</td>
             <td>
-              {{ (g.progress * 100).toFixed(1) }}%
-              <span class="muted">{{ eta(g.etaSeconds) }}</span>
-              <div class="bar"><div :style="{ width: g.progress * 100 + '%' }" /></div>
+              <div class="mp-row progress-head">
+                <span class="mp-badge" :class="badge(g.state)">{{ label(g.state) }}</span>
+                <span class="mp-muted mp-small">
+                  {{ g.state === 'downloading' ? `${Math.floor(g.progress * 100)}%` : '' }}
+                  {{ eta(g.etaSeconds) }}
+                </span>
+              </div>
+              <div v-if="g.state === 'downloading'" class="mp-progress">
+                <div :style="{ width: g.progress * 100 + '%' }" />
+              </div>
+              <div v-if="g.error" class="mp-error mp-small">{{ g.error }}</div>
+              <div class="mp-muted mp-small">{{ g.client }}</div>
             </td>
-            <td>
-              <span class="state" :class="g.state">{{ label(g.state) }}</span>
-              <div v-if="g.error" class="error">{{ g.error }}</div>
-            </td>
-            <td>{{ g.client }}</td>
-            <td style="white-space: nowrap">
+            <td class="actions">
               <button
-                title="Remove from the client"
+                class="small"
+                title="Remove from the download client"
                 @click="data.remove(g.id, { blocklist: false, deleteData: true })"
               >
                 Remove
               </button>
               <button
-                title="Remove, blocklist and search again"
+                class="small"
+                title="Remove, never download this release again, and look for another"
                 @click="data.remove(g.id, { blocklist: true, deleteData: true })"
               >
-                Blocklist
+                Try another
               </button>
             </td>
           </tr>
         </tbody>
       </table>
-    </template>
-
-    <template v-else-if="tab === 'recent'">
-      <p v-if="!data.recent.length" class="muted">No finished downloads yet.</p>
-      <table v-else class="mp-card">
-        <thead>
-          <tr>
-            <th>Movie</th>
-            <th>Quality</th>
-            <th>Result</th>
-            <th>When</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="g in data.recent" :key="g.id">
-            <td>
-              {{ g.mediaTitle }}
-              <div class="release">{{ g.title }}</div>
-            </td>
-            <td>{{ g.quality }}</td>
-            <td>
-              <span class="state" :class="g.state">{{ label(g.state) }}</span>
-              <div v-if="g.error" class="error">{{ g.error }}</div>
-            </td>
-            <td class="muted">{{ new Date(g.updatedAt).toLocaleString() }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <p class="mp-muted mp-small hint">
+        Finished and failed downloads are listed in
+        <a href="/history" @click.prevent="router.push('/history')">History</a>.
+      </p>
     </template>
 
     <template v-else>
-      <p v-if="!data.blocklist.length" class="muted">Nothing blocklisted.</p>
-      <table v-else class="mp-card">
+      <p class="mp-lead">Releases Magpie will never download again, usually because they failed.</p>
+      <p v-if="!data.blocklist.length" class="mp-empty">Nothing blocklisted.</p>
+      <table v-else class="mp-table">
         <thead>
           <tr>
             <th>Movie</th>
@@ -104,7 +84,9 @@
             <td>{{ b.mediaTitle }}</td>
             <td class="release">{{ b.title }}</td>
             <td>{{ b.reason }}</td>
-            <td><button @click="data.unblock(b.id)">Remove</button></td>
+            <td class="actions">
+              <button class="small" @click="data.unblock(b.id)">Allow again</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -113,12 +95,24 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
-import { useRpc } from '@cordisjs/client'
+import { computed, ref } from 'vue'
+import { useRouter, useRpc } from '@cordisjs/client'
 import type { DownloadsData } from '../src/console'
 
 const data = useRpc<DownloadsData>()
-const tab = ref<'queue' | 'recent' | 'blocklist'>('queue')
+const router = useRouter()
+const tab = ref<'queue' | 'blocklist'>('queue')
+// downloads that could not be imported stay here until they are removed
+const queue = computed(() => [
+  ...data.value.queue,
+  ...data.value.recent.filter((g) => g.state === 'import_failed'),
+])
+const badge = (state: string) =>
+  state === 'import_failed' || state === 'failed'
+    ? 'bad'
+    : state === 'stalled' || state === 'paused'
+      ? 'warn'
+      : 'info'
 
 const LABELS: Record<string, string> = {
   grabbed: 'Sent to client',

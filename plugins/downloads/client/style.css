@@ -1,77 +1,15 @@
-.dl table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.dl th,
-.dl td {
-  text-align: left;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--mp-border);
-  font-size: 14px;
-  vertical-align: top;
-}
+/* Layout for the Activity page; tables, badges and buttons come from the shell. */
+
 .dl .release {
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 12px;
   word-break: break-all;
   color: var(--mp-muted);
 }
-.dl .muted {
-  color: var(--mp-muted);
-  font-size: 13px;
+.dl .progress-head {
+  justify-content: space-between;
+  margin-bottom: 4px;
 }
-.dl .bar {
-  height: 6px;
-  background: var(--mp-border);
-  border-radius: 3px;
-  overflow: hidden;
-  min-width: 120px;
-  margin-top: 4px;
-}
-.dl .bar > div {
-  height: 100%;
-  background: var(--mp-accent);
-}
-.dl .state {
-  font-size: 12px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--mp-bg);
-  border: 1px solid var(--mp-border);
-}
-.dl .state.failed,
-.dl .state.import_failed,
-.dl .state.stalled {
-  color: #d33;
-  border-color: #d3333355;
-}
-.dl .state.imported {
-  color: #2ea44f;
-  border-color: #2ea44f55;
-}
-.dl .error {
-  color: #d33;
-  font-size: 12px;
-}
-.dl .ok {
-  color: #2ea44f;
-}
-.dl button {
-  font: inherit;
-  color: var(--mp-text);
-  background: var(--mp-surface);
-  border: 1px solid var(--mp-border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  cursor: pointer;
-}
-.dl .tabs {
-  display: flex;
-  gap: 4px;
-  margin: 8px 0 16px;
-}
-.dl .tabs button.active {
-  background: var(--mp-accent);
-  color: #fff;
-  border-color: var(--mp-accent);
+.dl .hint {
+  margin-top: 12px;
 }

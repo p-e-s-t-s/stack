@@ -1,8 +1,9 @@
 <template>
   <section class="dc">
-    <h1>Parse tester</h1>
-    <p class="muted">
-      Paste release names, one per line, to see how Magpie reads them and what a profile decides.
+    <div class="mp-head"><h1>Release name tester</h1></div>
+    <p class="mp-lead">
+      Paste release names, one per line, to see how Magpie reads them and whether a profile would
+      accept them.
     </p>
     <textarea
       v-model="input"

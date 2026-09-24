@@ -12,7 +12,7 @@ export interface Field {
   options?: string[]
 }
 
-const WORDS: Record<string, string> = { url: 'URL', api: 'API', rss: 'RSS', id: 'ID' }
+const WORDS: Record<string, string> = { url: 'URL', api: 'API', rss: 'RSS', id: 'ID', tv: 'TV' }
 
 /** `apiKey` → `API key`, `enableRss` → `Enable RSS`. */
 export function labelOf(key: string) {
@@ -47,7 +47,9 @@ export function fieldsOf(config: z): Field[] {
       label: labelOf(key),
       required: !!s.meta.required,
       default: s.meta.default,
-      description: typeof s.meta.description === 'string' ? s.meta.description : undefined,
+      // descriptions are Markdown; the form shows plain text
+      description:
+        typeof s.meta.description === 'string' ? s.meta.description.replace(/`/g, '') : undefined,
     }
     if (s.type === 'string')
       fields.push({ ...base, type: s.meta.role === 'secret' ? 'secret' : 'string' })

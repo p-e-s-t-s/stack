@@ -7,7 +7,12 @@
   "magpie": {
     "provider": {
       "kind": "indexer",
-      "label": "Torznab / Newznab (Prowlarr)"
+      "label": "Torznab / Newznab (Prowlarr)",
+      "basic": [
+        "name",
+        "url",
+        "apiKey"
+      ]
     }
   },
   "exports": {

@@ -1,32 +1,22 @@
-// @magpiejs/system: the System page. Shows database namespaces and the job queue live,
-// runs a test job, and edits the jobs plugin's settings at runtime through the loader.
+// @magpiejs/system: the System → Status page. Uptime, background jobs (with recent
+// failures) and, for troubleshooting, each plugin's database migrations.
 
 import type {} from '@cordisjs/plugin-webui'
-import type { Entry, EntryTree } from '@cordisjs/plugin-loader'
-import { JobsConfig } from '@magpiejs/jobs'
-import type { Context } from 'cordis'
-import { sql } from 'drizzle-orm'
+import type {} from '@magpiejs/database'
+import type {} from '@magpiejs/jobs'
 import { queue } from '@magpiejs/jobs/schema'
+import type { Context } from 'cordis'
+import { desc, eq, sql } from 'drizzle-orm'
 
 export const name = 'system'
-export const inject = ['webui', 'database', 'jobs', 'loader']
+export const inject = ['webui', 'database', 'jobs']
 
 export interface SystemData {
   startedAt: number
   now: number
-  namespaces: { namespace: string; active: number; migrations: number }[]
+  namespaces: { namespace: string; active: boolean; migrations: number }[]
   jobs: Record<string, number>
-  jobsConfig: unknown
-  jobsSchema: unknown
-  runTestJob(): Promise<number>
-  saveJobsConfig(config: unknown): Promise<void>
-}
-
-function* walk(tree: EntryTree): Generator<Entry> {
-  for (const entry of tree.entries()) {
-    yield entry
-    if (entry.subtree) yield* walk(entry.subtree)
-  }
+  failed: { id: number; type: string; error: string | null; at: number }[]
 }
 
 export function apply(ctx: Context) {
@@ -42,33 +32,29 @@ export function apply(ctx: Context) {
         .map((row) => [row.status, row.count]),
     )
 
+  const failed = () =>
+    ctx.jobs.db
+      .select()
+      .from(queue)
+      .where(eq(queue.status, 'failed'))
+      .orderBy(desc(queue.updatedAt))
+      .limit(10)
+      .all()
+      .map((j) => ({ id: j.id, type: j.type, error: j.lastError, at: j.updatedAt }))
+
   const namespaces = () =>
     ctx.database.status().map((s) => ({
       namespace: s.namespace,
-      active: s.active,
+      active: !!s.active,
       migrations: s.applied.length,
     }))
 
-  ctx.jobs.define('system.ping', async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-  })
-
-  const data: SystemData = {
-    startedAt,
+  const snapshot = () => ({
     now: Date.now(),
-    namespaces: namespaces(),
     jobs: jobCounts(),
-    jobsConfig: ctx.jobs.config,
-    jobsSchema: JobsConfig.toJSON(),
-    async runTestJob() {
-      return ctx.jobs.enqueue('system.ping')
-    },
-    async saveJobsConfig(config) {
-      const entry = [...walk(ctx.loader)].find((e) => e.options.name === '@magpiejs/jobs')
-      if (!entry) throw new Error('the jobs plugin is not managed by the config file')
-      await ctx.loader.update(entry.id, { config: JobsConfig(config as Partial<JobsConfig>) })
-    },
-  }
+    failed: failed(),
+    namespaces: namespaces(),
+  })
 
   const entry = ctx.webui.addEntry(
     {
@@ -77,15 +63,9 @@ export function apply(ctx: Context) {
       manifest: '../dist/manifest.json',
       routes: ['/system'],
     },
-    data,
+    { startedAt, ...snapshot() } satisfies SystemData,
   )
 
-  const timer = setInterval(() => {
-    entry.mutate((d) => {
-      d.now = Date.now()
-      d.jobs = jobCounts()
-      d.namespaces = namespaces()
-    })
-  }, 1000)
+  const timer = setInterval(() => entry.mutate((d) => Object.assign(d, snapshot())), 5000)
   ctx.effect(() => () => clearInterval(timer), 'system refresh')
 }

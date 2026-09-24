@@ -5,7 +5,7 @@ export default function (ctx: Context) {
   ctx.client.router.page({
     path: '/settings/indexers',
     name: 'Indexers',
-    order: -110,
+    order: 60,
     component: Indexers,
   })
 }

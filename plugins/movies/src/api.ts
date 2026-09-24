@@ -36,7 +36,7 @@ export default function api(ctx: Context, movies: MoviesService) {
   ctx.api.post('/movies/:id/search', async ({ params }) => {
     find(params.id!)
     if (!movies.searchAndGrab) throw new ApiError(409, 'no indexer or download client is set up')
-    const grab = await movies.searchAndGrab(Number(params.id))
+    const grab = await movies.searchAndGrab(Number(params.id), true)
     return { grabbed: grab ? grab.title : null }
   })
 }

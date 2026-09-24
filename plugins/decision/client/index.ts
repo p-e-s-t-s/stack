@@ -6,21 +6,21 @@ import './style.css'
 
 export default function (ctx: Context) {
   ctx.client.router.page({
-    path: '/parse',
-    name: 'Parse tester',
-    order: 300,
-    component: ParseTester,
-  })
-  ctx.client.router.page({
-    path: '/profiles',
+    path: '/settings/profiles',
     name: 'Quality profiles',
-    order: 200,
+    order: 80,
     component: Profiles,
   })
   ctx.client.router.page({
-    path: '/formats',
+    path: '/settings/formats',
     name: 'Custom formats',
-    order: 100,
+    order: 70,
     component: Formats,
+  })
+  ctx.client.router.page({
+    path: '/system/parse',
+    name: 'Release name tester',
+    order: 10,
+    component: ParseTester,
   })
 }

@@ -1,23 +1,38 @@
 <template>
   <section>
-    <h1>System</h1>
+    <div class="mp-head"><h1>Status</h1></div>
+    <p class="mp-lead">Running for {{ uptime }}.</p>
 
-    <div class="mp-card">
-      <strong>Uptime</strong>
-      <span data-testid="uptime" style="margin-left: 12px">{{ uptime }}</span>
+    <h2>Background jobs</h2>
+    <div class="stats">
+      <div v-for="s in stats" :key="s.key" class="mp-card stat">
+        <div class="value" :class="{ bad: s.key === 'failed' && s.value }">{{ s.value }}</div>
+        <div class="mp-muted mp-small">{{ s.label }}</div>
+      </div>
     </div>
+    <template v-if="data.failed.length">
+      <h3>Recent failures</h3>
+      <table class="mp-table">
+        <tbody>
+          <tr v-for="j in data.failed" :key="j.id">
+            <td class="mono">{{ j.type }}</td>
+            <td class="mp-error">{{ j.error }}</td>
+            <td class="mp-muted mp-small" style="white-space: nowrap">
+              {{ new Date(j.at).toLocaleString() }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </template>
 
-    <queue-widget />
-    <button data-testid="run-test-job" @click="data.runTestJob()">Run a test job</button>
-
-    <div class="mp-card" style="margin-top: 16px">
-      <strong>Database</strong>
-      <table style="width: 100%; margin-top: 8px">
+    <details class="details">
+      <summary>Database details</summary>
+      <table class="mp-table">
         <thead>
           <tr>
-            <th align="left">Plugin namespace</th>
-            <th align="left">Loaded</th>
-            <th align="left">Migrations</th>
+            <th>Plugin</th>
+            <th>Loaded</th>
+            <th>Migrations applied</th>
           </tr>
         </thead>
         <tbody>
@@ -28,37 +43,55 @@
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <div class="mp-card">
-      <strong>Job queue settings</strong>
-      <p style="color: var(--mp-muted)">Saved to magpie.yml and applied without a restart.</p>
-      <k-form v-model="draft" :schema="schema" :initial="data.jobsConfig" />
-      <button data-testid="save-jobs-config" @click="save">Save</button>
-      <span v-if="saved" style="margin-left: 8px">Saved.</span>
-    </div>
+    </details>
   </section>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useRpc } from '@cordisjs/client'
-import Schema from 'schemastery'
 import type { SystemData } from '../src'
-import QueueWidget from './queue-widget.vue'
 
 const data = useRpc<SystemData>()
-const schema = computed(() => new Schema(data.value.jobsSchema as any))
-const draft = ref(JSON.parse(JSON.stringify(data.value.jobsConfig)))
-const saved = ref(false)
 
 const uptime = computed(() => {
-  const s = Math.floor((data.value.now - data.value.startedAt) / 1000)
-  return `${Math.floor(s / 60)}m ${s % 60}s`
+  const m = Math.floor((data.value.now - data.value.startedAt) / 60_000)
+  if (m < 1) return 'less than a minute'
+  if (m < 60) return `${m} min`
+  const h = Math.floor(m / 60)
+  return h < 48 ? `${h} h ${m % 60} min` : `${Math.floor(h / 24)} days`
 })
 
-async function save() {
-  await data.value.saveJobsConfig(draft.value)
-  saved.value = true
-}
+const stats = computed(() => [
+  { key: 'running', label: 'Running', value: data.value.jobs.running ?? 0 },
+  { key: 'pending', label: 'Waiting', value: data.value.jobs.pending ?? 0 },
+  { key: 'done', label: 'Finished', value: data.value.jobs.done ?? 0 },
+  { key: 'failed', label: 'Failed', value: data.value.jobs.failed ?? 0 },
+])
 </script>
+
+<style scoped>
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.stat {
+  margin: 0;
+}
+.value {
+  font-size: 22px;
+  font-weight: 600;
+}
+.value.bad {
+  color: var(--mp-bad);
+}
+.details {
+  margin-top: 28px;
+}
+.details summary {
+  cursor: pointer;
+  color: var(--mp-muted);
+  margin-bottom: 10px;
+}
+</style>

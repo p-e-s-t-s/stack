@@ -8,7 +8,7 @@ export default function (ctx: Context) {
   ctx.client.router.page({
     path: '/settings/clients',
     name: 'Download clients',
-    order: -120,
+    order: 50,
     component: Clients,
   })
 }

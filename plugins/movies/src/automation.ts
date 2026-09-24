@@ -22,18 +22,22 @@ export default function automation(
   movies: MoviesService,
   config: AutomationConfig = { sweepBatch: 20 },
 ) {
-  /** Monitored, available, and missing or below the cutoff. */
-  const wanted = (movie: Movie) => {
-    if (!movie.monitored || !isAvailable(movie.details)) return false
+  /** Missing or below the cutoff. */
+  const needed = (movie: Movie) => {
     if (!movie.file) return true
     const profile = ctx.decision.profile(movie.profileId)
     return !!profile && !cutoffMet(profile, movie.file)
   }
+  /** Monitored, available, and needed. */
+  const wanted = (movie: Movie) => movie.monitored && isAvailable(movie.details) && needed(movie)
 
-  /** Searches a movie and grabs the best accepted release. Returns what was grabbed. */
-  async function searchAndGrab(movieId: number) {
+  /**
+   * Searches a movie and grabs the best accepted release. Returns what was grabbed.
+   * `manual` (the Search now button) also searches unmonitored and unreleased movies.
+   */
+  async function searchAndGrab(movieId: number, manual = false) {
     const movie = movies.get(movieId)
-    if (!movie || !wanted(movie)) return
+    if (!movie || !(manual ? needed(movie) : wanted(movie))) return
     const { results } = await movies.search(movieId, 'automatic')
     const best = results.find((r) => r.decision.accepted)
     if (!best) {

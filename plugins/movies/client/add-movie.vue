@@ -1,54 +1,87 @@
 <template>
   <section class="mv">
-    <h1>Add movie</h1>
-    <form class="row" @submit.prevent="search">
+    <div class="mp-head">
+      <h1>Add movie</h1>
+    </div>
+    <p v-if="!data.setup.metadata" class="mp-lead">
+      Movie search needs TMDB:
+      <a href="/settings/metadata" @click.prevent="router.push('/settings/metadata')"
+        >add your API key</a
+      >.
+    </p>
+    <form class="mp-row search" @submit.prevent="search">
       <input
         v-model="term"
-        placeholder="Movie title"
-        style="flex: 1"
+        placeholder="Search for a movie by title"
         data-testid="lookup"
         autofocus
       />
-      <button class="primary" type="submit">Search</button>
+      <button class="primary" type="submit" :disabled="!term.trim() || searching">
+        {{ searching ? 'Searching…' : 'Search' }}
+      </button>
     </form>
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="!data.rootFolders.length" class="muted">
-      Add a movie root folder in
-      <a href="/settings/media" @click.prevent="router.push('/settings/media')">Media management</a>
-      first.
-    </p>
+    <p v-if="error" class="mp-error">{{ error }}</p>
 
-    <div v-for="r in results" :key="r.ids.tmdb" class="mp-card result" data-testid="lookup-result">
-      <img v-if="r.posterUrl" class="poster" :src="r.posterUrl" />
-      <div style="flex: 1">
-        <strong>{{ r.title }}</strong> <span class="muted">{{ r.year }}</span>
-        <p class="muted">{{ r.overview }}</p>
-        <div v-if="r.libraryId" class="row">
-          <span class="muted">Already in your library.</span>
-          <button @click="router.push(`/movie/${r.libraryId}`)">Open</button>
-        </div>
-        <div v-else class="row">
-          <label>Profile</label>
+    <template v-if="results.length">
+      <div v-if="!data.rootFolders.length" class="mp-card">
+        Add a movie root folder in
+        <a href="/settings/media" @click.prevent="router.push('/settings/media')"
+          >Media management</a
+        >
+        first.
+      </div>
+      <div v-else class="mp-card options">
+        <label>
+          <span>Quality</span>
           <select v-model="form.profileId">
             <option v-for="p in data.profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
-          <label>Folder</label>
+        </label>
+        <label v-if="data.rootFolders.length > 1">
+          <span>Folder</span>
           <select v-model="form.rootFolderId">
             <option v-for="f in data.rootFolders" :key="f.id" :value="f.id">{{ f.path }}</option>
           </select>
-          <label>Available when</label>
+        </label>
+        <label>
+          <span>Download when</span>
           <select v-model="form.minimumAvailability">
             <option value="announced">Announced</option>
             <option value="inCinemas">In cinemas</option>
             <option value="released">Released</option>
           </select>
-          <label><input v-model="form.search" type="checkbox" /> Search now</label>
-          <button class="primary" :disabled="!form.rootFolderId" data-testid="add" @click="add(r)">
+        </label>
+        <label class="check">
+          <input v-model="form.search" type="checkbox" />
+          <span>Start searching right away</span>
+        </label>
+      </div>
+
+      <div v-for="r in results" :key="r.ids.tmdb" class="result" data-testid="lookup-result">
+        <img v-if="r.posterUrl" class="poster" :src="r.posterUrl" alt="" />
+        <div v-else class="poster placeholder" />
+        <div class="body">
+          <div class="title">
+            <strong>{{ r.title }}</strong> <span class="mp-muted">{{ r.year }}</span>
+          </div>
+          <p class="mp-muted overview">{{ r.overview }}</p>
+        </div>
+        <div class="action">
+          <button v-if="r.libraryId" @click="router.push(`/movie/${r.libraryId}`)">
+            In library
+          </button>
+          <button
+            v-else
+            class="primary"
+            :disabled="!form.rootFolderId || adding"
+            data-testid="add"
+            @click="add(r)"
+          >
             Add
           </button>
         </div>
       </div>
-    </div>
+    </template>
   </section>
 </template>
 
@@ -61,6 +94,8 @@ const data = useRpc<MoviesData>()
 const router = useRouter()
 const term = ref('')
 const error = ref('')
+const searching = ref(false)
+const adding = ref(false)
 const results = ref<Awaited<ReturnType<MoviesData['lookup']>>>([])
 const form = reactive({
   profileId: data.value.profiles.find((p) => p.name === 'HD')?.id ?? data.value.profiles[0]?.id,
@@ -81,16 +116,20 @@ watch(
 
 async function search() {
   error.value = ''
+  searching.value = true
   try {
     results.value = await data.value.lookup(term.value)
     if (!results.value.length) error.value = 'Nothing found.'
   } catch (e) {
     error.value = (e as Error).message
+  } finally {
+    searching.value = false
   }
 }
 
 async function add(r: (typeof results.value)[number]) {
   error.value = ''
+  adding.value = true
   try {
     const id = await data.value.add({
       ...form,
@@ -101,6 +140,8 @@ async function add(r: (typeof results.value)[number]) {
     router.push(`/movie/${id}`)
   } catch (e) {
     error.value = (e as Error).message
+  } finally {
+    adding.value = false
   }
 }
 </script>

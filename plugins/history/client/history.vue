@@ -1,7 +1,8 @@
 <template>
   <section>
-    <h1>History</h1>
-    <p v-if="!data.events.length" style="color: var(--mp-muted)">Nothing has happened yet.</p>
+    <div class="mp-head"><h1>History</h1></div>
+    <p class="mp-lead">Everything Magpie downloaded, imported or gave up on.</p>
+    <p v-if="!data.events.length" class="mp-empty">Nothing has happened yet.</p>
     <history-table v-else :events="data.events" show-media />
   </section>
 </template>

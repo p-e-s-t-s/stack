@@ -1,22 +1,46 @@
+/* Magpie's shared look. Pages use plain elements and these classes; scoped styles are
+   only for layout that is specific to one page. */
+
 :root {
-  --mp-bg: #f7f7f8;
+  --mp-bg: #f6f7f9;
   --mp-surface: #ffffff;
-  --mp-text: #1d1d22;
-  --mp-muted: #6b6b76;
+  --mp-surface-2: #f1f3f6;
+  --mp-text: #1c1f24;
+  --mp-muted: #687080;
   --mp-accent: #2f6fde;
-  --mp-border: #e3e3e8;
-  color-scheme: light dark;
+  --mp-accent-soft: #e8effc;
+  --mp-on-accent: #ffffff;
+  --mp-border: #e1e4ea;
+  --mp-ok: #1f8a4c;
+  --mp-ok-soft: #e3f4ea;
+  --mp-warn: #a15c00;
+  --mp-warn-soft: #fbf0dc;
+  --mp-bad: #c62f2f;
+  --mp-bad-soft: #fbe6e6;
+  --mp-radius: 8px;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --mp-bg: #121216;
-    --mp-surface: #1b1b21;
-    --mp-text: #ececf1;
-    --mp-muted: #9a9aa6;
+    --mp-bg: #111317;
+    --mp-surface: #1a1d23;
+    --mp-surface-2: #22262e;
+    --mp-text: #e8eaee;
+    --mp-muted: #9098a6;
     --mp-accent: #6d9cff;
-    --mp-border: #2c2c35;
+    --mp-accent-soft: #1f2a40;
+    --mp-on-accent: #0c1424;
+    --mp-border: #2c3039;
+    --mp-ok: #4cc47f;
+    --mp-ok-soft: #173024;
+    --mp-warn: #e0a54a;
+    --mp-warn-soft: #3a2c14;
+    --mp-bad: #f07070;
+    --mp-bad-soft: #3d1c1c;
+    color-scheme: dark;
   }
 }
+
 html,
 body,
 #app {
@@ -24,62 +48,366 @@ body,
   margin: 0;
 }
 body {
-  font-family: system-ui, sans-serif;
+  font:
+    14px/1.5 system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
   background: var(--mp-bg);
   color: var(--mp-text);
 }
+* {
+  box-sizing: border-box;
+}
+a {
+  color: var(--mp-accent);
+}
+code,
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12.5px;
+}
+
+/* ---- layout */
+
 .mp-shell {
   display: flex;
   height: 100%;
 }
 .mp-nav {
-  width: 200px;
+  width: 208px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 16px 10px;
+  padding: 18px 10px;
   background: var(--mp-surface);
   border-right: 1px solid var(--mp-border);
+  overflow-y: auto;
 }
 .mp-brand {
   font-weight: 700;
-  font-size: 18px;
-  padding: 0 10px 16px;
+  font-size: 17px;
+  padding: 0 10px 18px;
+  letter-spacing: -0.01em;
+}
+.mp-nav-group {
+  margin: 18px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mp-muted);
 }
 .mp-nav a {
-  padding: 8px 10px;
+  display: block;
+  padding: 6px 10px;
   border-radius: 6px;
   color: var(--mp-text);
   text-decoration: none;
 }
-.mp-nav a.active,
 .mp-nav a:hover {
-  background: var(--mp-bg);
+  background: var(--mp-surface-2);
+}
+.mp-nav a.active {
+  background: var(--mp-accent-soft);
   color: var(--mp-accent);
+  font-weight: 600;
 }
-.mp-conn {
+.mp-nav-foot {
   margin-top: auto;
-  padding: 0 10px;
-  font-size: 12px;
-  color: var(--mp-muted);
-}
-.mp-conn.online::before {
-  content: '● ';
-  color: #2ea44f;
+  padding: 16px 10px 0;
 }
 .mp-main {
   flex: 1;
   overflow: auto;
-  padding: 24px 32px;
 }
-.mp-empty {
+.mp-content {
+  max-width: 1100px;
+  padding: 28px 32px 48px;
+}
+.mp-offline {
+  background: var(--mp-warn-soft);
+  color: var(--mp-warn);
+  padding: 8px 32px;
+  font-size: 13px;
+}
+@media (max-width: 720px) {
+  .mp-shell {
+    flex-direction: column;
+  }
+  .mp-nav {
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--mp-border);
+    padding: 10px;
+  }
+  .mp-brand {
+    padding: 6px 10px;
+  }
+  .mp-nav-group,
+  .mp-nav-foot {
+    display: none;
+  }
+  .mp-content {
+    padding: 20px 16px 40px;
+  }
+}
+
+/* ---- page structure */
+
+h1 {
+  font-size: 22px;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: 16px;
+  margin: 28px 0 10px;
+}
+h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+.mp-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.mp-head h1 {
+  margin-right: auto;
+}
+.mp-lead {
   color: var(--mp-muted);
+  margin: 0 0 20px;
+  max-width: 720px;
+}
+.mp-muted {
+  color: var(--mp-muted);
+}
+.mp-small {
+  font-size: 12.5px;
 }
 .mp-card {
   background: var(--mp-surface);
   border: 1px solid var(--mp-border);
-  border-radius: 8px;
+  border-radius: var(--mp-radius);
   padding: 16px;
   margin-bottom: 16px;
+}
+.mp-card > :first-child {
+  margin-top: 0;
+}
+.mp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mp-row + .mp-row {
+  margin-top: 10px;
+}
+.mp-stack > * + * {
+  margin-top: 12px;
+}
+.mp-empty {
+  color: var(--mp-muted);
+  padding: 24px;
+  text-align: center;
+}
+.mp-error {
+  color: var(--mp-bad);
+}
+
+/* ---- forms: plain elements are styled everywhere in the console */
+
+.mp-main input:not([type='checkbox']):not([type='radio']),
+.mp-main select,
+.mp-main textarea {
+  font: inherit;
+  color: var(--mp-text);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: 6px;
+  padding: 6px 9px;
+  min-height: 32px;
+}
+.mp-main textarea {
+  width: 100%;
+}
+.mp-main input:focus,
+.mp-main select:focus,
+.mp-main textarea:focus {
+  outline: 2px solid var(--mp-accent-soft);
+  border-color: var(--mp-accent);
+}
+.mp-main input[type='checkbox'] {
+  accent-color: var(--mp-accent);
+}
+.mp-main button {
+  font: inherit;
+  color: var(--mp-text);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  min-height: 32px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mp-main button:hover:not(:disabled) {
+  background: var(--mp-surface-2);
+}
+.mp-main button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.mp-main button.primary {
+  background: var(--mp-accent);
+  border-color: var(--mp-accent);
+  color: var(--mp-on-accent);
+}
+.mp-main button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  background: var(--mp-accent);
+}
+.mp-main button.danger {
+  color: var(--mp-bad);
+}
+.mp-main button.small {
+  padding: 2px 8px;
+  min-height: 26px;
+  font-size: 12.5px;
+}
+.mp-main button.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  min-height: 0;
+  color: var(--mp-accent);
+}
+
+/* label on the left, control and help on the right */
+.mp-field {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 4px 16px;
+  align-items: start;
+  padding: 8px 0;
+}
+.mp-field > label,
+.mp-field > .mp-label {
+  padding-top: 6px;
+  font-weight: 500;
+}
+.mp-field .mp-help code {
+  margin-right: 4px;
+}
+.mp-field .mp-help {
+  grid-column: 2;
+  color: var(--mp-muted);
+  font-size: 12.5px;
+}
+@media (max-width: 720px) {
+  .mp-field {
+    grid-template-columns: 1fr;
+  }
+  .mp-field .mp-help {
+    grid-column: 1;
+  }
+}
+
+/* ---- tables */
+
+.mp-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: var(--mp-radius);
+  overflow: hidden;
+}
+.mp-card .mp-table {
+  border: 0;
+}
+.mp-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mp-muted);
+  background: var(--mp-surface-2);
+  padding: 8px 12px;
+}
+.mp-table td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--mp-border);
+  vertical-align: middle;
+}
+.mp-table td.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.mp-table td.actions button + button {
+  margin-left: 6px;
+}
+
+/* ---- badges and tabs */
+
+.mp-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--mp-surface-2);
+  color: var(--mp-muted);
+  white-space: nowrap;
+}
+.mp-badge.ok {
+  background: var(--mp-ok-soft);
+  color: var(--mp-ok);
+}
+.mp-badge.warn {
+  background: var(--mp-warn-soft);
+  color: var(--mp-warn);
+}
+.mp-badge.bad {
+  background: var(--mp-bad-soft);
+  color: var(--mp-bad);
+}
+.mp-badge.info {
+  background: var(--mp-accent-soft);
+  color: var(--mp-accent);
+}
+.mp-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--mp-border);
+  margin: 16px 0;
+}
+.mp-main .mp-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  padding: 8px 12px;
+  color: var(--mp-muted);
+}
+.mp-main .mp-tabs button.active {
+  color: var(--mp-text);
+  border-bottom-color: var(--mp-accent);
+  font-weight: 600;
+}
+.mp-progress {
+  height: 6px;
+  background: var(--mp-surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.mp-progress > div {
+  height: 100%;
+  background: var(--mp-accent);
 }

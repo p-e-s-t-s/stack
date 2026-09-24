@@ -10,5 +10,11 @@ export default function shell(ctx: Context) {
   if (config.locale !== preferred) config.locale = preferred
 
   ctx.client.router.slot({ type: 'root', component: Root, order: -1000 })
-  ctx.client.router.page({ path: '/', name: 'Home', order: 1000, component: Home })
+  ctx.client.router.page({
+    path: '/',
+    name: 'Home',
+    order: 1000,
+    component: Home,
+    disabled: () => true,
+  })
 }

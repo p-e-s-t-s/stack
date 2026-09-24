@@ -1,102 +1,75 @@
+/* Layout for the decision pages; buttons, inputs and tables come from the shell. */
+
 .dc-row {
   display: flex;
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-  margin: 8px 0;
+  margin: 10px 0;
 }
 .dc-row label {
   color: var(--mp-muted);
   font-size: 13px;
 }
-.dc input,
-.dc select,
-.dc textarea,
-.dc button {
-  font: inherit;
-  color: var(--mp-text);
-  background: var(--mp-surface);
-  border: 1px solid var(--mp-border);
-  border-radius: 6px;
-  padding: 6px 8px;
-}
-.dc button {
-  cursor: pointer;
-}
-.dc button.primary {
-  background: var(--mp-accent);
-  color: #fff;
-  border-color: var(--mp-accent);
-}
-.dc button.danger {
-  color: #d33;
-}
 .dc textarea {
-  width: 100%;
-  box-sizing: border-box;
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 13px;
 }
-.dc table {
-  border-collapse: collapse;
-  width: 100%;
-}
-.dc th,
-.dc td {
-  text-align: left;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--mp-border);
-  font-size: 14px;
-}
 .dc .name {
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 13px;
   word-break: break-all;
 }
 .dc .tag {
   display: inline-block;
-  padding: 1px 6px;
+  padding: 1px 8px;
   margin: 2px;
-  border-radius: 4px;
-  background: var(--mp-bg);
-  border: 1px solid var(--mp-border);
+  border-radius: 999px;
+  background: var(--mp-surface-2);
   font-size: 12px;
 }
 .dc .ok {
-  color: #2ea44f;
+  color: var(--mp-ok);
   font-weight: 600;
 }
 .dc .no {
-  color: #d33;
+  color: var(--mp-bad);
   font-weight: 600;
 }
 .dc .muted {
   color: var(--mp-muted);
   font-size: 13px;
 }
-.dc .list {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
+.dc .profile,
+.dc .mp-card {
+  max-width: 820px;
 }
-.dc .list > nav {
-  width: 200px;
-  flex-shrink: 0;
+.dc .more,
+.dc .global {
+  margin-top: 12px;
 }
-.dc .list > nav a {
-  display: block;
-  padding: 6px 8px;
-  border-radius: 6px;
+.dc .more summary,
+.dc .global summary {
   cursor: pointer;
+  color: var(--mp-muted);
+  padding: 6px 0;
 }
-.dc .list > nav a.active {
-  background: var(--mp-bg);
-  color: var(--mp-accent);
+.dc .global {
+  margin-top: 36px;
+  border-top: 1px solid var(--mp-border);
+  padding-top: 12px;
 }
-.dc .list > div {
-  flex: 1;
-  min-width: 0;
+.dc .qualities tr.off td {
+  color: var(--mp-muted);
 }
+.dc .score {
+  width: 90px;
+}
+.dc .save {
+  margin-top: 20px;
+}
+
+/* parse tester: colors for the parts of a release name */
 .sp-title {
   background: #cfe3ff66;
 }

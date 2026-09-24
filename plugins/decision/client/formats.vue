@@ -1,28 +1,34 @@
 <template>
   <section class="dc">
-    <h1>Custom formats</h1>
-    <p class="muted">
-      A format matches when all <b>required</b> conditions match and at least one of the others
-      does. Profiles give each format a score.
+    <div class="mp-head">
+      <h1>Custom formats</h1>
+      <button data-testid="new-format" @click="create">New format</button>
+    </div>
+    <p class="mp-lead">
+      Formats describe releases you like or dislike (e.g. HDR, a release group, x265). A format
+      matches when all <b>required</b> conditions match and at least one of the others does. Quality
+      profiles give each format a score.
     </p>
-    <div class="list">
-      <nav>
-        <a
-          v-for="f in data.formats"
-          :key="f.id"
-          :class="{ active: draft?.id === f.id }"
-          @click="edit(f)"
-          >{{ f.name }}</a
-        >
-        <button style="margin-top: 8px" data-testid="new-format" @click="create">New format</button>
-      </nav>
+    <p v-if="!data.formats.length && !draft" class="mp-empty">No custom formats yet.</p>
+    <div v-if="data.formats.length || draft" class="mp-tabs">
+      <button
+        v-for="f in data.formats"
+        :key="f.id"
+        :class="{ active: draft?.id === f.id }"
+        @click="edit(f)"
+      >
+        {{ f.name }}
+      </button>
+      <button v-if="draft && !draft.id" class="active">New format</button>
+    </div>
+    <div>
       <div v-if="draft" class="mp-card">
         <div class="dc-row">
           <label>Name</label><input v-model="draft.name" data-testid="format-name" />
           <label>Include in file name</label
           ><input v-model="draft.includeInFileName" type="checkbox" />
         </div>
-        <table>
+        <table class="mp-table">
           <thead>
             <tr>
               <th>Condition</th>

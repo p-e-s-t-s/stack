@@ -90,7 +90,7 @@ export class MoviesService extends Service {
   /** Set while an indexers plugin is loaded. */
   searcher?: MovieSearch
   /** Set while indexers and downloads are loaded (automatic search and grab). */
-  searchAndGrab?: (movieId: number) => Promise<{ title: string } | undefined>
+  searchAndGrab?: (movieId: number, manual?: boolean) => Promise<{ title: string } | undefined>
   /** Set while a downloads plugin is loaded. */
   grabber?: (movieId: number, result: SearchResult, manual: boolean) => Promise<unknown>
 

@@ -8,7 +8,10 @@
     "provider": {
       "kind": "metadata",
       "label": "TMDB",
-      "single": true
+      "single": true,
+      "basic": [
+        "apiKey"
+      ]
     }
   },
   "exports": {

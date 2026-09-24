@@ -5,7 +5,7 @@ export default function (ctx: Context) {
   ctx.client.router.page({
     path: '/settings/general',
     name: 'General',
-    order: -200,
+    order: 10,
     component: General,
   })
 }

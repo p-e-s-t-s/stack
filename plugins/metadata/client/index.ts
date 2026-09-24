@@ -5,7 +5,7 @@ export default function (ctx: Context) {
   ctx.client.router.page({
     path: '/settings/metadata',
     name: 'Metadata',
-    order: -130,
+    order: 40,
     component: Metadata,
   })
 }

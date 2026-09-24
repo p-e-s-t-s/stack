@@ -1,78 +1,64 @@
 <template>
   <section class="lib">
-    <h1>Media management</h1>
+    <div class="mp-head"><h1>Media management</h1></div>
 
     <h2>Root folders</h2>
-    <p class="muted">Where your library lives. Magpie creates one folder per movie inside.</p>
-    <div class="mp-card">
-      <table>
-        <tbody>
-          <tr v-for="f in data.rootFolders" :key="f.id">
-            <td class="mono">{{ f.path }}</td>
-            <td>{{ f.kind === 'movie' ? 'Movies' : 'Series' }}</td>
-            <td style="width: 80px">
-              <button @click="data.removeRootFolder(f.id)">Remove</button>
-            </td>
-          </tr>
-          <tr v-if="!data.rootFolders.length">
-            <td class="muted">No root folders yet.</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="row">
-        <input
-          v-model="path"
-          placeholder="/data/media/movies"
-          style="flex: 1"
-          data-testid="root-path"
-        />
-        <select v-model="kind">
-          <option value="movie">Movies</option>
-          <option value="series">Series</option>
-        </select>
-        <button class="primary" data-testid="add-root" @click="add">Add</button>
-      </div>
-      <p v-if="error" class="error">{{ error }}</p>
-    </div>
+    <p class="mp-lead">Where your library lives. Each movie gets its own folder inside.</p>
+    <table v-if="data.rootFolders.length" class="mp-table">
+      <tbody>
+        <tr v-for="f in data.rootFolders" :key="f.id">
+          <td class="mono">{{ f.path }}</td>
+          <td class="mp-muted">{{ f.kind === 'movie' ? 'Movies' : 'Series' }}</td>
+          <td class="actions">
+            <button class="small danger" @click="data.removeRootFolder(f.id)">Remove</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <form class="mp-row add" @submit.prevent="add">
+      <input v-model="path" placeholder="/data/media/movies" class="path" data-testid="root-path" />
+      <select v-model="kind">
+        <option value="movie">Movies</option>
+        <option value="series">Series</option>
+      </select>
+      <button class="primary" type="submit" :disabled="!path.trim()" data-testid="add-root">
+        Add folder
+      </button>
+    </form>
+    <p v-if="error" class="mp-error">{{ error }}</p>
 
-    <h2>File naming</h2>
+    <h2>Files</h2>
     <div class="mp-card">
-      <div class="row">
-        <label>Movie folder</label><input v-model="naming.movieFolder" style="flex: 1" />
+      <div class="mp-field">
+        <label for="movie-folder">Movie folder</label>
+        <input id="movie-folder" v-model="naming.movieFolder" />
       </div>
-      <div class="row">
-        <label>Movie file</label><input v-model="naming.movieFile" style="flex: 1" />
+      <div class="mp-field">
+        <label for="movie-file">Movie file</label>
+        <input id="movie-file" v-model="naming.movieFile" />
+        <span class="mp-help">
+          Tokens: <code>{Title}</code> <code>{Year}</code> <code>{Quality}</code>
+          <code>{Edition}</code> <code>{Group}</code> <code>{Resolution}</code>
+          <code>{Source}</code>. The extension is added for you.
+        </span>
       </div>
-      <p class="muted">
-        Tokens: <code>{Title}</code> <code>{Year}</code> <code>{Quality}</code>
-        <code>{Edition}</code> <code>{Group}</code> <code>{Resolution}</code> <code>{Source}</code>.
-        The file extension is added automatically.
-      </p>
-    </div>
-
-    <h2>File handling</h2>
-    <div class="mp-card">
-      <div class="row">
-        <label
-          ><input v-model="naming.useHardlinks" type="checkbox" /> Use hardlinks for torrents</label
-        >
-        <span class="muted"
-          >Needs the download folder and library on the same filesystem; otherwise Magpie
-          copies.</span
-        >
+      <div class="mp-field">
+        <label for="hardlinks">Use hardlinks</label>
+        <div><input id="hardlinks" v-model="naming.useHardlinks" type="checkbox" /></div>
+        <span class="mp-help">
+          Torrents keep seeding without using extra space. Needs downloads and library on the same
+          drive; otherwise Magpie copies.
+        </span>
       </div>
-      <div class="row">
-        <label>Recycle bin</label
-        ><input
-          v-model="naming.recycleBin"
-          placeholder="empty = delete replaced files"
-          style="flex: 1"
-        />
+      <div class="mp-field">
+        <label for="recycle">Recycle bin</label>
+        <input id="recycle" v-model="naming.recycleBin" placeholder="Leave empty to delete" />
+        <span class="mp-help">Replaced files are moved here instead of deleted.</span>
       </div>
-    </div>
-    <div class="row">
-      <button class="primary" @click="save">Save</button
-      ><span v-if="saved" class="muted">Saved.</span>
+      <div class="mp-row save">
+        <button class="primary" @click="save">Save</button>
+        <span v-if="saved" class="mp-muted">Saved.</span>
+      </div>
     </div>
   </section>
 </template>
@@ -107,56 +93,19 @@ async function add() {
 async function save() {
   await data.value.saveNaming(naming.value)
   saved.value = true
+  setTimeout(() => (saved.value = false), 2000)
 }
 </script>
 
 <style scoped>
-.row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin: 8px 0;
-  flex-wrap: wrap;
+.path {
+  flex: 1;
+  max-width: 420px;
 }
-.row label {
-  color: var(--mp-muted);
-  font-size: 13px;
-  min-width: 110px;
+.add {
+  margin-top: 12px;
 }
-.mono {
-  font-family: ui-monospace, monospace;
-}
-.muted {
-  color: var(--mp-muted);
-  font-size: 13px;
-}
-.error {
-  color: #d33;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-td {
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--mp-border);
-}
-input,
-select,
-button {
-  font: inherit;
-  color: var(--mp-text);
-  background: var(--mp-surface);
-  border: 1px solid var(--mp-border);
-  border-radius: 6px;
-  padding: 6px 8px;
-}
-button {
-  cursor: pointer;
-}
-button.primary {
-  background: var(--mp-accent);
-  color: #fff;
-  border-color: var(--mp-accent);
+.save {
+  margin-top: 8px;
 }
 </style>

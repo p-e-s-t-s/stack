@@ -1,50 +1,40 @@
 <template>
-  <section class="dl">
-    <h1>Download clients</h1>
-    <p class="muted">
-      Magpie sends downloads to the client with the lowest priority for their protocol, in its own
-      category.
+  <section>
+    <div class="mp-head"><h1>Download clients</h1></div>
+    <p class="mp-lead">
+      Magpie sends each download to the client with the lowest priority for its protocol, in its own
+      category, and imports it when it finishes.
     </p>
-    <k-slot name="provider-settings" :data="{ kind: 'download-client' }" />
-    <h2 v-if="data.clients.length">Status</h2>
-    <table v-if="data.clients.length" class="mp-card">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Protocol</th>
-          <th>Category</th>
-          <th>Priority</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="c in data.clients" :key="c.id">
-          <td>{{ c.name }}</td>
-          <td>{{ c.protocol }}</td>
-          <td>{{ c.category }}</td>
-          <td>{{ c.priority }}</td>
-          <td>
-            <button @click="test(c.id)">Test</button>
-            <span v-if="results[c.id]" :class="results[c.id]!.ok ? 'ok' : 'error'">
-              {{
-                results[c.id]!.ok ? (results[c.id]!.message ?? 'Works') : results[c.id]!.message
-              }}</span
-            >
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <k-slot name="provider-settings" :data="{ kind: 'download-client', status, test }" />
   </section>
 </template>
 
 <script lang="ts" setup>
-import { reactive } from 'vue'
+import { computed } from 'vue'
 import { useRpc } from '@cordisjs/client'
 import type { DownloadsData } from '../src/console'
 
 const data = useRpc<DownloadsData>()
-const results = reactive<Record<string, { ok: boolean; message?: string }>>({})
+
+// client ids are `<type>:<entry id>`; the settings list is keyed by entry id
+const entryId = (id: string) => id.slice(id.indexOf(':') + 1)
+
+const status = computed(() =>
+  Object.fromEntries(
+    data.value.clients.map((c) => [
+      entryId(c.id),
+      {
+        ok: true,
+        text: 'Running',
+        detail: `${c.protocol} · category ${c.category} · priority ${c.priority}`,
+      },
+    ]),
+  ),
+)
+
 async function test(id: string) {
-  results[id] = await data.value.test(id)
+  const client = data.value.clients.find((c) => entryId(c.id) === id)
+  if (!client) return { ok: false, message: 'not running; check that it is enabled' }
+  return data.value.test(client.id)
 }
 </script>
