@@ -37,6 +37,26 @@ export interface EpisodeRow {
   aired: boolean
   monitored: boolean
   file?: { path: string; quality: string; size: number }
+  download?: { state: string; progress: number }
+}
+
+export interface ReleaseRow {
+  guid: string
+  title: string
+  indexer: string
+  protocol: 'torrent' | 'usenet'
+  size?: number
+  seeders?: number
+  leechers?: number
+  publishedAt?: string
+  infoUrl?: string
+  /** e.g. `S01E02`, `Season 1`. */
+  covers: string
+  quality: string
+  formatScore: number
+  matchedFormats: string[]
+  accepted: boolean
+  rejections: { rule: string; reason: string }[]
 }
 
 export interface SeriesData {
@@ -69,6 +89,25 @@ export interface SeriesData {
   monitorEpisode(episodeId: number, monitored: boolean): Promise<void>
   refresh(id: number): Promise<void>
   remove(id: number, deleteFiles: boolean): Promise<void>
+  /** Interactive search for these episodes. */
+  search(
+    id: number,
+    episodeIds: number[],
+  ): Promise<{ results: ReleaseRow[]; errors: { indexer: string; message: string }[] }>
+  grab(id: number, guid: string): Promise<void>
+  /** Automatic search and grab (the wanted episodes when none are given). Says what happened. */
+  searchNow(id: number, episodeIds?: number[]): Promise<string>
+}
+
+/** `S01E02`, `S01E02-E03`, `Season 1`, `Seasons 1-2` for the episodes a release covers. */
+function describe(episodes: { season: number; number: number }[]) {
+  if (!episodes.length) return ''
+  const seasons = [...new Set(episodes.map((e) => e.season))].sort((a, b) => a - b)
+  if (episodes.length > 3 || seasons.length > 1)
+    return seasons.length > 1 ? `Seasons ${seasons[0]}-${seasons.at(-1)}` : `Season ${seasons[0]}`
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const numbers = episodes.map((e) => e.number).sort((a, b) => a - b)
+  return `S${pad(seasons[0]!)}E${numbers.map(pad).join('-E')}`
 }
 
 export default function console_(ctx: Context, series: SeriesService) {
@@ -129,6 +168,10 @@ export default function console_(ctx: Context, series: SeriesService) {
     },
     async episodes(id) {
       const files = series.episodeFiles(id)
+      const downloads = new Map<number, { state: string; progress: number }>()
+      for (const { grab } of series.activeGrabs(id))
+        for (const episodeId of grab.episodeIds)
+          downloads.set(episodeId, { state: grab.state, progress: grab.progress })
       return series.episodes(id).map((e) => {
         const file = files.get(e.id)
         return {
@@ -145,6 +188,7 @@ export default function console_(ctx: Context, series: SeriesService) {
             quality: QUALITY_NAMES[file.quality as Quality] ?? file.quality,
             size: file.size,
           },
+          download: downloads.get(e.id),
         }
       })
     },
@@ -160,6 +204,40 @@ export default function console_(ctx: Context, series: SeriesService) {
     refresh: (id) => series.refresh(id),
     async remove(id, deleteFiles) {
       series.remove(id, deleteFiles)
+    },
+    async search(id, episodeIds) {
+      const { results, errors } = await series.search(id, episodeIds, 'interactive')
+      const episodes = new Map(series.episodes(id).map((e) => [e.id, e]))
+      return {
+        errors,
+        results: results.map(({ release: r, decision: d, episodeIds: covered }) => ({
+          guid: r.guid,
+          title: r.title,
+          indexer: r.indexerName,
+          protocol: r.protocol,
+          size: r.size,
+          seeders: r.seeders,
+          leechers: r.leechers,
+          publishedAt: r.publishedAt,
+          infoUrl: r.infoUrl,
+          covers: describe(covered.map((e) => episodes.get(e)!).filter(Boolean)),
+          quality: QUALITY_NAMES[d.quality] ?? d.quality,
+          formatScore: d.formatScore,
+          matchedFormats: d.matchedFormats,
+          accepted: d.accepted,
+          rejections: d.rejections.map(({ rule, reason }) => ({ rule, reason })),
+        })),
+      }
+    },
+    async grab(id, guid) {
+      await series.grab(id, guid)
+    },
+    async searchNow(id, episodeIds) {
+      const grabbed = await series.searchAndGrab(id, episodeIds)
+      if (grabbed.length) return `Sent ${grabbed.join(', ')} to the download client.`
+      if (!episodeIds && !series.wantedEpisodes(id).length)
+        return 'Nothing is missing: every monitored, aired episode has a file.'
+      return 'No acceptable release found. Use "Choose" to see why.'
     },
   }
 

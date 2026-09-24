@@ -15,6 +15,8 @@ export interface DecisionTarget {
   originalLanguage?: string
   /** For `episode`: the wanted episodes; for `season`: `numbers` is empty. */
   episodes?: { season: number; numbers: number[] }
+  /** Library ids of the episodes a release covers (used by the series' queue rule). */
+  episodeIds?: number[]
   /** The file already on disk, if any. */
   current?: { quality: Quality; formatScore: number; revision: Revision }
 }

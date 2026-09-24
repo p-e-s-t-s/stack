@@ -26,6 +26,14 @@
         </div>
         <p class="overview">{{ series.overview }}</p>
         <div class="mp-row">
+          <button
+            class="primary"
+            data-testid="search-now"
+            :disabled="busy === 'search'"
+            @click="searchNow()"
+          >
+            {{ busy === 'search' ? 'Searching…' : 'Search monitored' }}
+          </button>
           <button data-testid="edit-series" @click="editing = !editing">Edit</button>
           <button :disabled="busy === 'refresh'" @click="refresh">
             {{ busy === 'refresh' ? 'Refreshing…' : 'Refresh' }}
@@ -87,6 +95,65 @@
       </div>
     </div>
 
+    <div v-if="picker" ref="releasesEl" class="releases-panel">
+      <div class="mp-head">
+        <h2>Releases for {{ picker.label }}</h2>
+        <button class="small" @click="picker = undefined">Close</button>
+      </div>
+      <p v-if="picker.searching" class="mp-muted">Searching…</p>
+      <p v-if="picker.error" class="mp-error">{{ picker.error }}</p>
+      <p v-for="err in picker.errors" :key="err.indexer" class="mp-error mp-small">
+        {{ err.indexer }}: {{ err.message }}
+      </p>
+      <table v-if="picker.results" class="mp-table releases" data-testid="releases">
+        <thead>
+          <tr>
+            <th>Release</th>
+            <th>Covers</th>
+            <th>Quality</th>
+            <th>Size</th>
+            <th>Peers</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="!picker.results.length">
+            <td colspan="6" class="mp-muted">No releases found.</td>
+          </tr>
+          <tr v-for="r in picker.results" :key="r.guid" :class="{ rejected: !r.accepted }">
+            <td>
+              <span class="release">{{ r.title }}</span>
+              <div class="mp-small mp-muted">
+                {{ r.indexer
+                }}<template v-if="r.matchedFormats.length">
+                  · {{ r.matchedFormats.join(', ') }} ({{ r.formatScore }})</template
+                >
+              </div>
+              <div v-if="r.rejections.length" class="mp-small mp-error">
+                {{ r.rejections.map((x) => x.reason).join(' · ') }}
+              </div>
+            </td>
+            <td style="white-space: nowrap">{{ r.covers }}</td>
+            <td>{{ r.quality }}</td>
+            <td>{{ r.size ? gb(r.size) : '' }}</td>
+            <td>
+              {{ r.protocol === 'torrent' ? `${r.seeders ?? '?'} / ${r.leechers ?? '?'}` : '' }}
+            </td>
+            <td class="actions">
+              <button
+                :class="{ primary: r.accepted && !picker.grabbed.has(r.guid) }"
+                :data-testid="'grab-' + r.guid"
+                :disabled="picker.grabbing === r.guid || picker.grabbed.has(r.guid)"
+                @click="grab(r)"
+              >
+                {{ picker.grabbed.has(r.guid) ? 'Sent' : 'Download' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <h2>Episodes</h2>
     <p v-if="!episodes" class="mp-muted">Loading…</p>
     <details
@@ -112,13 +179,29 @@
         />
         <h3>{{ seasonName(season.number) }}</h3>
         <span class="mp-muted mp-small count">{{ season.have }} / {{ season.aired }}</span>
-        <span
-          v-if="season.aired"
-          class="mp-badge"
-          :class="season.have >= season.aired ? 'ok' : season.monitored ? 'bad' : ''"
+        <span v-if="season.aired && season.have >= season.aired" class="mp-badge ok">Complete</span>
+        <span v-else-if="season.missing" class="mp-badge bad">{{ season.missing }} missing</span>
+        <button
+          class="small"
+          title="Search and download the missing episodes of this season"
+          :disabled="busy === 'search'"
+          @click.prevent="searchNow(missingOf(season.episodes), seasonName(season.number))"
         >
-          {{ season.have >= season.aired ? 'Complete' : `${season.aired - season.have} missing` }}
-        </span>
+          Search
+        </button>
+        <button
+          class="small"
+          title="See all releases for this season"
+          :data-testid="`choose-season-${season.number}`"
+          @click.prevent="
+            choose(
+              season.episodes.map((e) => e.id),
+              seasonName(season.number),
+            )
+          "
+        >
+          Choose
+        </button>
       </summary>
       <table class="mp-table episodes">
         <tbody>
@@ -151,6 +234,14 @@
               <span class="mp-badge" :class="episodeStatus(e).class">{{
                 episodeStatus(e).text
               }}</span>
+              <button
+                class="small"
+                title="See releases for this episode"
+                :data-testid="`choose-${e.season}-${e.number}`"
+                @click="choose([e.id], label(e))"
+              >
+                Choose
+              </button>
             </td>
           </tr>
         </tbody>
@@ -164,10 +255,10 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
-import type { EpisodeRow, SeriesData } from '../src/console'
-import { episodeStatus, seasonName, seriesStatus } from './status'
+import type { EpisodeRow, ReleaseRow, SeriesData } from '../src/console'
+import { episodeStatus, gb, seasonName, seriesStatus } from './status'
 
 const STATUS: Record<string, string> = {
   continuing: 'Continuing',
@@ -206,13 +297,14 @@ const seasons = computed(() => {
   )
   return numbers.map((number) => {
     const eps = all.filter((e) => e.season === number)
-    const aired = eps.filter((e) => e.aired && e.monitored)
+    const aired = eps.filter((e) => e.aired)
     return {
       number,
       monitored: monitoredSeasons.get(number) ?? false,
       episodes: eps,
       aired: aired.length,
       have: aired.filter((e) => e.file).length,
+      missing: aired.filter((e) => e.monitored && !e.file).length,
     }
   })
 })
@@ -242,6 +334,66 @@ async function refresh() {
     say((e as Error).message, true)
   } finally {
     busy.value = undefined
+  }
+}
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const label = (e: EpisodeRow) => `S${pad(e.season)}E${pad(e.number)}`
+const missingOf = (eps: EpisodeRow[]) =>
+  eps.filter((e) => e.monitored && e.aired && !e.file).map((e) => e.id)
+
+async function searchNow(episodeIds?: number[], what = series.value!.title) {
+  if (episodeIds && !episodeIds.length) return say(`Nothing is missing in ${what}.`)
+  busy.value = 'search'
+  say('')
+  try {
+    say(await data.value.searchNow(series.value!.id, episodeIds))
+  } catch (e) {
+    say((e as Error).message, true)
+  } finally {
+    busy.value = undefined
+  }
+}
+
+interface Picker {
+  label: string
+  searching: boolean
+  results?: ReleaseRow[]
+  errors: { indexer: string; message: string }[]
+  error?: string
+  grabbing?: string
+  grabbed: Set<string>
+}
+const picker = ref<Picker>()
+const releasesEl = ref<HTMLElement>()
+
+async function choose(episodeIds: number[], what: string) {
+  const p = reactive<Picker>({ label: what, searching: true, errors: [], grabbed: new Set() })
+  picker.value = p
+  await nextTick()
+  releasesEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  try {
+    const outcome = await data.value.search(series.value!.id, episodeIds)
+    p.results = outcome.results
+    p.errors = outcome.errors
+  } catch (e) {
+    p.error = (e as Error).message
+  } finally {
+    p.searching = false
+  }
+}
+
+async function grab(r: ReleaseRow) {
+  const p = picker.value!
+  p.grabbing = r.guid
+  p.error = undefined
+  try {
+    await data.value.grab(series.value!.id, r.guid)
+    p.grabbed.add(r.guid)
+  } catch (e) {
+    p.error = (e as Error).message
+  } finally {
+    p.grabbing = undefined
   }
 }
 

@@ -10,7 +10,24 @@ export function seriesStatus(s: SeriesSummary) {
 }
 
 /** Badge for one episode. */
+const DOWNLOAD: Record<string, string> = {
+  grabbed: 'Sent to client',
+  queued: 'Queued',
+  paused: 'Paused',
+  stalled: 'Stalled',
+  import_pending: 'Importing soon',
+  importing: 'Importing',
+}
+
 export function episodeStatus(e: EpisodeRow) {
+  if (e.download) {
+    const { state, progress } = e.download
+    const text =
+      state === 'downloading'
+        ? `Downloading ${Math.floor(progress * 100)}%`
+        : (DOWNLOAD[state] ?? state)
+    return { text, class: 'info' }
+  }
   if (e.file) return { text: e.file.quality, class: 'ok' }
   if (!e.aired) return { text: e.airDate ? 'Upcoming' : 'TBA', class: '' }
   if (!e.monitored) return { text: 'Not monitored', class: '' }

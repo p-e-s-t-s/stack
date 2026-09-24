@@ -250,3 +250,14 @@
 .sr .count {
   font-variant-numeric: tabular-nums;
 }
+
+.sr .season > summary button {
+  margin-left: 4px;
+}
+.sr .episodes td.actions button {
+  margin-left: 8px;
+}
+.sr .releases-panel {
+  margin-top: 28px;
+  scroll-margin-top: 16px;
+}

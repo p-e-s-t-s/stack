@@ -24,8 +24,9 @@ Phase 8), and importing an existing TV library (Phase 5).
   own. A season pack is one download that covers many episodes.
 - **What a download covers.** Downloads stay generic: a grab belongs to one library item.
   The `series` plugin records which episodes a grab covers in its own side table
-  (`series_grab_episodes` → `downloads_grabs`), and adds its own "already downloading" rule
-  that looks at episodes rather than the whole series.
+  (`series_grab_episodes`; the grab id has no foreign key, since series works without the
+  downloads plugin), and adds its own "already downloading" rule that looks at episodes
+  rather than the whole series.
 - **What a file covers.** A library file can hold several episodes (`S01E01E02`). The
   `series` plugin maps files to episodes in `series_episode_files` → `library_media_files`.
 - **Import by file.** A season pack holds many videos. Each file is parsed on its own and

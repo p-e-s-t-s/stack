@@ -117,8 +117,9 @@ export class DownloadsService extends Service {
       if (hit) return { reason: `blocklisted: ${hit.reason}`, permanent: true }
     })
 
+    // movies only: a series has many episodes, and the series plugin checks those itself
     this.ctx.decision.rule('in-queue', ({ target, qualityRank, formatScore, rankOf }) => {
-      if (!target.mediaId) return
+      if (!target.mediaId || target.kind !== 'movie') return
       const active = this.active().filter((g) => g.mediaId === target.mediaId)
       for (const grab of active) {
         const rank = rankOf(grab.quality)

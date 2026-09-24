@@ -5,16 +5,27 @@
 import { rmSync } from 'node:fs'
 import type {} from '@cordisjs/plugin-timer'
 import type { Drizzle } from '@magpiejs/database'
+import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/jobs'
+import { cutoffMet } from '@magpiejs/decision'
 import { type MediaFile, type MediaItem, renderName } from '@magpiejs/library'
 import type {} from '@magpiejs/metadata'
 import type { EpisodeMetadata, SeriesMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { and, eq, inArray } from 'drizzle-orm'
 import console_ from './console'
+import episodeSearch, { type EpisodeResult, type EpisodeSearch, pickReleases } from './search'
 import * as schema from './schema'
 
 export * from './schema'
+export {
+  episodesFor,
+  matchesSeries,
+  pickReleases,
+  titlesOf,
+  type EpisodeResult,
+  type EpisodeSearch,
+} from './search'
 
 declare module 'cordis' {
   interface Context {
@@ -115,6 +126,10 @@ export class SeriesService extends Service {
   static inject = ['database', 'library', 'metadata', 'jobs', 'decision', 'timer']
 
   db!: Drizzle<typeof schema>
+  /** Set while an indexers plugin is loaded. */
+  searcher?: EpisodeSearch
+  /** Set while a downloads plugin is loaded. */
+  grabber?: (seriesId: number, result: EpisodeResult, manual: boolean) => Promise<unknown>
 
   constructor(ctx: Context) {
     super(ctx, 'series')
@@ -131,6 +146,43 @@ export class SeriesService extends Service {
       for (const id of ids) await this.refresh(id)
     })
     this.ctx.jobs.schedule('series.refresh-all', 'series.refresh', DAY)
+    this.ctx.inject(['indexers'], (ctx) => void ctx.plugin(episodeSearch, this))
+    this.ctx.inject(['downloads'], (ctx) => {
+      ctx.effect(() => {
+        this.grabber = async (seriesId, { release, decision, episodeIds }, manual) => {
+          const grab = await ctx.downloads.grab(seriesId, release, {
+            quality: decision.quality,
+            formatScore: decision.formatScore,
+            manual,
+          })
+          if (episodeIds.length) {
+            this.db
+              .insert(schema.grabEpisodes)
+              .values(episodeIds.map((episodeId) => ({ grabId: grab.id, episodeId })))
+              .run()
+          }
+          this.ctx.emit('series/episodes', seriesId)
+          return grab
+        }
+        return () => (this.grabber = undefined)
+      }, 'series.grabber')
+
+      // a release isn't wanted while an equal or better one for its episodes is downloading
+      ctx.decision.rule('episode-in-queue', ({ target, qualityRank, formatScore, rankOf }) => {
+        if (target.kind === 'movie' || !target.mediaId || !target.episodeIds?.length) return
+        for (const { grab } of this.activeGrabs(target.mediaId)) {
+          if (!grab.episodeIds.some((id) => target.episodeIds!.includes(id))) continue
+          const rank = rankOf(grab.quality)
+          if (rank > qualityRank || (rank === qualityRank && grab.formatScore >= formatScore))
+            return `already downloading ${grab.title}`
+        }
+      })
+      for (const event of ['downloads/grabbed', 'downloads/updated'] as const) {
+        ctx.on(event, (grab) => {
+          if (this.get(grab.mediaId)) this.ctx.emit('series/episodes', grab.mediaId)
+        })
+      }
+    })
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
   }
 
@@ -139,6 +191,84 @@ export class SeriesService extends Service {
     if (!provider?.getSeries || !provider.getEpisodes)
       throw new Error('no series metadata provider is enabled (add TMDB in Settings)')
     return provider
+  }
+
+  /** Downloads in progress for a series, with the episodes each covers. */
+  activeGrabs(seriesId: number) {
+    const downloads = this.ctx.get('downloads')
+    if (!downloads) return []
+    const active = downloads.active().filter((g) => g.mediaId === seriesId)
+    if (!active.length) return []
+    const links = this.db
+      .select()
+      .from(schema.grabEpisodes)
+      .where(
+        inArray(
+          schema.grabEpisodes.grabId,
+          active.map((g) => g.id),
+        ),
+      )
+      .all()
+    return active.map((grab) => ({
+      grab: {
+        ...grab,
+        episodeIds: links.filter((l) => l.grabId === grab.id).map((l) => l.episodeId),
+      },
+    }))
+  }
+
+  /** Episodes a grab covers. */
+  grabEpisodes(grabId: number) {
+    return this.db
+      .select()
+      .from(schema.grabEpisodes)
+      .where(eq(schema.grabEpisodes.grabId, grabId))
+      .all()
+      .map((l) => l.episodeId)
+  }
+
+  /** Monitored, aired, regular or special episodes without a file or below the cutoff. */
+  wantedEpisodes(seriesId: number, now = Date.now()) {
+    const series = this.get(seriesId)
+    if (!series) return []
+    const files = this.episodeFiles(seriesId)
+    const profile = this.ctx.decision.profile(series.profileId)
+    return this.episodes(seriesId).filter((e) => {
+      if (!e.monitored || !hasAired(e, now)) return false
+      const file = files.get(e.id)
+      return !file || (!!profile && !cutoffMet(profile, file))
+    })
+  }
+
+  /** Searches indexers for episodes; throws if no indexers plugin is loaded. */
+  search(seriesId: number, episodeIds: number[], kind: 'automatic' | 'interactive' = 'automatic') {
+    if (!this.searcher) throw new Error('no indexers are enabled')
+    return this.searcher.search(seriesId, episodeIds, kind)
+  }
+
+  /** Grabs a release from the last search of a series (interactive "Download"). */
+  async grab(seriesId: number, guid: string) {
+    const result = this.searcher?.cached(seriesId, guid)
+    if (!result) throw new Error('search results expired; search again')
+    if (!this.grabber) throw new Error('no download clients are enabled')
+    return this.grabber(seriesId, result, true)
+  }
+
+  /**
+   * Searches for episodes (the wanted ones when not given) and grabs the best releases,
+   * a season pack where it covers more. Returns what was grabbed.
+   */
+  async searchAndGrab(seriesId: number, episodeIds?: number[]) {
+    if (!this.grabber) throw new Error('set up a download client first')
+    const ids = episodeIds ?? this.wantedEpisodes(seriesId).map((e) => e.id)
+    if (!ids.length) return []
+    const { results } = await this.search(seriesId, ids)
+    const grabbed: string[] = []
+    for (const result of pickReleases(results, new Set(ids))) {
+      await this.grabber(seriesId, result, false)
+      grabbed.push(result.release.title)
+    }
+    return grabbed
   }
 
   /** Search TMDB; results already in the library carry their library id. */
