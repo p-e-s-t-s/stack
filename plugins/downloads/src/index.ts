@@ -7,7 +7,13 @@ import type { Drizzle } from '@magpiejs/database'
 import type {} from '@magpiejs/decision'
 import type {} from '@magpiejs/api'
 import type {} from '@magpiejs/jobs'
-import type { DownloadClient, DownloadPayload, DownloadStatus, ReleaseInfo } from '@magpiejs/types'
+import type {
+  DownloadClient,
+  DownloadPayload,
+  DownloadStatus,
+  Protocol,
+  ReleaseInfo,
+} from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import z from 'schemastery'
@@ -40,7 +46,7 @@ export interface ClientOptions {
 
 export interface ClientHealth extends ClientOptions {
   id: string
-  protocol: 'torrent' | 'usenet'
+  protocol: Protocol
 }
 
 export interface GrabOptions {
@@ -174,7 +180,7 @@ export class DownloadsService extends Service {
     }
   }
 
-  private pickClient(protocol: 'torrent' | 'usenet') {
+  private pickClient(protocol: Protocol) {
     const candidates = [...this.clients.entries()]
       .filter(([, c]) => c.client.protocol === protocol)
       .sort((a, b) => a[1].options.priority - b[1].options.priority)

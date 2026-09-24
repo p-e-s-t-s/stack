@@ -147,7 +147,9 @@ export class ImportService extends Service {
         return videos
       },
       place: (source, dest) => {
-        const mode = grab.protocol === 'usenet' ? 'move' : naming.useHardlinks ? 'hardlink' : 'copy'
+        // usenet and direct downloads aren't seeded: move them
+        const mode =
+          grab.protocol !== 'torrent' ? 'move' : naming.useHardlinks ? 'hardlink' : 'copy'
         return transfer(source, dest, mode, this.fs)
       },
       recycle: (path) => recycle(path, naming.recycleBin, this.fs),

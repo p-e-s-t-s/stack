@@ -25,6 +25,7 @@ declare module 'cordis' {
     'library/file-added'(item: schema.MediaItem, file: schema.MediaFile): void
     'library/file-removed'(item: schema.MediaItem, file: schema.MediaFile): void
     'library/root-folders'(): void
+    'library/kinds'(): void
   }
 }
 
@@ -103,10 +104,18 @@ export function sortTitle(title: string) {
   return normalizeTitle(title)
 }
 
+/** A kind of media a plugin manages, as shown in the web console. */
+export interface KindInfo {
+  id: MediaKind
+  /** Plural, e.g. `Movies`. */
+  label: string
+}
+
 export class LibraryService extends Service {
   static inject = ['database', 'decision']
 
   db!: Drizzle<typeof schema>
+  private kindInfo = new Map<MediaKind, KindInfo>()
 
   constructor(ctx: Context) {
     super(ctx, 'library')
@@ -119,6 +128,24 @@ export class LibraryService extends Service {
       migrations: new URL('../migrations', import.meta.url),
     })
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+  }
+
+  // ---- kinds
+
+  /** Declares a kind of media for the caller's lifetime (root folders, naming, pages). */
+  registerKind(info: KindInfo) {
+    return this.ctx.effect(() => {
+      this.kindInfo.set(info.id, info)
+      this.ctx.emit('library/kinds')
+      return () => {
+        this.kindInfo.delete(info.id)
+        this.ctx.emit('library/kinds')
+      }
+    }, `library.registerKind(${info.id})`)
+  }
+
+  kinds(): KindInfo[] {
+    return [...this.kindInfo.values()]
   }
 
   // ---- root folders

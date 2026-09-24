@@ -4,7 +4,7 @@ import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/indexers'
 import type {} from '@magpiejs/metadata'
 import type {} from '@magpiejs/webui'
-import type { MetadataSearchResult } from '@magpiejs/types'
+import type { MetadataSearchResult, Protocol } from '@magpiejs/types'
 import type { Context } from 'cordis'
 import { cutoffMet } from '@magpiejs/decision'
 import { QUALITY_NAMES } from '@magpiejs/decision/qualities'
@@ -78,7 +78,7 @@ export interface ReleaseRow {
   guid: string
   title: string
   indexer: string
-  protocol: 'torrent' | 'usenet'
+  protocol: Protocol
   size?: number
   seeders?: number
   leechers?: number

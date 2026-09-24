@@ -1,5 +1,5 @@
 import { mediaItems } from '@magpiejs/library/schema'
-import type { ReleaseInfo } from '@magpiejs/types'
+import type { Protocol, ReleaseInfo } from '@magpiejs/types'
 import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export type GrabState =
@@ -36,7 +36,7 @@ export const grabs = sqliteTable(
     title: text('title').notNull(),
     quality: text('quality').notNull(),
     formatScore: integer('format_score').notNull().default(0),
-    protocol: text('protocol').$type<'torrent' | 'usenet'>().notNull(),
+    protocol: text('protocol').$type<Protocol>().notNull(),
     clientId: text('client_id').notNull(),
     /** Torrent info hash (lower case) or usenet job id. */
     downloadId: text('download_id').notNull(),

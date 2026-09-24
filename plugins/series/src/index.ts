@@ -174,9 +174,9 @@ export class SeriesService extends Service {
 
       // a release isn't wanted while an equal or better one for its episodes is downloading
       ctx.decision.rule('episode-in-queue', ({ target, qualityRank, formatScore, rankOf }) => {
-        if (target.kind === 'movie' || !target.mediaId || !target.episodeIds?.length) return
+        if (target.kind === 'movie' || !target.mediaId || !target.unitIds?.length) return
         for (const { grab } of this.activeGrabs(target.mediaId)) {
-          if (!grab.episodeIds.some((id) => target.episodeIds!.includes(id))) continue
+          if (!grab.episodeIds.some((id) => target.unitIds!.includes(id))) continue
           const rank = rankOf(grab.quality)
           if (rank > qualityRank || (rank === qualityRank && grab.formatScore >= formatScore))
             return `already downloading ${grab.title}`
@@ -188,6 +188,7 @@ export class SeriesService extends Service {
         })
       }
     })
+    this.ctx.library.registerKind({ id: 'series', label: 'Series' })
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
   }
 

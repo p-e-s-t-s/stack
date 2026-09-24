@@ -122,6 +122,7 @@ export class MoviesService extends Service {
         return () => (this.grabber = undefined)
       }, 'movies.grabber')
     })
+    this.ctx.library.registerKind({ id: 'movie', label: 'Movies' })
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
   }

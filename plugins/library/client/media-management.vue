@@ -8,7 +8,7 @@
       <tbody>
         <tr v-for="f in data.rootFolders" :key="f.id">
           <td class="mono">{{ f.path }}</td>
-          <td class="mp-muted">{{ f.kind === 'movie' ? 'Movies' : 'Series' }}</td>
+          <td class="mp-muted">{{ kindLabel(f.kind) }}</td>
           <td class="actions">
             <button class="small danger" @click="data.removeRootFolder(f.id)">Remove</button>
           </td>
@@ -18,8 +18,7 @@
     <form class="mp-row add" @submit.prevent="add">
       <input v-model="path" placeholder="/data/media/movies" class="path" data-testid="root-path" />
       <select v-model="kind">
-        <option value="movie">Movies</option>
-        <option value="series">Series</option>
+        <option v-for="k in data.kinds" :key="k.id" :value="k.id">{{ k.label }}</option>
       </select>
       <button class="primary" type="submit" :disabled="!path.trim()" data-testid="add-root">
         Add folder
@@ -70,7 +69,8 @@ import type { LibraryData } from '../src/console'
 
 const data = useRpc<LibraryData>()
 const path = ref('')
-const kind = ref<'movie' | 'series'>('movie')
+const kind = ref<string>(data.value.kinds[0]?.id ?? 'movie')
+const kindLabel = (id: string) => data.value.kinds.find((k) => k.id === id)?.label ?? id
 const error = ref('')
 const saved = ref(false)
 const naming = ref({ ...data.value.naming })
@@ -83,7 +83,7 @@ watch(
 async function add() {
   error.value = ''
   try {
-    await data.value.addRootFolder(path.value.trim(), kind.value)
+    await data.value.addRootFolder(path.value.trim(), kind.value as never)
     path.value = ''
   } catch (e) {
     error.value = (e as Error).message

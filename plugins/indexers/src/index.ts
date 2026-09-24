@@ -3,7 +3,7 @@
 
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@magpiejs/jobs'
-import type { IndexerProvider, ReleaseInfo, ReleaseQuery } from '@magpiejs/types'
+import type { IndexerProvider, Protocol, ReleaseInfo, ReleaseQuery } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq } from 'drizzle-orm'
 import console_ from './console'
@@ -40,7 +40,7 @@ export interface RegisteredIndexer extends IndexerOptions {
 
 export interface IndexerHealth extends IndexerOptions {
   id: string
-  protocol: 'torrent' | 'usenet'
+  protocol: Protocol
   healthy: boolean
   failures: number
   disabledUntil: number | null

@@ -1,8 +1,18 @@
 // Shared domain types and provider contracts (docs/PLAN.md §3.1).
 // Types only: this package has no runtime code.
 
-export type MediaKind = 'movie' | 'series'
-export type Protocol = 'torrent' | 'usenet'
+/**
+ * The kinds of media Magpie manages. Kind plugins add theirs by declaration merging:
+ * `declare module '@magpiejs/types' { interface MediaKinds { podcast: true } }`.
+ */
+export interface MediaKinds {
+  movie: true
+  series: true
+}
+export type MediaKind = keyof MediaKinds & string
+
+/** `http`: a direct download from a URL (podcast episodes, free books), no torrent or usenet. */
+export type Protocol = 'torrent' | 'usenet' | 'http'
 
 export interface ExternalIds {
   tmdb?: string
@@ -100,6 +110,8 @@ export interface ReleaseQuery {
   season?: number
   /** A number, or `MM/DD` for daily shows (with the year as `season`), per Newznab. */
   episode?: number | string
+  /** Named search parameters for search types that have them (`artist`, `album`, `author`…). */
+  fields?: Record<string, string>
 }
 
 export interface ReleaseInfo {

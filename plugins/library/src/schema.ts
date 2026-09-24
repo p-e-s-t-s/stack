@@ -6,7 +6,7 @@ import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 export const rootFolders = sqliteTable('library_root_folders', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   path: text('path').notNull().unique(),
-  kind: text('kind', { enum: ['movie', 'series'] }).notNull(),
+  kind: text('kind').$type<MediaKind>().notNull(),
 })
 
 export const mediaItems = sqliteTable(

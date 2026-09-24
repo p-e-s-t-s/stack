@@ -7,7 +7,8 @@ import { type Quality, QUALITY_NAMES } from './qualities'
 import type { Profile, QualitySize, Restriction } from './schema'
 
 export interface DecisionTarget {
-  kind: 'movie' | 'episode' | 'season'
+  /** `movie`, `episode`, `season`, or a kind plugin's own unit (`album`, `book`…). */
+  kind: string
   /** Library item being searched for (used by rules such as the blocklist). */
   mediaId?: number
   profileId: number
@@ -15,8 +16,11 @@ export interface DecisionTarget {
   originalLanguage?: string
   /** For `episode`: the wanted episodes; for `season`: `numbers` is empty. */
   episodes?: { season: number; numbers: number[] }
-  /** Library ids of the episodes a release covers (used by the series' queue rule). */
-  episodeIds?: number[]
+  /**
+   * Ids of the parts of the item a release covers (episodes, albums, books), for kind
+   * plugins' own rules such as "already downloading".
+   */
+  unitIds?: number[]
   /** The file already on disk, if any. */
   current?: { quality: Quality; formatScore: number; revision: Revision }
 }

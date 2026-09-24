@@ -2,7 +2,7 @@
 
 import type {} from '@magpiejs/webui'
 import { QUALITY_NAMES, type Quality } from '@magpiejs/decision/qualities'
-import type { MetadataSearchResult } from '@magpiejs/types'
+import type { MetadataSearchResult, Protocol } from '@magpiejs/types'
 import type { Context } from 'cordis'
 import { hasAired, type SeriesService, type SeriesStats } from './index'
 import type { MonitorOption, SeriesType } from './schema'
@@ -44,7 +44,7 @@ export interface ReleaseRow {
   guid: string
   title: string
   indexer: string
-  protocol: 'torrent' | 'usenet'
+  protocol: Protocol
   size?: number
   seeders?: number
   leechers?: number

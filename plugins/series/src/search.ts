@@ -155,7 +155,7 @@ export default function episodeSearch(ctx: Context, series: SeriesService) {
         season,
         numbers: parsed.kind === 'season' ? [] : covered.map((e) => e.number),
       },
-      episodeIds: covered.map((e) => e.id),
+      unitIds: covered.map((e) => e.id),
       current: worst && {
         quality: worst.quality as never,
         formatScore: worst.formatScore,
