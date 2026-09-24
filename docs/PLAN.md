@@ -1,6 +1,7 @@
 # Implementation Plan: Unified Media Manager
 
-A single-process replacement for Radarr, Sonarr, Prowlarr and Bazarr, built on the
+A single-process replacement for Radarr, Sonarr and Bazarr that works with Prowlarr for
+indexers, built on the
 [Cordis](https://github.com/cordiverse/cordis) plugin kernel with a Cordis WebUI console
 that plugins extend with their own pages, widgets and actions.
 
@@ -51,7 +52,7 @@ Consequences:
 - Every integration (metadata source, indexer, download client, subtitle provider,
   notifier) is a Cordis plugin that can be enabled, reconfigured or removed at runtime
   without restarting.
-- Drop-in migration from an existing Radarr/Sonarr/Prowlarr/Bazarr setup, including an
+- Drop-in migration from an existing Radarr/Sonarr/Bazarr setup, including an
   existing library on disk.
 - Compatible enough with the Radarr/Sonarr v3 API that Prowlarr sync and
   Overseerr/Jellyseerr work unchanged.
@@ -99,7 +100,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
    history ── notify ── subtitles ── calendar ── migrate-arr ── compat-api
                                               │
  Provider plugins (register into a feature's registry; many instances allowed)
-   metadata: tmdb, tvdb, anidb, xem          indexers: torznab, newznab, prowlarr, cardigann
+   metadata: tmdb, tvdb, anidb, xem          indexers: torznab, newznab, prowlarr      
    downloads: qbittorrent, transmission, …   subtitles: opensubtitles, subdl, …
    notify: discord, webhook, ntfy, …
 ```
@@ -525,8 +526,11 @@ including a season pack.
 **Exit:** a real Radarr + Sonarr instance migrates with a report showing zero
 unexplained mismatches.
 
-### Phase 6 — Prowlarr support (two tracks)
-**6a. Use an existing Prowlarr (first):**
+### Phase 6 — Prowlarr integration
+
+Magpie doesn't replace Prowlarr; it uses it. Indexers work from Phase 3 by pasting
+Prowlarr's per-indexer Torznab/Newznab URLs; this phase removes that manual step.
+
 - `plugins/indexer-prowlarr`: connects with Prowlarr URL + API key, lists its indexers
   (`/api/v1/indexer`), and registers one Torznab/Newznab indexer per Prowlarr indexer
   into `ctx.indexers` using Prowlarr's per-indexer proxy URLs (`/{id}/api`), kept in sync
@@ -536,20 +540,13 @@ unexplained mismatches.
   `/api/v3/indexer/test`) so Prowlarr can instead **push** indexers to us by adding us as
   a "Radarr" and/or "Sonarr" application. Contract tests pin the exact payloads Prowlarr
   sends.
+- Grab and failure results reported back to Prowlarr's history where its API allows.
 
-**6b. Replace Prowlarr (later):**
-- `plugins/indexer-cardigann`: run Cardigann YAML indexer definitions (the format Jackett
-  and Prowlarr use): login flows (form, cookie, API key), search paths, CSS/JSON selectors,
-  filters, category mapping. Definitions fetched from the Prowlarr indexer definitions
-  repo with a version check, cached on disk.
-- Cloudflare-protected sites via an optional FlareSolverr proxy setting.
-- Indexer stats page (queries, grabs, failures, response times) — our own page, not
-  `plugin-http-webui`.
-- Expose our indexers as Torznab endpoints so other apps can use us like Prowlarr.
+**Exit:** indexers from an existing Prowlarr appear and search works, both via pull and via
+Prowlarr's app sync.
 
-**Exit (6a):** indexers from an existing Prowlarr appear and search works, both via pull
-and via Prowlarr's app sync. **Exit (6b):** the 20 most-used public trackers' Cardigann
-definitions pass a live smoke test.
+Out of scope: running indexer site definitions ourselves (Cardigann), FlareSolverr —
+Prowlarr already does both.
 
 ### Phase 7 — Subtitles (Bazarr replacement)
 - `plugins/subtitles`: subtitle profiles (languages, forced, hearing-impaired, cutoff),
@@ -614,7 +611,7 @@ search and replace works from the UI.
 | Calendar + iCal | Phase 4 |
 | Import lists | Phase 8 |
 | Subtitles | Phase 7 |
-| Prowlarr use + replacement | Phase 6 |
+| Prowlarr integration | Phase 6 |
 | TMDB + TVDB + others as plugins | §3.1, §3.3, Phases 3/4/8 |
 | Docker, PUID/PGID, config dir layout | §8 |
 
@@ -630,7 +627,7 @@ search and replace works from the UI.
     magpie.db         # SQLite (WAL mode)
     backups/
     logs/
-    cache/             # images, cardigann definitions
+    cache/             # images
     plugins/           # user-installed plugins (via plugin-market)
   ```
 - Secrets (API keys) can come from env vars referenced in `magpie.yml`
@@ -664,10 +661,10 @@ search and replace works from the UI.
 |---|---|
 | Cordis v4 is an RC; APIs may change | Pin exact versions; wrap Cordis APIs in `packages/app`; upgrade deliberately |
 | Cordis WebUI is Koishi-oriented and lightly documented | Build the foundation in Phase 1 before any feature pages. Where `@cordisjs/client` lacks something, add it in `webui-base` or contribute upstream; no standalone-Vue fallback |
-| Licensing: project is MIT; Radarr/Sonarr/Prowlarr/Bazarr are GPL-3.0 | Clean-room only: implement from public API docs and observed behavior, never copy their code or test files. Cardigann definitions are downloaded at runtime as data (not vendored into the repo), so their license doesn't attach to ours. Check each dependency's license in CI (`license-checker` allowlist) |
+| Licensing: project is MIT; Radarr/Sonarr/Prowlarr/Bazarr are GPL-3.0 | Clean-room only: implement from public API docs and observed behavior, never copy their code or test files. Check each dependency's license in CI (`license-checker` allowlist) |
 | TVDB v4 API requires a paid project key or user subscriber PIN | Make TVDB optional; TMDB works out of the box; user supplies their PIN |
 | TMDB TV numbering differs from scene/TVDB | Per-series primary provider + episode groups + XEM |
-| Indexer sites break or block | Cardigann definitions updated from upstream; FlareSolverr support; Prowlarr passthrough stays supported |
+| Indexer sites break or block | Handled by Prowlarr; Magpie backs off and marks the indexer unhealthy |
 | Scope is large (four mature apps) | Phase 3 MVP first; each later phase is independently shippable |
 | Our own schema layer is code we maintain | Kept small (registration + migration runner); Drizzle does the SQL; crash and ownership tests in CI |
 | `node:sqlite` still marked experimental; Drizzle's `node-sqlite` driver only in 1.0 RC | Phase 1 driver test; `better-sqlite3` fallback behind the same layer |
@@ -681,7 +678,7 @@ search and replace works from the UI.
 | Download clients | qBittorrent first, Transmission second (both in the MVP) |
 | UI | Cordis WebUI core packages only; all pages are ours; no stock pages, no standalone fallback |
 | Metadata | TMDB + TVDB (+ AniDB later), each a plugin |
-| Prowlarr | Use existing Prowlarr first, native replacement later (Phase 6) |
+| Prowlarr | Use Prowlarr for indexers; Magpie integrates with it (Phase 6), doesn't replace it |
 | Subtitles | Built in (Phase 7) |
 
 | Database | SQLite + Drizzle with our `@magpiejs/database` layer: prefixed plugin-owned tables, per-plugin versioned migrations, real foreign keys (§3.0.1, §4.2) |

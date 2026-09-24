@@ -1,7 +1,7 @@
 # Magpie
 
-A single-process media manager, planned as a replacement for Radarr, Sonarr, Prowlarr and
-Bazarr, built on the [Cordis](https://github.com/cordiverse/cordis) plugin kernel. Every
+A single-process media manager, planned as a replacement for Radarr, Sonarr and Bazarr
+that works with Prowlarr for indexers, built on the [Cordis](https://github.com/cordiverse/cordis) plugin kernel. Every
 feature is a plugin that owns its own data, jobs and web console pages, and can be enabled,
 reconfigured or removed at runtime. See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
