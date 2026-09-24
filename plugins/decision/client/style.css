@@ -1,0 +1,135 @@
+.dc-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.dc-row label {
+  color: var(--mp-muted);
+  font-size: 13px;
+}
+.dc input,
+.dc select,
+.dc textarea,
+.dc button {
+  font: inherit;
+  color: var(--mp-text);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.dc button {
+  cursor: pointer;
+}
+.dc button.primary {
+  background: var(--mp-accent);
+  color: #fff;
+  border-color: var(--mp-accent);
+}
+.dc button.danger {
+  color: #d33;
+}
+.dc textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+.dc table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.dc th,
+.dc td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--mp-border);
+  font-size: 14px;
+}
+.dc .name {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  word-break: break-all;
+}
+.dc .tag {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 2px;
+  border-radius: 4px;
+  background: var(--mp-bg);
+  border: 1px solid var(--mp-border);
+  font-size: 12px;
+}
+.dc .ok {
+  color: #2ea44f;
+  font-weight: 600;
+}
+.dc .no {
+  color: #d33;
+  font-weight: 600;
+}
+.dc .muted {
+  color: var(--mp-muted);
+  font-size: 13px;
+}
+.dc .list {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.dc .list > nav {
+  width: 200px;
+  flex-shrink: 0;
+}
+.dc .list > nav a {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dc .list > nav a.active {
+  background: var(--mp-bg);
+  color: var(--mp-accent);
+}
+.dc .list > div {
+  flex: 1;
+  min-width: 0;
+}
+.sp-title {
+  background: #cfe3ff66;
+}
+.sp-year {
+  background: #ffe0a866;
+}
+.sp-episodes {
+  background: #d6f5d666;
+}
+.sp-resolution,
+.sp-source,
+.sp-modifier {
+  background: #f5d6f566;
+}
+.sp-videoCodec,
+.sp-hdr,
+.sp-bitDepth {
+  background: #d6f0f566;
+}
+.sp-audio,
+.sp-audioChannels,
+.sp-atmos {
+  background: #f5ecd666;
+}
+.sp-group {
+  background: #e0e0e066;
+}
+.sp-language,
+.sp-multiAudio {
+  background: #ffd6d666;
+}
+.sp-edition,
+.sp-streamingService,
+.sp-revision {
+  background: #e6d6ff66;
+}

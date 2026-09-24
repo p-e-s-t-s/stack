@@ -3,7 +3,7 @@
 
 import type { ParsedRelease, Revision } from '@magpiejs/parser'
 import type { ReleaseInfo } from '@magpiejs/types'
-import type { Quality } from './qualities'
+import { type Quality, QUALITY_NAMES } from './qualities'
 import type { Profile, QualitySize, Restriction } from './schema'
 
 export interface DecisionTarget {
@@ -74,7 +74,7 @@ export const BUILTIN_RULES: Record<string, Rule> = {
 
   'quality-allowed': ({ quality, qualityAllowed }) => {
     if (!qualityAllowed)
-      return { reason: `quality ${quality} is not allowed by the profile`, permanent: true }
+      return { reason: `${QUALITY_NAMES[quality]} is not allowed by the profile`, permanent: true }
   },
 
   size: ({ info, size, target, quality }) => {
@@ -82,12 +82,12 @@ export const BUILTIN_RULES: Record<string, Rule> = {
     const mbPerMinute = info.size / 1024 ** 2 / target.runtimeMinutes
     if (mbPerMinute < size.min)
       return {
-        reason: `too small for ${quality} (${mbPerMinute.toFixed(1)} MB/min, minimum ${size.min})`,
+        reason: `too small for ${QUALITY_NAMES[quality]} (${mbPerMinute.toFixed(1)} MB/min, minimum ${size.min})`,
         permanent: true,
       }
     if (size.max && mbPerMinute > size.max)
       return {
-        reason: `too large for ${quality} (${mbPerMinute.toFixed(1)} MB/min, maximum ${size.max})`,
+        reason: `too large for ${QUALITY_NAMES[quality]} (${mbPerMinute.toFixed(1)} MB/min, maximum ${size.max})`,
         permanent: true,
       }
   },

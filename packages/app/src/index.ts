@@ -24,6 +24,7 @@ export function defaultConfig(options: StartOptions) {
     },
     { name: '@magpiejs/database' },
     { name: '@magpiejs/jobs' },
+    { name: '@magpiejs/decision' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
     { name: '@magpiejs/system' },
   ]

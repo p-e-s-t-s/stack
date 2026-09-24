@@ -17,6 +17,7 @@ import {
   type RuleContext,
 } from './rules'
 import * as schema from './schema'
+import console_ from './console'
 
 export * from './formats'
 export * from './qualities'
@@ -72,6 +73,8 @@ export class DecisionService extends Service {
       steps: { '0000_init': seedDefaults },
     })
     for (const [name, rule] of Object.entries(BUILTIN_RULES)) this.rules.set(name, rule)
+    // web console pages, only when the web console is loaded
+    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     yield () => this.rules.clear()
   }
 

@@ -1,5 +1,8 @@
 # Phase 2 — Release parser and decision engine
 
+**Status: done.** Parser tested against 132 hand-written cases, 540 reviewed real names
+and a 1,974-name corpus; decision plugin and its three console pages are in place.
+
 Detailed plan for Phase 2 of [PLAN.md](PLAN.md#phase-2--release-parser--decision-engine-pure-logic-heavily-tested).
 Goal: given a release name from an indexer (plus its size, seeders, age) and a target
 (what we want and what we already have), decide **accept or reject, with reasons, and a
