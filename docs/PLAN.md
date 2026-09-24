@@ -72,7 +72,7 @@ Consequences:
 | HTTP in | `@cordisjs/plugin-server` |
 | HTTP out | `@cordisjs/plugin-http` (+ per-host rate limiter we add) |
 | UI | `@cordisjs/plugin-webui` + `@cordisjs/client` + `@cordisjs/components` (Vue 3, Element Plus, UnoCSS). Core only; all pages are ours |
-| DB | SQLite via `minato` (`@cordisjs/plugin-database`) + `@minatojs/driver-sqlite`, which runs on the built-in `node:sqlite` (no native build). Each plugin declares its own tables/columns with `ctx.model.extend()`; `@magpiejs/database` adds the safeguards in §4.2 |
+| DB | SQLite via `minato` (`@cordisjs/plugin-database`) + `@minatojs/driver-sqlite`, which runs on the built-in `node:sqlite` (no native build). Each plugin declares only its own tables with `ctx.model.extend()`; `@magpiejs/database` adds the safeguards in §4.2 |
 | Config schemas | `schemastery` |
 | Tests | Vitest; `msw` for HTTP mocks; Playwright for a few UI smoke tests |
 | Media probing | `ffprobe` (bundled in Docker image) |
@@ -94,7 +94,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
  Infrastructure services (each a plugin providing a ctx service)
    database (ctx.database, ctx.model) · jobs (ctx.jobs) · auth · api (ctx.api) · webui-base
                                               │
- Feature plugins (each owns its tables via ctx.model.extend + pages + jobs)
+ Feature plugins (each owns its own tables + pages + jobs; never alters another's)
    library ── movies ── series ── decision ── indexers ── downloads ── import
    history ── notify ── subtitles ── calendar ── migrate-arr ── compat-api
                                               │
@@ -114,15 +114,15 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
 | `@magpiejs/api` | `ctx.api` REST route helper under `/api/v1` | — | server, auth |
 | `@magpiejs/webui-base` | shell, `page`/`widget`/`slot` helpers | — | webui |
 | `@magpiejs/library` | `ctx.library`: media items, files, root folders, naming | `media_items`, `media_files`, `alternate_titles`, `root_folders`, `naming` | database |
-| `@magpiejs/movies` | movie kind, movie pages | movie fields on `media_items` (edition, …) | library |
-| `@magpiejs/series` | series kind, series pages | series fields on `media_items`, `seasons`, `episodes`, `episode_files` | library |
+| `@magpiejs/movies` | movie kind, movie pages | `movie_details` (media_id → `media_items`) | library |
+| `@magpiejs/series` | series kind, series pages | `series_details` (media_id → `media_items`), `seasons`, `episodes`, `episode_files` | library |
 | `@magpiejs/decision` | `ctx.decision`: profiles, custom formats, scoring | `quality_definitions`, `quality_profiles`, `custom_formats`, `profile_format_scores`, `language_profiles`, `release_restrictions` | database |
 | `@magpiejs/indexers` | `ctx.indexers` registry, RSS sync, search | `indexer_status` | decision, jobs |
 | `@magpiejs/downloads` | `ctx.downloads` registry, grab, monitor, path mapping | `grabs`, `blocklist`, `remote_path_mappings` | indexers, jobs |
 | `@magpiejs/import` | import pipeline, library scan | — (writes via `ctx.library`) | library, downloads |
 | `@magpiejs/history` | activity log | `history` | database |
 | `@magpiejs/notify` | `ctx.notify` registry | — | — |
-| `@magpiejs/subtitles` | `ctx.subtitles` registry, wanted/upgrade logic | `subtitle_files`, `subtitle_profiles`, **extends** `media_items` with `subtitle_profile_id` | library, jobs |
+| `@magpiejs/subtitles` | `ctx.subtitles` registry, wanted/upgrade logic | `subtitle_profiles`, `subtitle_assignments` (media_id → `media_items`), `subtitle_files` (media_file_id → `media_files`) | library, jobs |
 | `@magpiejs/calendar` | calendar page + iCal | — | series or movies (optional) |
 | `@magpiejs/compat-api` | `/api/v3` shims for Prowlarr/Overseerr | — | api, library |
 
@@ -130,12 +130,44 @@ What this buys:
 - **Disable TV and nothing else notices.** Turning off `series` removes its pages, routes,
   jobs and matching logic; movies keep working; the series tables stay on disk and come
   back when it's re-enabled.
-- **Subtitles is optional in the true sense.** Without it, `media_items` has no subtitle
-  column in the model and no subtitle UI exists.
+- **Subtitles is optional in the true sense.** It never touches library tables; without
+  it there are no subtitle tables in use and no subtitle UI.
 - **Third-party plugins get first-class storage** the same way first-party ones do.
 - **Instance config lives in `magpie.yml`, runtime state lives in the DB.** An indexer's
   URL/API key is its loader entry's config; its failure count is a row in
   `indexer_status` keyed by that entry's id. There is no second copy of config in SQL.
+
+### 3.0.1 Table ownership rule
+
+**A plugin only creates and changes its own tables.** To attach data to something another
+plugin owns, it creates its own table that references the other table's id:
+
+- one-to-one extra fields → a side table keyed by the owner's id
+  (`subtitle_assignments(media_id PK, subtitle_profile_id)`, `series_details(media_id PK,
+  series_type, episode_ordering, …)`);
+- one-to-many → a child table with the reference column
+  (`subtitle_files(media_file_id, …)`).
+
+Why: a plugin's schema changes can't break another plugin, removing a plugin removes
+exactly its tables, and each table has one owner responsible for its migrations.
+
+**References are logical, not SQLite `FOREIGN KEY` constraints (for now).** `node:sqlite`
+enforces foreign keys by default, and minato emits `FOREIGN KEY` without `ON DELETE`.
+Verified on Node 22: with a child row present, both deleting the parent row and minato's
+table-rebuild step (`DROP TABLE` on the parent) fail with `FOREIGN KEY constraint
+failed`. So a declared cross-plugin FK would block the owner's own migrations. Instead:
+
+- **Deletes:** the owning plugin runs a `library/before-delete` hook (`ctx.serial`); each
+  loaded plugin removes its rows in the same transaction.
+- **Orphan sweep:** every plugin with reference columns deletes rows whose parent no longer
+  exists when it starts and daily. This covers deletes made while it was disabled.
+- **Reads:** join through minato (`database.join`) or look up by id; owners expose
+  lookups on their service (`ctx.library.get(id)`).
+
+Upstream contributions that would let us switch to real constraints: `ON DELETE`
+support in minato's `foreign` config, and `PRAGMA foreign_keys=OFF` around the table
+rebuild (the procedure SQLite's docs prescribe). Once released, references become real
+FKs with `ON DELETE CASCADE`.
 
 ### 3.1 Plugin contracts
 
@@ -227,12 +259,15 @@ The owning plugin for each table is listed in §3.0.
 
 | Table | Key columns |
 |---|---|
-| `media_items` | id, kind (`movie`/`series`), title, sort_title, year, status, monitored, primary_provider, external_ids (JSON), root_folder_id, path, quality_profile_id, language_profile_id, subtitle_profile_id, series_type (`standard`/`daily`/`anime`), episode_ordering, tags, added_at, metadata_refreshed_at |
+| `media_items` | id, kind (`movie`/`series`), title, sort_title, year, status, monitored, primary_provider, external_ids (JSON), root_folder_id, path, quality_profile_id, language_profile_id, tags, added_at, metadata_refreshed_at |
+| `movie_details` | media_id, edition, collection_id, digital/physical release dates |
+| `series_details` | media_id, series_type (`standard`/`daily`/`anime`), episode_ordering, network, air time |
 | `alternate_titles` | media_id, title, source, language (used by parser matching) |
 | `seasons` | media_id, number, monitored |
 | `episodes` | id, media_id, season, number, absolute_number, scene_season, scene_number, title, air_date_utc, monitored, has_file |
 | `media_files` | id, media_id, path (relative), size, quality, resolution, source, video_codec, audio_codec, audio_channels, hdr, languages (JSON), release_group, edition, custom_format_score, mediainfo (JSON from ffprobe), original_release_name, added_at |
 | `episode_files` | file_id, episode_id (many-to-many: multi-episode files) |
+| `subtitle_assignments` | media_id, subtitle_profile_id |
 | `subtitle_files` | id, media_file_id, path, language, forced, hi, provider, score, synced |
 | `quality_definitions` | quality, min/max/preferred size per minute |
 | `quality_profiles` | name, ordered allowed qualities (JSON, supports groups), cutoff quality, min CF score, cutoff CF score, upgrades_allowed |
@@ -558,6 +593,8 @@ search and replace works from the UI.
 - **Orchestrator:** integration tests with a temp SQLite DB, fake indexer (Torznab XML
   server), fake download client, and a temp filesystem — covering restart in every
   state of §5.1.
+- **Ownership rule:** a CI check that no plugin's model declares fields on a table it
+  doesn't own; tests for the before-delete hook and orphan sweep.
 - **Import:** tests for hardlink, cross-device fallback (a tmpfs mount in CI), atomic
   replacement, permission errors.
 - **Compatibility:** contract tests for the `/api/v3` shim against payloads captured from
