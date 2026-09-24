@@ -572,7 +572,7 @@ Prowlarr already does both.
 search and replace works from the UI.
 
 ### Phase 8 — More providers & integrations
-- Download clients: Deluge, SABnzbd, NZBGet (usenet: no seeding, `nzo_id`
+- Download clients: Transmission, Deluge, SABnzbd, NZBGet (usenet: no seeding, `nzo_id`
   refs, post-processing status handling).
 - Notifiers: Discord, Telegram, ntfy, generic webhook, email; media server refresh
   (Plex, Jellyfin, Emby) on import.

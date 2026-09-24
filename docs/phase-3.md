@@ -135,7 +135,6 @@ cookie for the web console and its WebSocket, API keys for `/api/v1`.
 | 3a  | `metadata` + `metadata-tmdb`, `library` + `movies` (add, list, refresh); Movies and Add movie pages |
 | 3b  | `indexers` + `indexer-torznab`; interactive search on the movie page                                |
 | 3c  | `downloads` + qBittorrent; manual grab; Activity queue                                              |
-| 3d  | Transmission client                                                                                 |
 | 3e  | `import`: hardlink/copy, naming, recycle bin; history                                               |
 | 3f  | Automation: search on add, RSS, wanted sweep, upgrades, failed-download retry                       |
 | 3g  | `auth` + `api`; Settings pages                                                                      |
@@ -161,6 +160,9 @@ release later appearing in RSS replaces it.
   how its paths map to paths on the Magpie side.
 
 ## 10. Decisions
+
+- **Core first:** Transmission (and other extra providers) moved out of Phase 3 to Phase 8;
+  Phase 3 finishes import, automation, login and settings with qBittorrent.
 
 - **Login is always required** (no local-network bypass).
 - **Paths are mapped outside Magpie** (Docker volumes set up so Magpie and the download
