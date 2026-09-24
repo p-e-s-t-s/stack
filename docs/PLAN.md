@@ -22,13 +22,19 @@ published packages say otherwise, and the plan follows the packages:
 | `@cordisjs/plugin-http` | `1.5.x` | Outbound HTTP client (`ctx.http`). We use it for every external API. |
 | `@cordisjs/plugin-webui` | `0.8.x` | The console backend (`ctx.webui`): serves the client, entries, WebSocket RPC. |
 | `@cordisjs/client` | `0.8.x` | Console frontend: Vite 7, Vue 3.5, Element Plus, UnoCSS. |
-| `@cordisjs/plugin-server-webui` | `0.5.x` | A console *page* that inspects server routes and requests. Optional dev tool. |
-| `@cordisjs/plugin-http-webui` | `0.5.x` | A console *page* that inspects outbound HTTP. Optional dev tool. |
-| `@cordisjs/plugin-loader` / `plugin-loader-webui` | `1.0.0-rc` / `0.10.x` | YAML-configured plugin loading + the plugin manager page (enable, disable, configure). |
-| `@cordisjs/plugin-market` | `0.5.x` | Install plugins from npm through the console. |
+| `@cordisjs/components` | `0.4.x` | Shared console components, incl. schemastery-driven forms (`schemastery-vue`). |
+| `@cordisjs/plugin-loader` | `1.0.0-rc` | YAML-configured plugin loading; enable/disable/reload plugins at runtime. |
 | `@cordisjs/plugin-timer` | `1.1.x` | Disposable timers (`ctx.setInterval`, etc.). |
 | `@cordisjs/plugin-logger` | `1.0.x` | Logging. |
 | `schemastery` | `3.18.x` | Config schemas; the console renders settings forms from them. |
+
+**Not used:** the ready-made console pages — `@cordisjs/plugin-server-webui` (route
+inspector), `@cordisjs/plugin-http-webui` (HTTP inspector), `@cordisjs/plugin-loader-webui`
+(generic plugin manager) and `@cordisjs/plugin-market` (npm plugin installer). We use only
+the core infrastructure (kernel, server, http, loader, timer, logger, webui backend,
+client, components) and build every page ourselves, so the UI is a media manager rather
+than a developer console. There is no standalone-Vue fallback: the UI lives in the Cordis
+WebUI ecosystem.
 
 Consequences:
 - Routes are registered with `ctx.server.get/post(...)`, not Koa middleware. If a Koa
@@ -66,12 +72,13 @@ Consequences:
 | Kernel | `cordis` 4 + `@cordisjs/plugin-loader` (YAML config) |
 | HTTP in | `@cordisjs/plugin-server` |
 | HTTP out | `@cordisjs/plugin-http` (+ per-host rate limiter we add) |
-| UI | `@cordisjs/plugin-webui` + `@cordisjs/client` (Vue 3, Element Plus, UnoCSS) |
+| UI | `@cordisjs/plugin-webui` + `@cordisjs/client` + `@cordisjs/components` (Vue 3, Element Plus, UnoCSS). Core only; all pages are ours |
 | DB | SQLite via Drizzle ORM. Driver: `better-sqlite3`, behind an adapter so `node:sqlite` can replace it once it's stable (no native build = easier ARM/Docker) |
 | Config schemas | `schemastery` |
 | Tests | Vitest; `msw` for HTTP mocks; Playwright for a few UI smoke tests |
 | Media probing | `ffprobe` (bundled in Docker image) |
 | Lint/format | ESLint (flat config) + Prettier |
+| License | MIT |
 
 ## 3. Architecture
 
@@ -96,7 +103,7 @@ Consequences:
    └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
    Orchestrators: search (RSS + manual + missing/upgrade sweeps), grab, download-monitor,
                   import, subtitle-manager
-   Surfaces:      webui pages, REST API (/api/v1), *arr-compat API (/api/v3 shims)
+   Surfaces:      our own webui pages, REST API (/api/v1), *arr-compat API (/api/v3 shims)
 ```
 
 ### 3.1 Plugin contracts
@@ -150,8 +157,14 @@ interface Notifier {
 }
 ```
 
-A provider plugin also declares a `schemastery` config schema; the console renders its
-settings form from that, and a "Test" button calls `test()`.
+A provider plugin also declares a `schemastery` config schema; our settings pages render
+its form with the `@cordisjs/components` schema form, and a "Test" button calls `test()`.
+
+Because we don't ship `plugin-loader-webui`, our own **Settings → Integrations** pages
+are the plugin manager for end users: adding an indexer/client/provider instance,
+editing it, disabling it or removing it calls the `@cordisjs/plugin-loader` API
+(add/update/remove entry in `cordarr.yml`), which hot-reloads that one plugin. Users
+never see raw Cordis plugin names or YAML.
 
 ### 3.2 Events
 
@@ -292,7 +305,7 @@ attention" list with a manual-import dialog.
 Each phase ends with a runnable build and explicit exit criteria. Phase 3 is the MVP.
 
 ### Phase 1 — Foundations
-- Root `package.json` (workspaces), `tsconfig.base.json`, project references, ESLint,
+- MIT `LICENSE`; root `package.json` (workspaces), `tsconfig.base.json`, project references, ESLint,
   Prettier, Vitest, `tsup`, GitHub Actions CI (lint, typecheck, test on Node 24).
 - `packages/core`: app bootstrap with `@cordisjs/plugin-loader`, config dir resolution
   (`--config`, `CORDARR_CONFIG_DIR`), logger, the provider registries and service
@@ -301,20 +314,22 @@ Each phase ends with a runnable build and explicit exit criteria. Phase 3 is the
 - `packages/jobs`: persisted job queue on the `jobs` table (retry with backoff, locking,
   scheduled/recurring jobs, visible in UI later).
 - `packages/http-utils`: rate limiter + retry wrapper around `ctx.http`.
-- **WebUI spike** (see §10): one console page, one schemastery-generated settings form,
-  one widget updated live over WebSocket, and a plugin whose page disappears when it's
-  disabled.
+- **WebUI foundation** (see §10): `packages/webui-base` skeleton on `@cordisjs/client`
+  with none of the stock pages loaded; one page, one schemastery-generated settings
+  form, one widget updated live over WebSocket, and a plugin whose page disappears when
+  it's disabled.
 
 **Exit:** `npm run dev` boots, creates the DB, runs a scheduled test job, serves the
-spike page; CI green.
+foundation page; CI green.
 
 ### Phase 2 — Release parser & decision engine (pure logic, heavily tested)
 - `packages/parser`: title, year, season/episode (incl. `S01E01E02`, `1x01`, daily
   `2024.05.01`, anime absolute `- 123`, season packs, multi-season), resolution, source,
   modifiers (Remux, PROPER, REPACK, REAL), video codec, HDR formats, audio codec/channels,
   languages, edition, release group, hash-tagged anime groups `[Group]`.
-- Golden fixture file: ≥500 real release names with expected output; start by porting
-  cases from Radarr/Sonarr's parser test suites (GPL-3.0 — see §10).
+- Golden fixture file: ≥500 real release names with expected output, collected from
+  indexer RSS feeds and our own libraries. The project is MIT, so no code or test files
+  are copied from the GPL-3.0 *arr projects (see §10).
 - `packages/decision`: quality definitions, profiles, custom formats, scoring, upgrade
   decider, with rejection reasons.
 
@@ -324,20 +339,24 @@ spike page; CI green.
 - `plugins/metadata-tmdb`: search, movie details, images, IMDb mapping.
 - `plugins/indexer-torznab` and `plugins/indexer-newznab` (shared XML parser + caps).
 - `plugins/downloader-qbittorrent` (Web API v2, categories, auth, tags).
+- `plugins/downloader-transmission` (RPC API, `X-Transmission-Session-Id` handshake,
+  labels as categories, `downloadDir`). Second client, built right after qBittorrent so
+  the `DownloadClient` interface is proven against two implementations before TV work.
 - `packages/pathmap`: remote path mappings.
 - `packages/library`: media items, root folders, naming templates, movie import (§5.4).
 - `packages/orchestrator`: RSS sync, missing search, grab, download monitor, import
   (§5.1–5.4) for movies.
 - `packages/api`: REST `/api/v1` (movies, queue, history, indexers, clients, profiles),
   API key auth.
-- `packages/webui-base`: console shell (sidebar, header status, notifications toast,
-  global search), login page, and pages: Movies (grid/list), Movie detail (files,
+- `packages/webui-base`: our console shell built on `@cordisjs/client` (sidebar,
+  header status, notifications toast, global search, the page/widget/slot registration
+  helpers that feature plugins use), login page, and pages: Movies (grid/list), Movie detail (files,
   interactive search, history), Activity (queue/history), Settings (profiles, root
   folders, naming, indexers, download clients — forms rendered from schemas).
 
 **Exit:** add a movie in the UI → it's found on a Torznab indexer → sent to qBittorrent
-(in Docker, with a path mapping) → imported by hardlink with the right name → shown as
-downloaded. Upgrade path works when a better release appears in RSS.
+or Transmission (in Docker, with a path mapping) → imported by hardlink with the right
+name → shown as downloaded. Upgrade path works when a better release appears in RSS.
 
 ### Phase 4 — TV
 - `plugins/metadata-tvdb` (v4 API, needs a subscriber PIN or project key — see §9) and
@@ -381,7 +400,8 @@ unexplained mismatches.
   filters, category mapping. Definitions fetched from the Prowlarr indexer definitions
   repo with a version check, cached on disk.
 - Cloudflare-protected sites via an optional FlareSolverr proxy setting.
-- Indexer stats page (queries, grabs, failures, response times).
+- Indexer stats page (queries, grabs, failures, response times) — our own page, not
+  `plugin-http-webui`.
 - Expose our indexers as Torznab endpoints so other apps can use us like Prowlarr.
 
 **Exit (6a):** indexers from an existing Prowlarr appear and search works, both via pull
@@ -409,7 +429,7 @@ definitions pass a live smoke test.
 search and replace works from the UI.
 
 ### Phase 8 — More providers & integrations
-- Download clients: Transmission, Deluge, SABnzbd, NZBGet (usenet: no seeding, `nzo_id`
+- Download clients: Deluge, SABnzbd, NZBGet (usenet: no seeding, `nzo_id`
   refs, post-processing status handling).
 - Notifiers: Discord, Telegram, ntfy, generic webhook, email; media server refresh
   (Plex, Jellyfin, Emby) on import.
@@ -495,18 +515,27 @@ search and replace works from the UI.
 | Risk | Mitigation |
 |---|---|
 | Cordis v4 is an RC; APIs may change | Pin exact versions; wrap Cordis APIs in `core`; upgrade deliberately |
-| Cordis WebUI is Koishi-oriented and lightly documented | Spike in week 1: a hello-world page, a settings form from schemastery, a live-updating widget. Fall back to a standalone Vue app talking to our REST/WS API if the spike fails |
-| Licensing: Radarr/Sonarr/Prowlarr/Bazarr are GPL-3.0; Cardigann definitions are from Jackett/Prowlarr | Choose GPL-3.0 for this project if we port code or tests from them; otherwise reimplement from behavior and only use definitions as data under their license |
+| Cordis WebUI is Koishi-oriented and lightly documented | Build the foundation in Phase 1 before any feature pages. Where `@cordisjs/client` lacks something, add it in `webui-base` or contribute upstream; no standalone-Vue fallback |
+| Licensing: project is MIT; Radarr/Sonarr/Prowlarr/Bazarr are GPL-3.0 | Clean-room only: implement from public API docs and observed behavior, never copy their code or test files. Cardigann definitions are downloaded at runtime as data (not vendored into the repo), so their license doesn't attach to ours. Check each dependency's license in CI (`license-checker` allowlist) |
 | TVDB v4 API requires a paid project key or user subscriber PIN | Make TVDB optional; TMDB works out of the box; user supplies their PIN |
 | TMDB TV numbering differs from scene/TVDB | Per-series primary provider + episode groups + XEM |
 | Indexer sites break or block | Cardigann definitions updated from upstream; FlareSolverr support; Prowlarr passthrough stays supported |
 | Scope is large (four mature apps) | Phase 3 MVP first; each later phase is independently shippable |
 | `better-sqlite3` native builds on ARM/Alpine | Prebuilt binaries on `node:24-slim`; driver adapter allows `node:sqlite` later |
 
-## 11. Still to decide (not blocking Phase 1)
+## 11. Decisions
 
+| Decision | Choice |
+|---|---|
+| License | MIT (clean-room; see §10) |
+| Download clients | qBittorrent first, Transmission second (both in the MVP) |
+| UI | Cordis WebUI core packages only; all pages are ours; no stock pages, no standalone fallback |
+| Metadata | TMDB + TVDB (+ AniDB later), each a plugin |
+| Prowlarr | Use existing Prowlarr first, native replacement later (Phase 6) |
+| Subtitles | Built in (Phase 7) |
+
+Still open (not blocking Phase 1):
 1. **Final name** (placeholder `cordarr`).
-2. **License**: GPL-3.0 (lets us port *arr tests/logic) vs MIT (clean-room only).
-3. **Second download client** after qBittorrent: SABnzbd (usenet users) or Transmission?
-4. **UI fallback**: if the Cordis WebUI spike in Phase 1 goes badly, is a standalone
-   Vue 3 app acceptable?
+2. **Database layer:** Drizzle (current plan) vs the Cordis ecosystem's own
+   `minato` / `@cordisjs/plugin-database` + `@minatojs/driver-sqlite`, which lets plugins
+   extend tables with `ctx.model.extend()` and ties table lifetime to plugin lifetime.
