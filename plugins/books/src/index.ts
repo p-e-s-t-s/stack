@@ -7,7 +7,7 @@
 import { rmSync } from 'node:fs'
 import type {} from '@cordisjs/plugin-timer'
 import type { Drizzle } from '@magpiejs/database'
-import { cutoffMet } from '@magpiejs/decision'
+import { cutoffMet, profileRanks } from '@magpiejs/decision'
 import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/jobs'
 import { type MediaFile, type MediaItem, renderName } from '@magpiejs/library'
@@ -15,12 +15,17 @@ import type {} from '@magpiejs/metadata'
 import type { BookMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { and, eq, inArray } from 'drizzle-orm'
+import api from './api'
+import automation from './automation'
+import bookCalendar from './calendar'
 import { audiobookFamily, ebookFamily } from './families'
+import bookImport from './import'
 import { BOOK_NAMING } from './naming'
 import * as schema from './schema'
 import bookSearch, { type BookResult, type BookSearch } from './search'
 
 export * from './families'
+export { AUDIOBOOK_EXTENSIONS, EBOOK_EXTENSIONS, fileQuality } from './import'
 export * from './match'
 export * from './parse'
 export * from './schema'
@@ -150,6 +155,10 @@ export class BooksService extends Service {
     })
     this.ctx.jobs.schedule('books.refresh-all', 'books.refresh', DAY)
     this.ctx.inject(['indexers'], (ctx) => void ctx.plugin(bookSearch, this))
+    this.ctx.inject(['import'], (ctx) => void ctx.plugin(bookImport, this))
+    this.ctx.inject(['indexers', 'downloads'], (ctx) => void ctx.plugin(automation, this))
+    this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(bookCalendar, this))
+    this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
         this.grabber = async (mediaId, { release, decision, bookIds }, manual) => {
@@ -488,9 +497,10 @@ export class BooksService extends Service {
     if (!follow) return []
     const files = this.bookFiles(mediaId)
     const profile = this.ctx.decision.profile(follow.profileId)
+    const rankOf = profile ? profileRanks(profile).rankOf : () => 0
     return this.books(mediaId).filter((b) => {
       if (!b.monitored || !isReleased(b, now)) return false
-      const best = files.get(b.id)?.[0]
+      const best = files.get(b.id)?.sort((x, y) => rankOf(y.quality) - rankOf(x.quality))[0]
       return !best || (!!profile && !cutoffMet(profile, best))
     })
   }

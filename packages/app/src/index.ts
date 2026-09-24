@@ -33,11 +33,14 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/metadata-tmdb', disabled: true, config: { apiKey: '' } },
     // podcast search; needs no key
     { name: '@magpiejs/metadata-itunes' },
+    // authors and books; needs no key
+    { name: '@magpiejs/metadata-openlibrary' },
     { name: '@magpiejs/library' },
     { name: '@magpiejs/indexers' },
     { name: '@magpiejs/movies' },
     { name: '@magpiejs/series' },
     { name: '@magpiejs/podcasts' },
+    { name: '@magpiejs/books' },
     { name: '@magpiejs/downloads' },
     // direct downloads (podcast episodes); needs no settings
     { name: '@magpiejs/downloader-http' },
