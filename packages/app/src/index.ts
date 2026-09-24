@@ -35,12 +35,15 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/metadata-itunes' },
     // authors and books; needs no key
     { name: '@magpiejs/metadata-openlibrary' },
+    // artists and albums; needs no key
+    { name: '@magpiejs/metadata-musicbrainz' },
     { name: '@magpiejs/library' },
     { name: '@magpiejs/indexers' },
     { name: '@magpiejs/movies' },
     { name: '@magpiejs/series' },
     { name: '@magpiejs/podcasts' },
     { name: '@magpiejs/books' },
+    { name: '@magpiejs/music' },
     { name: '@magpiejs/downloads' },
     // direct downloads (podcast episodes); needs no settings
     { name: '@magpiejs/downloader-http' },

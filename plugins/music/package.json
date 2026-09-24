@@ -24,7 +24,8 @@
     "@magpiejs/metadata": "0.0.0",
     "@magpiejs/parser": "0.0.0",
     "@magpiejs/types": "0.0.0",
-    "drizzle-orm": "0.45.3"
+    "drizzle-orm": "0.45.3",
+    "music-metadata": "^11.16.0"
   },
   "peerDependencies": {
     "@cordisjs/plugin-timer": "^1.1.3",

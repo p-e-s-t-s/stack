@@ -15,12 +15,17 @@ import type {} from '@magpiejs/metadata'
 import type { AlbumMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { eq, inArray } from 'drizzle-orm'
+import api from './api'
+import automation from './automation'
+import albumCalendar from './calendar'
 import { audioFamily } from './families'
+import albumImport from './import'
 import { MUSIC_NAMING } from './naming'
 import * as schema from './schema'
 import albumSearch, { type AlbumResult, type AlbumSearch } from './search'
 
 export * from './families'
+export { AUDIO_EXTENSIONS, readTags } from './import'
 export * from './match'
 export * from './parse'
 export * from './schema'
@@ -152,6 +157,10 @@ export class MusicService extends Service {
     })
     this.ctx.jobs.schedule('music.refresh-all', 'music.refresh', DAY)
     this.ctx.inject(['indexers'], (ctx) => void ctx.plugin(albumSearch, this))
+    this.ctx.inject(['import'], (ctx) => void ctx.plugin(albumImport, this))
+    this.ctx.inject(['indexers', 'downloads'], (ctx) => void ctx.plugin(automation, this))
+    this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(albumCalendar, this))
+    this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
         this.grabber = async (mediaId, { release, decision, albumIds }, manual) => {

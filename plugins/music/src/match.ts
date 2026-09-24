@@ -66,11 +66,11 @@ const LENGTH_SLACK = 20
  * The track a file is: by disc and number when the title (if any) agrees, else by title. Its
  * length, when known, must be close to the track's.
  */
-export function matchTrack(
+export function matchTrack<T extends TrackCandidate>(
   file: ParsedTrack & { seconds?: number },
-  tracks: TrackCandidate[],
+  tracks: T[],
   discs: number,
-): TrackCandidate | undefined {
+): T | undefined {
   const lengthOk = (t: TrackCandidate) =>
     file.seconds === undefined ||
     !t.lengthMs ||
