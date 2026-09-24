@@ -21,6 +21,8 @@ export interface ExternalIds {
   anidb?: string
   mal?: string
   itunes?: string
+  /** Open Library key without its path: `OL7234434A` (author), `OL17091839W` (work). */
+  openlibrary?: string
 }
 
 export interface TestResult {
@@ -90,6 +92,28 @@ export interface EpisodeMetadata {
   runtimeMinutes?: number
 }
 
+/** A book author (search results for ebooks and audiobooks are authors). */
+export interface AuthorMetadata extends MetadataSearchResult {
+  /** Other spellings and pen names, for matching releases. */
+  alternateNames?: string[]
+  birthDate?: string
+}
+
+/** A book (a work, not a particular edition). */
+export interface BookMetadata {
+  ids: ExternalIds
+  title: string
+  subtitle?: string
+  year?: number
+  /** ISO date of the first publication, when the provider knows the day. */
+  releaseDate?: string
+  coverUrl?: string
+  /** Number of editions: a rough measure of how well known a book is. */
+  editions?: number
+  /** ISO 639-2 codes of the languages it was published in (`eng`, `ger`). */
+  languages?: string[]
+}
+
 export interface MetadataProvider {
   id: string
   kinds: MediaKind[]
@@ -99,6 +123,9 @@ export interface MetadataProvider {
   getEpisodes?(externalId: string, ordering?: EpisodeOrdering): Promise<EpisodeMetadata[]>
   orderings?(externalId: string): Promise<EpisodeOrdering[]>
   mapIds?(ids: ExternalIds): Promise<ExternalIds>
+  getAuthor?(externalId: string): Promise<AuthorMetadata>
+  /** Books the author wrote (not ones they only contributed to). */
+  getBooks?(authorId: string): Promise<BookMetadata[]>
 }
 
 // Indexers

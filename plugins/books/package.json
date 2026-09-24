@@ -1,0 +1,22 @@
+{
+  "name": "@magpiejs/books",
+  "version": "0.0.0",
+  "description": "Ebooks and audiobooks for Magpie: authors, books, monitoring and pages",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "magpie": {
+    "namespace": "books"
+  },
+  "dependencies": {
+    "@magpiejs/types": "0.0.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10"
+  }
+}
