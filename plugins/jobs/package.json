@@ -1,0 +1,30 @@
+{
+  "name": "@magpiejs/jobs",
+  "version": "0.0.0",
+  "description": "Persisted job queue and schedules for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "magpie": {
+    "namespace": "jobs"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/http-utils": "0.0.0",
+    "drizzle-orm": "0.45.3",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "0.31.11"
+  }
+}
