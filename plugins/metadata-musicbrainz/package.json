@@ -1,0 +1,32 @@
+{
+  "name": "@magpiejs/metadata-musicbrainz",
+  "version": "0.0.0",
+  "description": "Artists, albums and track lists from MusicBrainz, covers from the Cover Art Archive (no key needed)",
+  "type": "module",
+  "license": "MIT",
+  "magpie": {
+    "provider": {
+      "kind": "metadata",
+      "label": "MusicBrainz (music)",
+      "single": true,
+      "basic": []
+    }
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/metadata": "0.0.0",
+    "@magpiejs/music": "0.0.0",
+    "@magpiejs/types": "0.0.0",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "@cordisjs/plugin-http": "^1.5.2",
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@cordisjs/plugin-http": "1.5.2",
+    "cordis": "4.0.0-rc.10"
+  }
+}

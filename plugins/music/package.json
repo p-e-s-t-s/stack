@@ -1,0 +1,22 @@
+{
+  "name": "@magpiejs/music",
+  "version": "0.0.0",
+  "description": "Music for Magpie: artists, albums, tracks, monitoring and pages",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "magpie": {
+    "namespace": "music"
+  },
+  "dependencies": {
+    "@magpiejs/types": "0.0.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10"
+  }
+}

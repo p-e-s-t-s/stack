@@ -23,6 +23,8 @@ export interface ExternalIds {
   itunes?: string
   /** Open Library key without its path: `OL7234434A` (author), `OL17091839W` (work). */
   openlibrary?: string
+  /** MusicBrainz id (artist, release group or release, by context). */
+  musicbrainz?: string
 }
 
 export interface TestResult {
@@ -114,6 +116,40 @@ export interface BookMetadata {
   languages?: string[]
 }
 
+/** A music artist (search results for music are artists). */
+export interface ArtistMetadata extends MetadataSearchResult {
+  /** `Group`, `Person`… */
+  artistType?: string
+  disambiguation?: string
+  sortName?: string
+  country?: string
+  alternateNames?: string[]
+}
+
+/** An album in the MusicBrainz sense: a release group of any type. */
+export interface AlbumMetadata {
+  ids: ExternalIds
+  title: string
+  /** `Album`, `EP`, `Single`, `Broadcast`, `Other`. */
+  primaryType?: string
+  /** `Live`, `Compilation`, `Remix`, `Soundtrack`, `Demo`… */
+  secondaryTypes: string[]
+  /** ISO date, or `YYYY-MM`/`YYYY` when that's all that's known. */
+  releaseDate?: string
+  coverUrl?: string
+}
+
+/** The tracks of an album, from one of its releases (editions). */
+export interface TrackListMetadata {
+  /** The release (edition) the track list comes from. */
+  releaseId: string
+  discs: {
+    number: number
+    format?: string
+    tracks: { number: number; title: string; lengthMs?: number; recordingId?: string }[]
+  }[]
+}
+
 export interface MetadataProvider {
   id: string
   kinds: MediaKind[]
@@ -126,6 +162,10 @@ export interface MetadataProvider {
   getAuthor?(externalId: string): Promise<AuthorMetadata>
   /** Books the author wrote (not ones they only contributed to). */
   getBooks?(authorId: string): Promise<BookMetadata[]>
+  getArtist?(externalId: string): Promise<ArtistMetadata>
+  /** Every release group the artist is credited on first, of any type. */
+  getAlbums?(artistId: string): Promise<AlbumMetadata[]>
+  getTracks?(albumId: string): Promise<TrackListMetadata>
 }
 
 // Indexers
