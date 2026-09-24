@@ -38,6 +38,7 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/downloads' },
     { name: '@magpiejs/import' },
     { name: '@magpiejs/history' },
+    { name: '@magpiejs/calendar' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
     { name: '@magpiejs/system' },
     { name: '@magpiejs/settings' },

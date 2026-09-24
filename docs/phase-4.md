@@ -128,9 +128,15 @@ A standard, a daily and an anime series each go from add → import correctly wi
 fake services, including a season pack for the standard one; episodes upgrade when a
 better release appears.
 
-## 9. Decisions
+## 9. Status
+
+All milestones are done. Deferred to Phase 8: TVDB, XEM scene numbering, episode groups.
+
+## 10. Decisions
 
 - **TMDB is the TV metadata provider.** It needs no extra key. TVDB comes later as an
   optional plugin; series store TVDB ids (from TMDB's external ids) for indexer queries.
 - **Downloads and library stay generic.** Episode knowledge lives in `series`' own tables,
   linked by foreign keys to grabs and files.
+- **Resolution without a source counts as HDTV** of that resolution (`[Group] Show - 03
+(1080p)`), as in Sonarr, rather than an unknown quality that profiles reject.

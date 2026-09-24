@@ -504,19 +504,16 @@ Detailed plan: [phase-3.md](phase-3.md).
 or Transmission (in Docker, with a path mapping) → imported by hardlink with the right
 name → shown as downloaded. Upgrade path works when a better release appears in RSS.
 
-### Phase 4 — TV
-- `plugins/metadata-tvdb` (v4 API, needs a subscriber PIN or project key — see §9) and
-  TV support in `metadata-tmdb` (seasons, episodes, episode groups for alternate
-  orderings).
-- `plugins/mapping-xem`: scene numbering.
-- Series/season/episode monitoring options (all, future, missing, first season, latest
-  season, none), series types (standard/daily/anime).
-- Episode matching, season packs, multi-episode files, specials (season 0).
-- Calendar page + iCal feed.
-- Pages: Series list, Series detail (season tables with per-episode status/actions).
+### Phase 4 — TV (done)
 
-**Exit:** a standard, a daily and an anime series each go from add → import correctly,
-including a season pack.
+Detailed in [phase-4.md](phase-4.md). Delivered: TV in `metadata-tmdb`, the `series` plugin
+(monitoring options, standard/daily/anime types, specials), episode and season-pack search,
+grabbing and import (multi-episode files), automation, and the `calendar` plugin (page +
+iCal feed). Moved to Phase 8: `metadata-tvdb` (needs a paid subscriber PIN), `mapping-xem`
+scene numbering, and TMDB episode groups for alternate orderings.
+
+**Exit (met, with fake services):** a standard, a daily and an anime series each go from
+search → import correctly, including a season pack.
 
 ### Phase 5 — Migration & library scan
 - Library scan / existing folder import (§5.5).
@@ -579,7 +576,9 @@ search and replace works from the UI.
 - Overseerr/Jellyseerr compatibility: extend the `/api/v3` shim with movie/series
   add/lookup, quality profile and root folder listing, as used by those apps.
 - Import lists: TMDB lists, Trakt, IMDb lists, Plex watchlist.
-- Metadata: `metadata-anidb` for anime.
+- Metadata: `metadata-anidb` for anime; `metadata-tvdb` (v4 API, subscriber PIN);
+  `mapping-xem` scene numbering; TMDB episode groups for alternate orderings (moved from
+  Phase 4).
 
 ### Phase 9 — Hardening & release
 - Health checks page: indexer/client reachability, root folder free space and

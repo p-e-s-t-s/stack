@@ -1,0 +1,27 @@
+{
+  "name": "@magpiejs/calendar",
+  "version": "0.0.0",
+  "description": "Calendar page and iCal feed of upcoming episodes and movie releases",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/api": "0.0.0",
+    "@magpiejs/decision": "0.0.0",
+    "@magpiejs/movies": "0.0.0",
+    "@magpiejs/series": "0.0.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/jobs": "0.0.0",
+    "@magpiejs/library": "0.0.0",
+    "@magpiejs/metadata": "0.0.0",
+    "@magpiejs/webui": "0.0.0",
+    "cordis": "4.0.0-rc.10"
+  }
+}

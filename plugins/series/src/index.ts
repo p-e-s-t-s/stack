@@ -12,7 +12,7 @@ import { type MediaFile, type MediaItem, renderName } from '@magpiejs/library'
 import type {} from '@magpiejs/metadata'
 import type { EpisodeMetadata, SeriesMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, between, eq, inArray } from 'drizzle-orm'
 import console_ from './console'
 import automation from './automation'
 import episodeImport from './import'
@@ -512,6 +512,27 @@ export class SeriesService extends Service {
       .where(eq(schema.episodes.mediaId, mediaId))
       .orderBy(schema.episodes.season, schema.episodes.number)
       .all()
+  }
+
+  /** Episodes airing between two ISO dates (inclusive), with their series and file state. */
+  airing(from: string, to: string) {
+    const rows = this.db
+      .select()
+      .from(schema.episodes)
+      .where(between(schema.episodes.airDate, from, to))
+      .orderBy(schema.episodes.airDate, schema.episodes.season, schema.episodes.number)
+      .all()
+    const shows = new Map<number, Series | undefined>()
+    const files = new Map<number, Map<number, MediaFile>>()
+    return rows.flatMap((episode) => {
+      if (!shows.has(episode.mediaId)) {
+        shows.set(episode.mediaId, this.get(episode.mediaId))
+        files.set(episode.mediaId, this.episodeFiles(episode.mediaId))
+      }
+      const series = shows.get(episode.mediaId)
+      if (!series) return []
+      return [{ series, episode, file: files.get(episode.mediaId)!.get(episode.id) }]
+    })
   }
 
   episode(id: number) {

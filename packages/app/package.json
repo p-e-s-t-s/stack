@@ -22,6 +22,7 @@
     "@cordisjs/plugin-timer": "1.1.3",
     "@magpiejs/api": "0.0.0",
     "@magpiejs/auth": "0.0.0",
+    "@magpiejs/calendar": "0.0.0",
     "@magpiejs/database": "0.0.0",
     "@magpiejs/decision": "0.0.0",
     "@magpiejs/downloader-qbittorrent": "0.0.0",

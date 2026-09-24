@@ -28,6 +28,7 @@ export interface ApiRequest<P = Record<string, string>> {
   body: any
 }
 
+/** Returns JSON-able data, nothing (204), or a `Response` for other content types. */
 export type ApiHandler<P = Record<string, string>> = (req: ApiRequest<P>) => unknown
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete'
@@ -84,6 +85,8 @@ export class ApiService extends Service {
           query: req.query,
           body,
         })
+        // a Response (e.g. a calendar file) is sent as it is
+        if (result instanceof Response) return result
         if (result === undefined) res.status = 204
         else res.json(result)
       } catch (error) {
