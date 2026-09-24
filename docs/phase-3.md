@@ -31,21 +31,21 @@ Every step is a job in `@magpiejs/jobs`, so a restart resumes where it stopped.
 
 ## 3. Plugins
 
-| Plugin                              | Provides                                                                                   | Owns                                                                                             | Depends on              |
-| ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ----------------------- |
-| `@magpiejs/metadata`                | `ctx.metadata` provider registry, image cache                                              | —                                                                                                | —                       |
-| `@magpiejs/metadata-tmdb`           | TMDB provider: search, movie details, release dates, IDs                                   | —                                                                                                | metadata, http          |
-| `@magpiejs/library`                 | `ctx.library`: media items, files, root folders, naming                                    | `library_media_items`, `library_media_files`, `library_root_folders`, `library_alternate_titles` | database, decision      |
-| `@magpiejs/movies`                  | movie kind, availability, search triggers, movie pages                                     | `movies_details` (→ `library_media_items`, cascade)                                              | library, metadata, jobs |
-| `@magpiejs/indexers`                | `ctx.indexers` registry, search fan-out, RSS sync, health                                  | `indexers_status`                                                                                | jobs, decision          |
-| `@magpiejs/indexer-torznab`         | Torznab and Newznab indexer (one plugin instance per indexer)                              | —                                                                                                | indexers, http          |
-| `@magpiejs/downloads`               | `ctx.downloads` client registry, grab, monitor, path mapping, blocklist and in-queue rules | `downloads_grabs`, `downloads_blocklist`, `downloads_path_mappings`                              | jobs, decision, library |
-| `@magpiejs/downloader-qbittorrent`  | qBittorrent Web API v2 client                                                              | —                                                                                                | downloads, http         |
-| `@magpiejs/downloader-transmission` | Transmission RPC client                                                                    | —                                                                                                | downloads, http         |
-| `@magpiejs/import`                  | import pipeline, rename, recycle bin                                                       | —                                                                                                | library, downloads      |
-| `@magpiejs/history`                 | activity log                                                                               | `history_events`                                                                                 | database                |
-| `@magpiejs/auth`                    | login, sessions, API keys; guards the web console and API                                  | `auth_users`, `auth_api_keys`                                                                    | database, server        |
-| `@magpiejs/api`                     | REST helper under `/api/v1`                                                                | —                                                                                                | server, auth            |
+| Plugin                              | Provides                                                                     | Owns                                                                                             | Depends on              |
+| ----------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------- |
+| `@magpiejs/metadata`                | `ctx.metadata` provider registry, image cache                                | —                                                                                                | —                       |
+| `@magpiejs/metadata-tmdb`           | TMDB provider: search, movie details, release dates, IDs                     | —                                                                                                | metadata, http          |
+| `@magpiejs/library`                 | `ctx.library`: media items, files, root folders, naming                      | `library_media_items`, `library_media_files`, `library_root_folders`, `library_alternate_titles` | database, decision      |
+| `@magpiejs/movies`                  | movie kind, availability, search triggers, movie pages                       | `movies_details` (→ `library_media_items`, cascade)                                              | library, metadata, jobs |
+| `@magpiejs/indexers`                | `ctx.indexers` registry, search fan-out, RSS sync, health                    | `indexers_status`                                                                                | jobs, decision          |
+| `@magpiejs/indexer-torznab`         | Torznab and Newznab indexer (one plugin instance per indexer)                | —                                                                                                | indexers, http          |
+| `@magpiejs/downloads`               | `ctx.downloads` client registry, grab, monitor, blocklist and in-queue rules | `downloads_grabs`, `downloads_blocklist`                                                         | jobs, decision, library |
+| `@magpiejs/downloader-qbittorrent`  | qBittorrent Web API v2 client                                                | —                                                                                                | downloads, http         |
+| `@magpiejs/downloader-transmission` | Transmission RPC client                                                      | —                                                                                                | downloads, http         |
+| `@magpiejs/import`                  | import pipeline, rename, recycle bin                                         | —                                                                                                | library, downloads      |
+| `@magpiejs/history`                 | activity log                                                                 | `history_events`                                                                                 | database                |
+| `@magpiejs/auth`                    | login, sessions, API keys; guards the web console and API                    | `auth_users`, `auth_api_keys`                                                                    | database, server        |
+| `@magpiejs/api`                     | REST helper under `/api/v1`                                                  | —                                                                                                | server, auth            |
 
 Indexers and download clients are loader entries: adding one in Settings adds an entry
 to `magpie.yml` (URL, API key, category…), which starts a plugin instance that registers
@@ -87,7 +87,7 @@ itself into `ctx.indexers` / `ctx.downloads`. Disabling it removes it immediatel
 
 ### 4.4 Import
 
-1. Map the client's path to a local one (remote path mappings, for Docker).
+1. Take the download's path as the client reports it (paths are mapped outside Magpie).
 2. Pick the main video file (skip samples and extras).
 3. Re-check it's still an upgrade over what's on disk now.
 4. **Hardlink** into the movie folder; if that fails across filesystems, **copy** (torrents
@@ -102,8 +102,7 @@ trusted.
 ### 4.5 Login
 
 Single admin user created on first start (the console asks for a password), session
-cookie for the web console and its WebSocket, API keys for `/api/v1`. Optional "no login
-on local network" setting.
+cookie for the web console and its WebSocket, API keys for `/api/v1`.
 
 ## 5. Pages
 
@@ -114,7 +113,7 @@ on local network" setting.
   format score, size, seeders, indexer, accept/reject with reasons, Grab).
 - **Activity:** queue (live progress, remove/blocklist) and history.
 - **Settings:** Indexers and Download clients (add/edit/test/disable, backed by the
-  loader), Media management (root folders, naming, path mappings, hardlink/copy, recycle
+  loader), Media management (root folders, naming, hardlink/copy, recycle
   bin), General (login, API key).
 
 ## 6. Testing
@@ -137,7 +136,7 @@ on local network" setting.
 | 3b  | `indexers` + `indexer-torznab`; interactive search on the movie page                                |
 | 3c  | `downloads` + qBittorrent; manual grab; Activity queue                                              |
 | 3d  | Transmission client                                                                                 |
-| 3e  | `import`: path mapping, hardlink/copy, naming, recycle bin; history                                 |
+| 3e  | `import`: hardlink/copy, naming, recycle bin; history                                               |
 | 3f  | Automation: search on add, RSS, wanted sweep, upgrades, failed-download retry                       |
 | 3g  | `auth` + `api`; Settings pages                                                                      |
 | 3h  | End-to-end test and a first real run with you                                                       |
@@ -161,9 +160,9 @@ release later appearing in RSS replaces it.
   For hardlinks both must be on the same filesystem; if the client runs in Docker, note
   how its paths map to paths on the Magpie side.
 
-## 10. Questions
+## 10. Decisions
 
-1. **Login:** require a password on every access (recommended), or allow "no login on
-   the local network"?
-2. **Where will Magpie, Prowlarr and the download client run** — same machine, Docker,
-   a NAS? This decides whether path mappings matter for your first run.
+- **Login is always required** (no local-network bypass).
+- **Paths are mapped outside Magpie** (Docker volumes set up so Magpie and the download
+  client see the same paths). Magpie uses the client's reported path as-is; remote path
+  mappings are dropped from Phase 3 and can return later if needed.
