@@ -18,6 +18,7 @@ import { eq, inArray } from 'drizzle-orm'
 import api from './api'
 import automation from './automation'
 import albumCalendar from './calendar'
+import console_ from './console'
 import { audioFamily } from './families'
 import albumImport from './import'
 import { MUSIC_NAMING } from './naming'
@@ -161,6 +162,7 @@ export class MusicService extends Service {
     this.ctx.inject(['indexers', 'downloads'], (ctx) => void ctx.plugin(automation, this))
     this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(albumCalendar, this))
     this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
+    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
         this.grabber = async (mediaId, { release, decision, albumIds }, manual) => {

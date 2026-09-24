@@ -1,0 +1,400 @@
+/* Layout for the music pages; buttons, inputs, tables and badges come from the shell. */
+
+.mu .filter {
+  width: 220px;
+}
+
+/* setup checklist */
+.mu .setup ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.mu .setup li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+}
+.mu .setup .check {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--mp-border);
+  font-size: 11px;
+  flex-shrink: 0;
+  transform: translateY(3px);
+}
+.mu .setup li.done .check {
+  background: var(--mp-ok);
+  border-color: var(--mp-ok);
+  color: #fff;
+}
+.mu .setup li.done > span:nth-child(2) {
+  color: var(--mp-muted);
+  text-decoration: line-through;
+}
+
+/* poster grid */
+.mu .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px 16px;
+}
+.mu .card {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+}
+.mu .card:hover .poster {
+  outline: 2px solid var(--mp-accent);
+  outline-offset: 2px;
+}
+.mu .poster {
+  aspect-ratio: 1;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--mp-surface-2);
+  display: block;
+}
+.mu .poster.placeholder {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  text-align: center;
+  color: var(--mp-muted);
+  font-weight: 600;
+  border: 1px solid var(--mp-border);
+}
+.mu .card .title {
+  font-weight: 600;
+  margin-top: 8px;
+  line-height: 1.3;
+}
+.mu .card .meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* add movie */
+.mu .search {
+  max-width: 640px;
+  margin-bottom: 16px;
+}
+.mu .search input {
+  flex: 1;
+}
+.mu .options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: end;
+}
+.mu .options label {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--mp-muted);
+}
+.mu .options label.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: var(--mp-text);
+  font-size: 14px;
+}
+.mu .result {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--mp-border);
+}
+.mu .result .poster {
+  width: 70px;
+  flex-shrink: 0;
+}
+.mu .result .body {
+  flex: 1;
+  min-width: 0;
+}
+.mu .result .overview {
+  margin: 4px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* movie detail */
+.mu .back {
+  display: inline-block;
+  margin-bottom: 14px;
+  color: var(--mp-muted);
+  text-decoration: none;
+  font-size: 13px;
+}
+.mu .hero {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+.mu .hero .poster {
+  width: 180px;
+  flex-shrink: 0;
+}
+.mu .hero .info {
+  flex: 1;
+  min-width: 0;
+}
+.mu .hero .year {
+  font-weight: 400;
+}
+.mu .facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 6px;
+}
+.mu .status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+.mu .overview {
+  max-width: 720px;
+}
+.mu .edit {
+  margin-top: 20px;
+  max-width: 640px;
+}
+.mu .folder {
+  margin: 10px 0 0;
+  word-break: break-all;
+}
+.mu .releases .release {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12.5px;
+  word-break: break-all;
+  color: var(--mp-text);
+}
+.mu .releases tr.rejected td {
+  opacity: 0.7;
+}
+@media (max-width: 720px) {
+  .mu .hero {
+    flex-direction: column;
+  }
+  .mu .hero .poster {
+    width: 140px;
+  }
+}
+
+/* seasons and episodes */
+.mu .season {
+  margin-top: 12px;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: var(--mp-radius);
+}
+.mu .season > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.mu .season > summary::-webkit-details-marker {
+  display: none;
+}
+.mu .season > summary::before {
+  content: '▸';
+  color: var(--mp-muted);
+  transition: transform 0.15s;
+}
+.mu .season[open] > summary::before {
+  transform: rotate(90deg);
+}
+.mu .season > summary h3 {
+  margin: 0;
+  flex: 1;
+}
+.mu .season .mp-table {
+  border: 0;
+  border-top: 1px solid var(--mp-border);
+  border-radius: 0 0 var(--mp-radius) var(--mp-radius);
+}
+.mu .episodes td.num {
+  width: 48px;
+  color: var(--mp-muted);
+}
+.mu .episodes td.date {
+  width: 110px;
+  white-space: nowrap;
+}
+.mu .episodes td.mon {
+  width: 36px;
+}
+.mu .episodes tr.off td {
+  color: var(--mp-muted);
+}
+.mu .count {
+  font-variant-numeric: tabular-nums;
+}
+
+.mu .season > summary button {
+  margin-left: 4px;
+}
+.mu .episodes td.actions button {
+  margin-left: 8px;
+}
+.mu .releases-panel {
+  margin-top: 28px;
+  scroll-margin-top: 16px;
+}
+
+/* books */
+.mu .formats {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.mu .format-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.mu .format-cards .mp-card h3 {
+  margin: 0 0 6px;
+}
+.mu .format-cards .mp-row {
+  margin-top: 10px;
+}
+.mu .bookrow .cover {
+  width: 40px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--mp-surface-2);
+  display: block;
+}
+.mu .bookrow td.cover-cell {
+  width: 48px;
+}
+.mu .bookrow td.fmt {
+  width: 190px;
+  white-space: nowrap;
+}
+.mu .bookrow td.fmt .line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mu .bookrow td.fmt button {
+  margin-left: 2px;
+}
+.mu .bookrow.unreleased td {
+  color: var(--mp-muted);
+}
+.mu .add-formats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.mu .add-formats .mp-card {
+  display: grid;
+  gap: 8px;
+}
+.mu .add-formats label {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--mp-muted);
+}
+.mu .add-formats label.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mp-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* music */
+.mu .types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.mu .types label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--mp-text);
+  font-size: 13.5px;
+}
+.mu .albums td.cover-cell {
+  width: 52px;
+}
+.mu .albums .cover {
+  width: 44px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--mp-surface-2);
+  display: block;
+}
+.mu .albums td.date {
+  width: 110px;
+  white-space: nowrap;
+}
+.mu .albums td.mon {
+  width: 32px;
+}
+.mu .albums td.actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.mu .albums td.actions button {
+  margin-left: 6px;
+}
+.mu .albums tr.off td {
+  color: var(--mp-muted);
+}
+.mu .albums a {
+  color: inherit;
+}
+.mu .tracks td.num {
+  width: 48px;
+  color: var(--mp-muted);
+}
+.mu .tracks td.len {
+  width: 70px;
+  color: var(--mp-muted);
+}
+.mu .tracks td.state {
+  width: 140px;
+  text-align: right;
+}
+.mu .disc-head td {
+  font-weight: 600;
+  background: var(--mp-surface-2);
+}
+/* the same columns in every group */
+.mu .albums {
+  table-layout: fixed;
+}
+.mu .albums td.actions {
+  width: 220px;
+}

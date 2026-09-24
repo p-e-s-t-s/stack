@@ -129,7 +129,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
 | `@magpiejs/podcasts` | podcast kind, feeds, retention, pages (Phase 4.6) | `podcasts_details`, `podcasts_episodes`, `podcasts_episode_files`, `podcasts_grab_episodes` | library, decision (downloads, import, calendar optional) |
 | `@magpiejs/downloader-http` | direct downloads over HTTP (`http` protocol) (Phase 4.6) | — | downloads, http |
 | `@magpiejs/books` | `ebook` and `audiobook` kinds: authors, books, ebook + audiobook families, pages (Phase 4.7) | `books_authors`, `books_books`, `books_followed`, `books_monitoring`, `books_book_files`, `books_grab_books` | library, decision (indexers, downloads, import, calendar optional) |
-| `@magpiejs/music` | music kind: artists, albums, tracks, audio family, pages (Phase 4.8) | `music_artists`, `music_albums`, `music_tracks`, `music_track_files`, `music_grab_albums` | library, decision |
+| `@magpiejs/music` | music kind: artists, albums, tracks, audio family, pages (Phase 4.8) | `music_artists`, `music_albums`, `music_tracks`, `music_track_files`, `music_grab_albums` | library, decision (indexers, downloads, import, calendar optional) |
 | `@magpiejs/compat-api` | `/api/v3` shims for Prowlarr/Overseerr | — | api, library |
 
 What this buys:
@@ -602,7 +602,7 @@ How it was built, and where it differs from the list above:
 - Qualities: EPUB > AZW3 > MOBI > CBZ > CBR > PDF, and M4B > FLAC > MP3; each family rejects
   the other kind, and abridged audiobooks are rejected unless a custom format rewards them.
 
-### Phase 4.8 — Music
+### Phase 4.8 — Music (done)
 
 - `metadata-musicbrainz`: artists, release groups, releases, track lists (1 request per
   second), covers from the Cover Art Archive.
@@ -620,8 +620,34 @@ How it was built, and where it differs from the list above:
 - Pages: Artists, Artist detail (albums by type), Album detail (tracks), Add; calendar
   source (album releases).
 
-**Exit:** add an artist; a wanted album is found, and a FLAC release is imported with
-correct per-track names; a later FLAC 24-bit release replaces an MP3 album as an upgrade.
+**Exit (met):** add an artist; a wanted album is found, and a FLAC release is imported with
+correct per-track names; a later FLAC 24-bit release replaces an MP3 album as an upgrade
+(`plugins/music/tests/exit.test.ts`, which also imports a two-disc album and refuses an
+incomplete download; the pages were checked by hand against the real MusicBrainz).
+
+How it was built:
+
+- Albums are MusicBrainz release groups of every type, stored for each artist; which types
+  are wanted (primary types, and which secondary types are allowed) is set per artist,
+  studio albums and EPs by default. Track lists come from the album's standard edition
+  (official, most common track count, digital or CD, earliest) and are fetched when an album
+  is searched, imported or opened — not for all of an artist's hundreds of release groups.
+  MusicBrainz requests are queued one per second and retried while it's busy.
+- As with books, scene names run the artist into the album with dashes that may belong to
+  either (`Hi-Tek-Hi-Teknology`), so the parser keeps the whole name and `matchAlbum` checks
+  it against the known artist and title: edition words may be left over, but not `live` or
+  more title words (`Kid A Mnesia` isn't `Kid A`). The word helpers now live in
+  `@magpiejs/parser` (`foldedWords`, `WordCover`) and are shared with books. Golden fixtures:
+  128 real scene names (predb.net) and 11 hand-written P2P names; track file names are
+  covered by table tests.
+- Import reads tags and lengths with `music-metadata` where it can, and file paths otherwise.
+  Writing tags wasn't done.
+- The track file template uses `{Disc Prefix}` (`1-` on multi-disc albums, empty otherwise):
+  naming tokens are matched without regard to case, so `{Disc}` would have been confused
+  with `{disc:0}`.
+- Profile names are unique across families, so the audio family's widest profile is
+  `Any audio`.
+- MusicBrainz has no artist pictures; the pages show the newest album's cover.
 
 ### Phase 5 — Migration & library scan
 - Library scan / existing folder import (§5.5).
