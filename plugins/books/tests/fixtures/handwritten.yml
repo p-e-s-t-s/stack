@@ -1,0 +1,78 @@
+# Hand-written book release names, one per convention or edge case. Written from how P2P
+# trackers and Usenet posters name books; only the listed fields are checked.
+
+- name: Andy Weir - Project Hail Mary (2021) [EPUB]
+  expect: { kind: ebook, author: Andy Weir, title: Project Hail Mary, year: 2021, formats: [epub] }
+- name: Project Hail Mary by Andy Weir EPUB
+  expect: { kind: ebook, author: Andy Weir, title: Project Hail Mary, formats: [epub] }
+- name: 'Terry Pratchett - Mort (Discworld #4) (retail) (epub, mobi)'
+  expect:
+    {
+      kind: ebook,
+      author: Terry Pratchett,
+      title: Mort,
+      series: 'Discworld #4',
+      retail: true,
+      formats: [epub, mobi],
+    }
+- name: Brandon Sanderson - Mistborn 01 - The Final Empire (Unabridged) [M4B] {narrated by Michael Kramer}
+  expect:
+    {
+      kind: audiobook,
+      author: Brandon Sanderson,
+      title: The Final Empire,
+      series: Mistborn 01,
+      unabridged: true,
+      narrator: Michael Kramer,
+      formats: [m4b],
+    }
+- name: Andy Weir - The Martian read by R. C. Bray [MP3 64kbps]
+  expect:
+    {
+      kind: audiobook,
+      author: Andy Weir,
+      title: The Martian,
+      narrator: R. C. Bray,
+      bitrate: 64,
+      formats: [mp3],
+    }
+- name: The Martian - Andy Weir [ENG] [MP3 64kbps]
+  # title first: the parser can't tell, matching tries both orders
+  expect: { kind: audiobook, name: The Martian - Andy Weir, languages: [en], formats: [mp3] }
+- name: George Orwell - 1984 (2021) [EPUB]
+  # a title that is a year
+  expect: { kind: ebook, author: George Orwell, title: '1984', year: 2021 }
+- name: George.Orwell.-.1984.2021.RETAIL.EPUB.eBook-GROUP
+  expect:
+    { kind: ebook, author: George Orwell, title: '1984', year: 2021, retail: true, group: GROUP }
+- name: Stephen King - It (Abridged) [MP3]
+  expect: { kind: audiobook, author: Stephen King, title: It, unabridged: false }
+- name: Neil Gaiman - Norse Mythology (2017) (azw3)
+  expect: { kind: ebook, formats: [azw3] }
+- name: Alan Moore - Watchmen (1987) (Digital) [CBZ]
+  expect: { kind: ebook, title: Watchmen (Digital), formats: [cbz] }
+- name: Frank Herbert - Dune [FLAC]
+  expect: { kind: audiobook, formats: [flac] }
+- name: Patrick Rothfuss - Der Name des Windes (German) [EPUB]
+  expect: { kind: ebook, languages: [de] }
+- name: J.R.R.Tolkien.-.The.Hobbit.2012.RETAIL.EPUB.eBook-GROUP
+  expect: { author: J R R Tolkien, title: The Hobbit }
+- name: Author_Name_-_Book_Title-AUDiOBOOK-WEB-SE-2026-GRP_iNT
+  expect:
+    {
+      kind: audiobook,
+      author: Author Name,
+      title: Book Title,
+      year: 2026,
+      languages: [sv],
+      formats: [mp3],
+      group: GRP_iNT,
+    }
+- name: Author_Name-Book_Title-ABOOK-WEB-DE-2021-GRP
+  # dash-only scene names separate author and title with a bare dash
+  expect: { kind: audiobook, author: Author Name, title: Book Title, languages: [de] }
+- name: Andy Weir - Artemis (2017) [MP3 128kbps] PROPER
+  expect: { kind: audiobook, bitrate: 128, revision: { proper: true } }
+- name: Some Book (2020)
+  # nothing says what it is
+  expect: { kind: unknown, title: Some Book, year: 2020, languages: [en] }

@@ -1,0 +1,615 @@
+# Real scene release names (predb.net EBOOK and ABOOK sections, September 2026), a few per
+# group. Expected values were reviewed by hand; `null` means "not set".
+
+- name: La.Gazzetta.Dello.Sport.09.24.2026.iTALiAN.RETAiL.eBook-DiVER
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: La Gazzetta Dello Sport 09 24,
+      year: 2026,
+      formats: [],
+      languages: [it],
+      retail: true,
+      group: DiVER,
+    }
+- name: Il.Corriere.Della.Sera.09.24.2026.iTALiAN.RETAiL.eBook-DiVER
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Il Corriere Della Sera 09 24,
+      year: 2026,
+      formats: [],
+      languages: [it],
+      retail: true,
+      group: DiVER,
+    }
+- name: Stacia.Stark.A.Kingdom.This.Cursed.And.Empty.Svensk.Utgava.2026.SWEDiSH.RETAiL.ePub.eBOOK-DECiPHER
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Stacia Stark A Kingdom This Cursed And Empty Svensk Utgava,
+      year: 2026,
+      formats: [epub],
+      languages: [sv],
+      retail: true,
+      group: DECiPHER,
+    }
+- name: Ryder.Kane.Heta.Larm.Del.7.2026.SWEDiSH.RETAiL.ePub.eBOOK-DECiPHER
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Ryder Kane Heta Larm Del 7,
+      year: 2026,
+      formats: [epub],
+      languages: [sv],
+      retail: true,
+      group: DECiPHER,
+    }
+- name: Ruth.Kvarnstrom.Jones.Systrarna.Pa.Sophiahemmet.2026.SWEDiSH.RETAiL.ePub.eBOOK-DECiPHER
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Ruth Kvarnstrom Jones Systrarna Pa Sophiahemmet,
+      year: 2026,
+      formats: [epub],
+      languages: [sv],
+      retail: true,
+      group: DECiPHER,
+    }
+- name: Pavel.Fischl.Dagbockerna.Fran.Theresienstadt.1941.1943.2026.SWEDiSH.RETAiL.ePub.eBOOK-DECiPHER
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Pavel Fischl Dagbockerna Fran Theresienstadt 1941 1943,
+      year: 2026,
+      formats: [epub],
+      languages: [sv],
+      retail: true,
+      group: DECiPHER,
+    }
+- name: Kalle.Ankas.Pocket.No.588.2026.SWEDiSH.HYBRiD.COMiC.eBook-AgentX
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Kalle Ankas Pocket No 588,
+      year: 2026,
+      formats: [],
+      languages: [sv],
+      retail: false,
+      group: AgentX,
+    }
+- name: Kalle.Anka.Pocket.Special.No.05.2026.SWEDiSH.HYBRiD.COMiC.eBook-AgentX
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Kalle Anka Pocket Special No 05,
+      year: 2026,
+      formats: [],
+      languages: [sv],
+      retail: false,
+      group: AgentX,
+    }
+- name: Kalle.Anka.Och.Co.Nostalgoteket.No.20.2026.SWEDiSH.HYBRiD.COMiC.eBook-AgentX
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Kalle Anka Och Co Nostalgoteket No 20,
+      year: 2026,
+      formats: [],
+      languages: [sv],
+      retail: false,
+      group: AgentX,
+    }
+- name: Mario.Vargas.Llosa.-.The.Feast.Of.The.Goat.2011.RETAIL.EPUB.eBook-CTO
+  expect:
+    {
+      kind: ebook,
+      author: Mario Vargas Llosa,
+      title: The Feast Of The Goat,
+      year: 2011,
+      formats: [epub],
+      languages: [en],
+      retail: true,
+      group: CTO,
+    }
+- name: tip.Berlin.Oktober.2026.GERMAN.HYBRID.MAGAZINE.eBook-LORENZ
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: tip Berlin Oktober,
+      year: 2026,
+      formats: [],
+      languages: [de],
+      retail: false,
+      group: LORENZ,
+    }
+- name: profil.No.38.2026.GERMAN.HYBRID.MAGAZINE.eBook-LORENZ
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: profil No 38,
+      year: 2026,
+      formats: [],
+      languages: [de],
+      retail: false,
+      group: LORENZ,
+    }
+- name: falstaff.Schweiz-Ausgabe.No.07.2026.GERMAN.HYBRID.MAGAZINE.eBook-LORENZ
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: falstaff Schweiz-Ausgabe No 07,
+      year: 2026,
+      formats: [],
+      languages: [de],
+      retail: false,
+      group: LORENZ,
+    }
+- name: ct.Magazin.fuer.Computertechnik.No.20.2026.GERMAN.HYBRID.MAGAZINE.eBook-LORENZ
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: ct Magazin fuer Computertechnik No 20,
+      year: 2026,
+      formats: [],
+      languages: [de],
+      retail: false,
+      group: LORENZ,
+    }
+- name: Il.Sole.24.Ore.2026.09.23.iTALiAN.HYBRiD.eBook-iDiB
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Il Sole 24 Ore 2026 09 23,
+      year: null,
+      formats: [],
+      languages: [it],
+      retail: false,
+      group: iDiB,
+    }
+- name: Titan.Comics.-.Gun.Honey.Doubles.Down.No.04.2026.HYBRID.COMIC.eBook-21A1
+  expect:
+    {
+      kind: ebook,
+      author: Titan Comics,
+      title: Gun Honey Doubles Down No 04,
+      year: 2026,
+      formats: [],
+      languages: [en],
+      retail: false,
+      group: 21A1,
+    }
+- name: Image.Comics.-.Yumi.00-EX.No.02.2026.HYBRID.COMIC.eBook-21A1
+  expect:
+    {
+      kind: ebook,
+      author: Image Comics,
+      title: Yumi 00-EX No 02,
+      year: 2026,
+      formats: [],
+      languages: [en],
+      retail: false,
+      group: 21A1,
+    }
+- name: Ymparisto.Ja.Terveys.No.05.2026.FiNNiSH.HYBRiD.MAGAZiNE.eBook-LiBRiCiDE
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Ymparisto Ja Terveys No 05,
+      year: 2026,
+      formats: [],
+      languages: [fi],
+      retail: false,
+      group: LiBRiCiDE,
+    }
+- name: Voi.Hyvin.No.09.2026.FiNNiSH.HYBRiD.MAGAZiNE.eBook-LiBRiCiDE
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Voi Hyvin No 09,
+      year: 2026,
+      formats: [],
+      languages: [fi],
+      retail: false,
+      group: LiBRiCiDE,
+    }
+- name: Viherpiha.No.09.2026.FiNNiSH.HYBRiD.MAGAZiNE.eBook-LiBRiCiDE
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Viherpiha No 09,
+      year: 2026,
+      formats: [],
+      languages: [fi],
+      retail: false,
+      group: LiBRiCiDE,
+    }
+- name: Urheilulehti.No.38.2026.FiNNiSH.HYBRiD.MAGAZiNE.eBook-LiBRiCiDE
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Urheilulehti No 38,
+      year: 2026,
+      formats: [],
+      languages: [fi],
+      retail: false,
+      group: LiBRiCiDE,
+    }
+- name: Yvonne_Andersen_-_Trollaelgen-AUDiOBOOK-WEB-SE-2026-CRAViNGS_iNT
+  expect:
+    {
+      kind: audiobook,
+      author: Yvonne Andersen,
+      title: Trollaelgen,
+      year: 2026,
+      formats: [mp3],
+      languages: [sv],
+      retail: false,
+      group: CRAViNGS_iNT,
+    }
+- name: Tora_Wall_-_Havet_Magi_Monster_Och_Vaesen-AUDiOBOOK-WEB-SE-2026-CRAViNGS_iNT
+  expect:
+    {
+      kind: audiobook,
+      author: Tora Wall,
+      title: Havet Magi Monster Och Vaesen,
+      year: 2026,
+      formats: [mp3],
+      languages: [sv],
+      retail: false,
+      group: CRAViNGS_iNT,
+    }
+- name: Stacia_Stark_-_A_Kingdom_This_Cursed_And_Empty_Svensk_Utgaava-AUDiOBOOK-WEB-SE-2026-CRAViNGS_iNT
+  expect:
+    {
+      kind: audiobook,
+      author: Stacia Stark,
+      title: A Kingdom This Cursed And Empty Svensk Utgaava,
+      year: 2026,
+      formats: [mp3],
+      languages: [sv],
+      retail: false,
+      group: CRAViNGS_iNT,
+    }
+- name: Ruth_Kvarnstroem_Jones_-_Systrarna_Paa_Sophiahemmet-AUDiOBOOK-WEB-SE-2026-CRAViNGS_iNT
+  expect:
+    {
+      kind: audiobook,
+      author: Ruth Kvarnstroem Jones,
+      title: Systrarna Paa Sophiahemmet,
+      year: 2026,
+      formats: [mp3],
+      languages: [sv],
+      retail: false,
+      group: CRAViNGS_iNT,
+    }
+- name: Kuesten-Krimi-2_Das_Haus_Am_Abgrund_Teil_2-DE-Audiobook-CD-FLAC-2026-MOD
+  expect:
+    {
+      kind: audiobook,
+      author: null,
+      title: Kuesten Krimi 2 Das Haus Am Abgrund Teil 2,
+      year: 2026,
+      formats: [flac],
+      languages: [de],
+      retail: false,
+      group: MOD,
+    }
+- name: Sherlock_Holmes_Sonderermittler_Der_Krone-23_Der_Wiedergaenger_Von_Soho-DE-Audiobook-CD-FLAC-2026-MOD
+  expect:
+    {
+      kind: audiobook,
+      author: Sherlock Holmes Sonderermittler Der Krone,
+      title: 23 Der Wiedergaenger Von Soho,
+      year: 2026,
+      formats: [flac],
+      languages: [de],
+      retail: false,
+      group: MOD,
+    }
+- name: Moriarty-Zwischen_Genie_Und_Verbrechen-27_Tiefe_Wasser-DE-Audiobook-CD-FLAC-2026-MOD
+  expect:
+    {
+      kind: audiobook,
+      author: null,
+      title: Moriarty Zwischen Genie Und Verbrechen 27 Tiefe Wasser,
+      year: 2026,
+      formats: [flac],
+      languages: [de],
+      retail: false,
+      group: MOD,
+    }
+- name: Tim_Reinhold-Recht_haben_ist_auch_keine_Loesung-ABOOK-WEB-DE-2026-MONGOS
+  expect:
+    {
+      kind: audiobook,
+      author: Tim Reinhold,
+      title: Recht haben ist auch keine Loesung,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: MONGOS,
+    }
+- name: Goat_Girl-Folge_4_(Das_Original-Hoerspiel_zur_TV-Serie)-ABOOK-WEB-DE-2026-MONGOS
+  expect:
+    {
+      kind: audiobook,
+      author: null,
+      title: Goat Girl Folge 4 (Das Original Hoerspiel zur TV Serie),
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: MONGOS,
+    }
+- name: Gestatten_Piefke--Folge_20_Spuk_am_Spittelmarkt-DE-AUDiOBOOK-WEB-2026-SHELTER
+  expect:
+    {
+      kind: audiobook,
+      author: null,
+      title: Gestatten Piefke Folge 20 Spuk am Spittelmarkt,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: SHELTER,
+    }
+- name: Midnight_Tales_-_Folge_121_Team_Geist-AUDIOBOOK-WEB-DE-2026-NOiCE
+  expect:
+    {
+      kind: audiobook,
+      author: Midnight Tales,
+      title: Folge 121 Team Geist,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: NOiCE,
+    }
+- name: Horror_Tales_-_Folge_17_Amazonas_Terror-AUDIOBOOK-WEB-DE-2026-NOiCE
+  expect:
+    {
+      kind: audiobook,
+      author: Horror Tales,
+      title: Folge 17 Amazonas Terror,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: NOiCE,
+    }
+- name: Dreamland_Grusel_-_Folge_88_Allzeit_bereit_Bis_das_Grauen_kommt-AUDIOBOOK-WEB-DE-2026-NOiCE
+  expect:
+    {
+      kind: audiobook,
+      author: Dreamland Grusel,
+      title: Folge 88 Allzeit bereit Bis das Grauen kommt,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: NOiCE,
+    }
+- name: Frankenstein_und_der_Zirkel_der_Sieben_-_Folge_27_Finsteres_Erbe-AUDIOBOOK-WEB-DE-2026-NOiCE
+  expect:
+    {
+      kind: audiobook,
+      author: Frankenstein und der Zirkel der Sieben,
+      title: Folge 27 Finsteres Erbe,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: NOiCE,
+    }
+- name: Moriarty-F27_Tiefe_Wasser-Audiobook-DE-2026-VOiCE
+  expect:
+    {
+      kind: audiobook,
+      author: Moriarty,
+      title: F27 Tiefe Wasser,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: VOiCE,
+    }
+- name: Die_Geheimen_Archive_Des_Sir_Arthur_Conan_Doyle-F09_Das_Gespenst_Von_Hunter_Hall-Audiobook-DE-2026-VOiCE
+  expect:
+    {
+      kind: audiobook,
+      author: Die Geheimen Archive Des Sir Arthur Conan Doyle,
+      title: F09 Das Gespenst Von Hunter Hall,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: VOiCE,
+    }
+- name: Tony_Ballard-F83_Die_Vampir-Maschine-Audiobook-DE-2026-VOiCE
+  expect:
+    {
+      kind: audiobook,
+      author: null,
+      title: Tony Ballard F83 Die Vampir Maschine,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: VOiCE,
+    }
+- name: Benjamin_Bluemchen-Folge_172_Als_Kapitaen-REPACK-ABOOK-WEB-DE-2026-KIDDXXX
+  expect:
+    {
+      kind: audiobook,
+      author: Benjamin Bluemchen,
+      title: Folge 172 Als Kapitaen,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: KIDDXXX,
+    }
+- name: Arsene_Lupin-Folge_1_Die_Blutige_Herz_Sieben-ABOOK-WEB-DE-2026-KIDDXXX
+  expect:
+    {
+      kind: audiobook,
+      author: Arsene Lupin,
+      title: Folge 1 Die Blutige Herz Sieben,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: KIDDXXX,
+    }
+- name: AUDIOBOOK-TEST-2011-CD-Audiobook-SE-2011
+  expect:
+    {
+      kind: audiobook,
+      author: AUDIOBOOK,
+      title: TEST,
+      year: 2011,
+      formats: [mp3],
+      languages: [sv],
+      retail: false,
+      group: null,
+    }
+- name: Pavel.Fischl.Bara.Fyra.Manader.Dagbockerna.Fran.Theresienstadt.2026.SWEDiSH.RETAiL.ePub.eBOOK-DECiPHER
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Pavel Fischl Bara Fyra Manader Dagbockerna Fran Theresienstadt,
+      year: 2026,
+      formats: [epub],
+      languages: [sv],
+      retail: true,
+      group: DECiPHER,
+    }
+- name: Image.Comics.-.The.Scorched.No.55.2026.HYBRID.COMIC.eBook-21A1
+  expect:
+    {
+      kind: ebook,
+      author: Image Comics,
+      title: The Scorched No 55,
+      year: 2026,
+      formats: [],
+      languages: [en],
+      retail: false,
+      group: 21A1,
+    }
+- name: Great.Walks.April-May.2026.RETAIL.MAGAZINE.eBook-21A1
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Great Walks April-May,
+      year: 2026,
+      formats: [],
+      languages: [en],
+      retail: true,
+      group: 21A1,
+    }
+- name: Knasen.No.16-17.2026.SWEDiSH.HYBRiD.COMiC.eBook-AgentX
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: Knasen No 16-17,
+      year: 2026,
+      formats: [],
+      languages: [sv],
+      retail: false,
+      group: AgentX,
+    }
+- name: International.Traveller.March-April-May.2026.RETAIL.MAGAZINE.eBook-21A1
+  expect:
+    {
+      kind: ebook,
+      author: null,
+      title: International Traveller March-April-May,
+      year: 2026,
+      formats: [],
+      languages: [en],
+      retail: true,
+      group: 21A1,
+    }
+- name: Pavel_Fischl_-_Dagboeckerna_Fraan_Theresienstadt_1941_1943-AUDiOBOOK-WEB-SE-2026-CRAViNGS_iNT
+  expect:
+    {
+      kind: audiobook,
+      author: Pavel Fischl,
+      title: Dagboeckerna Fraan Theresienstadt 1941 1943,
+      year: 2026,
+      formats: [mp3],
+      languages: [sv],
+      retail: false,
+      group: CRAViNGS_iNT,
+    }
+- name: Pavel_Fischl_-_Bara_Fyra_Maanader_Dagboeckerna_Fraan_Theresienstadt-AUDiOBOOK-WEB-SE-2026-CRAViNGS_iNT
+  expect:
+    {
+      kind: audiobook,
+      author: Pavel Fischl,
+      title: Bara Fyra Maanader Dagboeckerna Fraan Theresienstadt,
+      year: 2026,
+      formats: [mp3],
+      languages: [sv],
+      retail: false,
+      group: CRAViNGS_iNT,
+    }
+- name: Gestatten_Piefke--Folge_19_Der_Unbekannte_aus_der_Uhlandstrasse-DE-AUDiOBOOK-WEB-2026-SHELTER
+  expect:
+    {
+      kind: audiobook,
+      author: null,
+      title: Gestatten Piefke Folge 19 Der Unbekannte aus der Uhlandstrasse,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: SHELTER,
+    }
+- name: Gestatten_Piefke--Folge_18_Explosion_im_Englischen_Viertel-DE-AUDiOBOOK-WEB-2026-SHELTER
+  expect:
+    {
+      kind: audiobook,
+      author: null,
+      title: Gestatten Piefke Folge 18 Explosion im Englischen Viertel,
+      year: 2026,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: SHELTER,
+    }
+- name: Holy_Horror-Folge_03_Dr._Jekyll_und_Mr._Hyde-ABOOK-WEB-DE-2021-MONGOS
+  expect:
+    {
+      kind: audiobook,
+      author: Holy Horror,
+      title: Folge 03 Dr Jekyll und Mr Hyde,
+      year: 2021,
+      formats: [mp3],
+      languages: [de],
+      retail: false,
+      group: MONGOS,
+    }
