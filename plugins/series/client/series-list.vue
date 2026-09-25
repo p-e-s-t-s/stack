@@ -17,11 +17,11 @@
     <p v-if="!data.series.length" class="mp-empty">
       No series yet. Use <strong>Add series</strong> to find one.
     </p>
-    <div class="grid">
+    <div class="mp-grid">
       <a
         v-for="s in shown"
         :key="s.id"
-        class="card"
+        class="tile"
         :href="`/series/${s.id}`"
         data-testid="series-card"
         @click.prevent="router.push(`/series/${s.id}`)"
@@ -30,7 +30,7 @@
         <div v-else class="poster placeholder">{{ s.title }}</div>
         <div class="title">{{ s.title }}</div>
         <div class="meta">
-          <span class="mp-muted count">{{ s.stats.downloaded }} / {{ s.stats.wanted }}</span>
+          <span class="mp-muted mp-count">{{ s.stats.downloaded }} / {{ s.stats.wanted }}</span>
           <span class="mp-badge" :class="seriesStatus(s).class">{{ seriesStatus(s).text }}</span>
         </div>
       </a>

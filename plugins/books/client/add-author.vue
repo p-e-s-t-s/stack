@@ -1,7 +1,7 @@
 <template>
   <section class="bk">
     <div class="mp-head"><h1>Add author</h1></div>
-    <form class="mp-row search" @submit.prevent="search">
+    <form class="mp-row mp-search" @submit.prevent="search">
       <input
         v-model="term"
         placeholder="An author's name, or the title of a book they wrote"
@@ -52,7 +52,7 @@
           </template>
         </div>
       </div>
-      <div class="mp-card options">
+      <div class="mp-card mp-options">
         <label>
           <span>Monitor</span>
           <select v-model="monitor" data-testid="monitor">
@@ -68,7 +68,12 @@
         </label>
       </div>
 
-      <div v-for="r in results" :key="r.ids.openlibrary" class="result" data-testid="lookup-result">
+      <div
+        v-for="r in results"
+        :key="r.ids.openlibrary"
+        class="mp-result"
+        data-testid="lookup-result"
+      >
         <img
           v-if="r.posterUrl && !broken.has(r.ids.openlibrary!)"
           class="poster"

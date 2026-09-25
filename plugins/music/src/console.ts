@@ -67,7 +67,7 @@ export interface ReleaseRow {
   size?: number
   seeders?: number
   leechers?: number
-  album: string
+  unit: string
   quality: string
   formatScore: number
   matchedFormats: string[]
@@ -270,7 +270,7 @@ export default function console_(ctx: Context, music: MusicService) {
           size: r.size,
           seeders: r.seeders,
           leechers: r.leechers,
-          album: ids.map((x) => titles.get(x)).join(', '),
+          unit: ids.map((x) => titles.get(x)).join(', '),
           quality: ctx.decision.qualityName(d.quality),
           formatScore: d.formatScore,
           matchedFormats: d.matchedFormats,

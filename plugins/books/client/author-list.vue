@@ -20,11 +20,11 @@
     <p v-if="!data.authors.length" class="mp-empty">
       No authors yet. Use <strong>Add author</strong> to find one by name or by a book they wrote.
     </p>
-    <div class="grid">
+    <div class="mp-grid">
       <a
         v-for="a in shown"
         :key="a.authorId"
-        class="card"
+        class="tile"
         :href="`/books/${followIdOf(a)}`"
         data-testid="author-card"
         @click.prevent="router.push(`/books/${followIdOf(a)}`)"

@@ -1,7 +1,7 @@
 <template>
   <section v-if="series" class="sr">
-    <a class="back" href="/series" @click.prevent="router.push('/series')">← Series</a>
-    <div class="hero">
+    <a class="mp-back" href="/series" @click.prevent="router.push('/series')">← Series</a>
+    <div class="mp-hero">
       <img v-if="series.posterUrl" class="poster" :src="series.posterUrl" alt="" />
       <div v-else class="poster placeholder">{{ series.title }}</div>
       <div class="info">
@@ -17,7 +17,7 @@
         </div>
         <div class="status">
           <span class="mp-badge" :class="status.class">{{ status.text }}</span>
-          <span class="mp-muted mp-small count">
+          <span class="mp-muted mp-small mp-count">
             {{ series.stats.downloaded }} of {{ series.stats.wanted }} aired episodes
             <template v-if="series.stats.nextAiring">
               · next on {{ series.stats.nextAiring }}</template
@@ -46,7 +46,7 @@
       </div>
     </div>
 
-    <div v-if="editing" class="mp-card edit">
+    <div v-if="editing" class="mp-card mp-edit">
       <div class="mp-field">
         <label>Quality profile</label>
         <select
@@ -95,71 +95,22 @@
       </div>
     </div>
 
-    <div v-if="picker" ref="releasesEl" class="releases-panel">
-      <div class="mp-head">
-        <h2>Releases for {{ picker.label }}</h2>
-        <button class="small" @click="picker = undefined">Close</button>
-      </div>
-      <p v-if="picker.searching" class="mp-muted">Searching…</p>
-      <p v-if="picker.error" class="mp-error">{{ picker.error }}</p>
-      <p v-for="err in picker.errors" :key="err.indexer" class="mp-error mp-small">
-        {{ err.indexer }}: {{ err.message }}
-      </p>
-      <table v-if="picker.results" class="mp-table releases" data-testid="releases">
-        <thead>
-          <tr>
-            <th>Release</th>
-            <th>Covers</th>
-            <th>Quality</th>
-            <th>Size</th>
-            <th>Peers</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="!picker.results.length">
-            <td colspan="6" class="mp-muted">No releases found.</td>
-          </tr>
-          <tr v-for="r in picker.results" :key="r.guid" :class="{ rejected: !r.accepted }">
-            <td>
-              <span class="release">{{ r.title }}</span>
-              <div class="mp-small mp-muted">
-                {{ r.indexer
-                }}<template v-if="r.matchedFormats.length">
-                  · {{ r.matchedFormats.join(', ') }} ({{ r.formatScore }})</template
-                >
-              </div>
-              <div v-if="r.rejections.length" class="mp-small mp-error">
-                {{ r.rejections.map((x) => x.reason).join(' · ') }}
-              </div>
-            </td>
-            <td style="white-space: nowrap">{{ r.covers }}</td>
-            <td>{{ r.quality }}</td>
-            <td>{{ r.size ? gb(r.size) : '' }}</td>
-            <td>
-              {{ r.protocol === 'torrent' ? `${r.seeders ?? '?'} / ${r.leechers ?? '?'}` : '' }}
-            </td>
-            <td class="actions">
-              <button
-                :class="{ primary: r.accepted && !picker.grabbed.has(r.guid) }"
-                :data-testid="'grab-' + r.guid"
-                :disabled="picker.grabbing === r.guid || picker.grabbed.has(r.guid)"
-                @click="grab(r)"
-              >
-                {{ picker.grabbed.has(r.guid) ? 'Sent' : 'Download' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <ReleasePicker
+      v-if="chosen"
+      :key="chosen.label"
+      :label="chosen.label"
+      :search="searchReleases"
+      :grab="grabRelease"
+      show-unit-column
+      @close="chosen = undefined"
+    />
 
     <h2>Episodes</h2>
     <p v-if="!episodes" class="mp-muted">Loading…</p>
     <details
       v-for="season in seasons"
       :key="season.number"
-      class="season"
+      class="mp-section"
       :open="season.number === openSeason"
       :data-testid="`season-${season.number}`"
     >
@@ -178,7 +129,7 @@
           "
         />
         <h3>{{ seasonName(season.number) }}</h3>
-        <span class="mp-muted mp-small count">{{ season.have }} / {{ season.aired }}</span>
+        <span class="mp-muted mp-small mp-count">{{ season.have }} / {{ season.aired }}</span>
         <span v-if="season.aired && season.have >= season.aired" class="mp-badge ok">Complete</span>
         <span v-else-if="season.missing" class="mp-badge bad">{{ season.missing }} missing</span>
         <button
@@ -255,10 +206,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
-import type { EpisodeRow, ReleaseRow, SeriesData } from '../src/console'
-import { episodeStatus, gb, seasonName, seriesStatus } from './status'
+import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'
+import type { EpisodeRow, SeriesData } from '../src/console'
+import { episodeStatus, seasonName, seriesStatus } from './status'
 
 const STATUS: Record<string, string> = {
   continuing: 'Continuing',
@@ -355,47 +307,12 @@ async function searchNow(episodeIds?: number[], what = series.value!.title) {
   }
 }
 
-interface Picker {
-  label: string
-  searching: boolean
-  results?: ReleaseRow[]
-  errors: { indexer: string; message: string }[]
-  error?: string
-  grabbing?: string
-  grabbed: Set<string>
+const chosen = ref<{ label: string; episodeIds: number[] }>()
+function choose(episodeIds: number[], what: string) {
+  chosen.value = { label: what, episodeIds }
 }
-const picker = ref<Picker>()
-const releasesEl = ref<HTMLElement>()
-
-async function choose(episodeIds: number[], what: string) {
-  const p = reactive<Picker>({ label: what, searching: true, errors: [], grabbed: new Set() })
-  picker.value = p
-  await nextTick()
-  releasesEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  try {
-    const outcome = await data.value.search(series.value!.id, episodeIds)
-    p.results = outcome.results
-    p.errors = outcome.errors
-  } catch (e) {
-    p.error = (e as Error).message
-  } finally {
-    p.searching = false
-  }
-}
-
-async function grab(r: ReleaseRow) {
-  const p = picker.value!
-  p.grabbing = r.guid
-  p.error = undefined
-  try {
-    await data.value.grab(series.value!.id, r.guid)
-    p.grabbed.add(r.guid)
-  } catch (e) {
-    p.error = (e as Error).message
-  } finally {
-    p.grabbing = undefined
-  }
-}
+const searchReleases = () => data.value.search(series.value!.id, chosen.value!.episodeIds)
+const grabRelease = (guid: string) => data.value.grab(series.value!.id, guid)
 
 async function remove() {
   if (!confirm(`Remove ${series.value!.title} from Magpie?`)) return

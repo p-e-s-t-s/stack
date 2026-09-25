@@ -53,7 +53,7 @@ export interface ReleaseRow {
   size?: number
   seeders?: number
   leechers?: number
-  book: string
+  unit: string
   quality: string
   formatScore: number
   matchedFormats: string[]
@@ -232,7 +232,7 @@ export default function console_(ctx: Context, books: BooksService) {
           size: r.size,
           seeders: r.seeders,
           leechers: r.leechers,
-          book: ids.map((id) => titles.get(id)).join(', '),
+          unit: ids.map((id) => titles.get(id)).join(', '),
           quality: ctx.decision.qualityName(d.quality),
           formatScore: d.formatScore,
           matchedFormats: d.matchedFormats,

@@ -16,11 +16,11 @@
     <p v-if="!data.artists.length" class="mp-empty">
       No artists yet. Use <strong>Add artist</strong> to find one.
     </p>
-    <div class="grid">
+    <div class="mp-grid">
       <a
         v-for="a in shown"
         :key="a.id"
-        class="card"
+        class="tile"
         :href="`/music/${a.id}`"
         data-testid="artist-card"
         @click.prevent="router.push(`/music/${a.id}`)"
@@ -36,7 +36,7 @@
         <div v-else class="poster placeholder">{{ a.title }}</div>
         <div class="title">{{ a.title }}</div>
         <div class="meta">
-          <span class="mp-muted count">{{ a.stats.complete }} / {{ a.stats.wanted }}</span>
+          <span class="mp-muted mp-count">{{ a.stats.complete }} / {{ a.stats.wanted }}</span>
           <span class="mp-badge" :class="artistStatus(a).class">{{ artistStatus(a).text }}</span>
         </div>
       </a>

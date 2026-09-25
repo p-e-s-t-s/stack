@@ -50,7 +50,7 @@ export interface ReleaseRow {
   publishedAt?: string
   infoUrl?: string
   /** e.g. `S01E02`, `Season 1`. */
-  covers: string
+  unit: string
   quality: string
   formatScore: number
   matchedFormats: string[]
@@ -219,7 +219,7 @@ export default function console_(ctx: Context, series: SeriesService) {
           leechers: r.leechers,
           publishedAt: r.publishedAt,
           infoUrl: r.infoUrl,
-          covers: describe(covered.map((e) => episodes.get(e)!).filter(Boolean)),
+          unit: describe(covered.map((e) => episodes.get(e)!).filter(Boolean)),
           quality: ctx.decision.qualityName(d.quality),
           formatScore: d.formatScore,
           matchedFormats: d.matchedFormats,

@@ -1,273 +1,50 @@
-/* Layout for the book pages; buttons, inputs, tables and badges come from the shell. */
+/* Layout specific to the book pages; the grid, hero, results and edit form come from the shell
+   (.mp-grid, .mp-hero, .mp-result, .mp-edit…). */
 
 .bk .filter {
   width: 220px;
 }
-
-/* setup checklist */
-.bk .setup ol {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.bk .setup li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 5px 0;
-}
-.bk .setup .check {
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1.5px solid var(--mp-border);
-  font-size: 11px;
-  flex-shrink: 0;
-  transform: translateY(3px);
-}
-.bk .setup li.done .check {
-  background: var(--mp-ok);
-  border-color: var(--mp-ok);
-  color: #fff;
-}
-.bk .setup li.done > span:nth-child(2) {
-  color: var(--mp-muted);
-  text-decoration: line-through;
-}
-
-/* poster grid */
-.bk .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 20px 16px;
-}
-.bk .card {
-  color: inherit;
-  text-decoration: none;
-  display: block;
-}
-.bk .card:hover .poster {
-  outline: 2px solid var(--mp-accent);
-  outline-offset: 2px;
-}
 .bk .poster {
   aspect-ratio: 2 / 3;
-  width: 100%;
-  object-fit: cover;
-  border-radius: 6px;
-  background: var(--mp-surface-2);
-  display: block;
 }
-.bk .poster.placeholder {
-  display: grid;
-  place-items: center;
-  padding: 12px;
-  text-align: center;
-  color: var(--mp-muted);
-  font-weight: 600;
-  border: 1px solid var(--mp-border);
-}
-.bk .card .title {
-  font-weight: 600;
-  margin-top: 8px;
-  line-height: 1.3;
-}
-.bk .card .meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-}
-
-/* add movie */
-.bk .search {
-  max-width: 640px;
-  margin-bottom: 16px;
-}
-.bk .search input {
-  flex: 1;
-}
-.bk .options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
-  align-items: end;
-}
-.bk .options label {
-  display: grid;
-  gap: 4px;
-  font-size: 12.5px;
-  color: var(--mp-muted);
-}
-.bk .options label.check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  color: var(--mp-text);
-  font-size: 14px;
-}
-.bk .result {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--mp-border);
-}
-.bk .result .poster {
-  width: 70px;
-  flex-shrink: 0;
-}
-.bk .result .body {
-  flex: 1;
-  min-width: 0;
-}
-.bk .result .overview {
-  margin: 4px 0 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* movie detail */
-.bk .back {
-  display: inline-block;
-  margin-bottom: 14px;
-  color: var(--mp-muted);
-  text-decoration: none;
-  font-size: 13px;
-}
-.bk .hero {
-  display: flex;
-  gap: 28px;
-  align-items: flex-start;
-}
-.bk .hero .poster {
-  width: 180px;
-  flex-shrink: 0;
-}
-.bk .hero .info {
-  flex: 1;
-  min-width: 0;
-}
-.bk .hero .year {
-  font-weight: 400;
-}
-.bk .facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-top: 6px;
-}
-.bk .status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0;
-}
-.bk .overview {
-  max-width: 720px;
-}
-.bk .edit {
-  margin-top: 20px;
-  max-width: 640px;
-}
-.bk .folder {
-  margin: 10px 0 0;
-  word-break: break-all;
-}
-.bk .releases .release {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 12.5px;
-  word-break: break-all;
-  color: var(--mp-text);
-}
-.bk .releases tr.rejected td {
-  opacity: 0.7;
-}
-@media (max-width: 720px) {
-  .bk .hero {
-    flex-direction: column;
-  }
-  .bk .hero .poster {
-    width: 140px;
-  }
-}
-
-/* seasons and episodes */
-.bk .season {
+.bk .more {
   margin-top: 12px;
-  background: var(--mp-surface);
-  border: 1px solid var(--mp-border);
-  border-radius: var(--mp-radius);
-}
-.bk .season > summary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-  list-style: none;
-}
-.bk .season > summary::-webkit-details-marker {
-  display: none;
-}
-.bk .season > summary::before {
-  content: '▸';
-  color: var(--mp-muted);
-  transition: transform 0.15s;
-}
-.bk .season[open] > summary::before {
-  transform: rotate(90deg);
-}
-.bk .season > summary h3 {
-  margin: 0;
-  flex: 1;
-}
-.bk .season .mp-table {
-  border: 0;
-  border-top: 1px solid var(--mp-border);
-  border-radius: 0 0 var(--mp-radius) var(--mp-radius);
-}
-.bk .episodes td.num {
-  width: 48px;
-  color: var(--mp-muted);
-}
-.bk .episodes td.date {
-  width: 110px;
-  white-space: nowrap;
-}
-.bk .episodes td.mon {
-  width: 36px;
-}
-.bk .episodes tr.off td {
-  color: var(--mp-muted);
-}
-.bk .count {
-  font-variant-numeric: tabular-nums;
 }
 
-.bk .season > summary button {
-  margin-left: 4px;
-}
-.bk .episodes td.actions button {
-  margin-left: 8px;
-}
-.bk .releases-panel {
-  margin-top: 28px;
-  scroll-margin-top: 16px;
-}
-
-/* books */
+/* author list: a badge per followed format */
 .bk .formats {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
 }
+
+/* add author: one card per format being followed */
+.bk .add-formats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.bk .add-formats .mp-card {
+  display: grid;
+  gap: 8px;
+}
+.bk .add-formats label {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--mp-muted);
+}
+.bk .add-formats label.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mp-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* author detail: one card per followed format, above the book list */
 .bk .format-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -280,6 +57,8 @@
 .bk .format-cards .mp-row {
   margin-top: 10px;
 }
+
+/* the book list: a cover, title and one status column per followed format */
 .bk .bookrow .cover {
   width: 40px;
   aspect-ratio: 2 / 3;
@@ -305,28 +84,4 @@
 }
 .bk .bookrow.unreleased td {
   color: var(--mp-muted);
-}
-.bk .add-formats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.bk .add-formats .mp-card {
-  display: grid;
-  gap: 8px;
-}
-.bk .add-formats label {
-  display: grid;
-  gap: 4px;
-  font-size: 12.5px;
-  color: var(--mp-muted);
-}
-.bk .add-formats label.check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--mp-text);
-  font-size: 14px;
-  font-weight: 600;
 }

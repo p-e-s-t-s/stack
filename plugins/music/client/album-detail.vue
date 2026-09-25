@@ -1,14 +1,14 @@
 <template>
   <section v-if="artist" class="mu">
     <a
-      class="back"
+      class="mp-back"
       :href="`/music/${artist.id}`"
       @click.prevent="router.push(`/music/${artist.id}`)"
       >← {{ artist.title }}</a
     >
     <p v-if="error" class="mp-error">{{ error }}</p>
     <template v-if="detail">
-      <div class="hero">
+      <div class="mp-hero">
         <img
           v-if="detail.album.coverUrl && !coverBroken"
           class="poster"
@@ -54,12 +54,12 @@
         </div>
       </div>
 
-      <Releases
+      <ReleasePicker
         v-if="picker"
         :key="picker"
-        :artist-id="artist.id"
-        :album-ids="[detail.album.id]"
         :label="detail.album.title"
+        :search="searchReleases"
+        :grab="grabRelease"
         @close="picker = undefined"
       />
 
@@ -103,8 +103,8 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
+import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'
 import type { MusicData } from '../src/console'
-import Releases from './releases.vue'
 import { albumStatus, duration } from './status'
 
 const data = useRpc<MusicData>()
@@ -118,6 +118,8 @@ const coverBroken = ref(false)
 const busy = ref(false)
 const message = ref('')
 const picker = ref<number>()
+const searchReleases = () => data.value.search(artist.value!.id, [albumId.value])
+const grabRelease = (guid: string) => data.value.grab(artist.value!.id, guid)
 
 watch(
   () => [albumId.value, artist.value && data.value.revision[artist.value.id]] as const,

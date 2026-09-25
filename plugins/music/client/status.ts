@@ -1,3 +1,4 @@
+import { downloadStatus } from '@magpiejs/console-kit'
 import type { AlbumRow, ArtistSummary } from '../src/console'
 
 export function artistStatus(a: ArtistSummary) {
@@ -10,24 +11,8 @@ export function artistStatus(a: ArtistSummary) {
   }
 }
 
-const DOWNLOAD: Record<string, string> = {
-  grabbed: 'Sent to client',
-  queued: 'Queued',
-  paused: 'Paused',
-  stalled: 'Stalled',
-  import_pending: 'Importing soon',
-  importing: 'Importing',
-}
-
 export function albumStatus(a: AlbumRow) {
-  if (a.download) {
-    const { state, progress } = a.download
-    const text =
-      state === 'downloading'
-        ? `Downloading ${Math.floor(progress * 100)}%`
-        : (DOWNLOAD[state] ?? state)
-    return { text, class: 'info' }
-  }
+  if (a.download) return downloadStatus(a.download.state, a.download.progress)
   if (a.files && a.tracks !== null && a.files >= a.tracks)
     return { text: a.quality ?? 'Complete', class: 'ok' }
   if (a.files)
@@ -51,8 +36,3 @@ export const duration = (ms: number | null) =>
   ms
     ? `${Math.floor(ms / 60_000)}:${String(Math.round((ms % 60_000) / 1000)).padStart(2, '0')}`
     : ''
-
-export const mb = (bytes: number) =>
-  bytes >= 1024 ** 3
-    ? `${(bytes / 1024 ** 3).toFixed(1)} GB`
-    : `${Math.round(bytes / 1024 ** 2)} MB`

@@ -1,7 +1,7 @@
 <template>
   <section v-if="artist" class="mu">
-    <a class="back" href="/music" @click.prevent="router.push('/music')">← Music</a>
-    <div class="hero">
+    <a class="mp-back" href="/music" @click.prevent="router.push('/music')">← Music</a>
+    <div class="mp-hero">
       <img
         v-if="artist.posterUrl && !coverBroken"
         class="poster"
@@ -24,7 +24,7 @@
         </div>
         <div class="status">
           <span class="mp-badge" :class="status.class">{{ status.text }}</span>
-          <span class="mp-muted mp-small count">
+          <span class="mp-muted mp-small mp-count">
             {{ artist.stats.complete }} of {{ artist.stats.wanted }} released albums complete
             <template v-if="artist.stats.nextRelease">
               · next on {{ artist.stats.nextRelease }}</template
@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <div v-if="editing" class="mp-card edit">
+    <div v-if="editing" class="mp-card mp-edit">
       <div class="mp-field">
         <label>Quality profile</label>
         <select
@@ -111,12 +111,12 @@
       </div>
     </div>
 
-    <Releases
+    <ReleasePicker
       v-if="picker"
       :key="picker.key"
-      :artist-id="artist.id"
-      :album-ids="picker.albumIds"
       :label="picker.label"
+      :search="searchReleases"
+      :grab="grabRelease"
       @close="picker = undefined"
     />
 
@@ -124,13 +124,13 @@
     <details
       v-for="g in groups"
       :key="g.name"
-      class="season"
+      class="mp-section"
       :open="g.open"
       :data-testid="`group-${g.name}`"
     >
       <summary>
         <h3>{{ g.name }}</h3>
-        <span class="mp-muted mp-small count">{{ g.albums.length }}</span>
+        <span class="mp-muted mp-small mp-count">{{ g.albums.length }}</span>
       </summary>
       <table class="mp-table albums">
         <tbody>
@@ -187,8 +187,8 @@
 <script lang="ts" setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
+import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'
 import type { AlbumRow, MusicData } from '../src/console'
-import Releases from './releases.vue'
 import { albumGroup, albumStatus, artistStatus, GROUPS } from './status'
 
 const data = useRpc<MusicData>()
@@ -257,6 +257,8 @@ const searchNow = () => run('search', () => data.value.searchNow(id.value))
 const picker = ref<{ key: number; albumIds: number[]; label: string }>()
 const choose = (albumId: number, label: string) =>
   (picker.value = { key: Date.now(), albumIds: [albumId], label })
+const searchReleases = () => data.value.search(id.value, picker.value!.albumIds)
+const grabRelease = (guid: string) => data.value.grab(id.value, guid)
 
 async function remove() {
   if (!confirm(`Remove ${artist.value!.title} from Magpie?`)) return

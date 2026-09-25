@@ -1,7 +1,7 @@
 <template>
   <section v-if="author" class="bk">
-    <a class="back" href="/books" @click.prevent="router.push('/books')">← Books</a>
-    <div class="hero">
+    <a class="mp-back" href="/books" @click.prevent="router.push('/books')">← Books</a>
+    <div class="mp-hero">
       <img
         v-if="author.photoUrl && !photoBroken"
         class="poster"
@@ -37,7 +37,7 @@
         <h3>{{ LABEL[k] }}</h3>
         <div class="status">
           <span class="mp-badge" :class="formatBadge(k).class">{{ formatBadge(k).text }}</span>
-          <span class="mp-muted mp-small count">
+          <span class="mp-muted mp-small mp-count">
             {{ author.formats[k]!.stats.downloaded }} of
             {{ author.formats[k]!.stats.wanted }} released books<template
               v-if="author.formats[k]!.stats.nextRelease"
@@ -86,61 +86,14 @@
       </div>
     </div>
 
-    <div v-if="picker" ref="releasesEl" class="releases-panel">
-      <div class="mp-head">
-        <h2>Releases for {{ picker.label }}</h2>
-        <button class="small" @click="picker = undefined">Close</button>
-      </div>
-      <p v-if="picker.searching" class="mp-muted">Searching…</p>
-      <p v-if="picker.error" class="mp-error">{{ picker.error }}</p>
-      <p v-for="err in picker.errors" :key="err.indexer" class="mp-error mp-small">
-        {{ err.indexer }}: {{ err.message }}
-      </p>
-      <table v-if="picker.results" class="mp-table releases" data-testid="releases">
-        <thead>
-          <tr>
-            <th>Release</th>
-            <th>Quality</th>
-            <th>Size</th>
-            <th>Peers</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="!picker.results.length">
-            <td colspan="5" class="mp-muted">No releases found.</td>
-          </tr>
-          <tr v-for="r in picker.results" :key="r.guid" :class="{ rejected: !r.accepted }">
-            <td>
-              <span class="release">{{ r.title }}</span>
-              <div class="mp-small mp-muted">
-                {{ r.indexer
-                }}<template v-if="r.matchedFormats.length">
-                  · {{ r.matchedFormats.join(', ') }} ({{ r.formatScore }})</template
-                >
-              </div>
-              <div v-if="r.rejections.length" class="mp-small mp-error">
-                {{ r.rejections.map((x) => x.reason).join(' · ') }}
-              </div>
-            </td>
-            <td>{{ r.quality }}</td>
-            <td>{{ r.size ? mb(r.size) : '' }}</td>
-            <td>
-              {{ r.protocol === 'torrent' ? `${r.seeders ?? '?'} / ${r.leechers ?? '?'}` : '' }}
-            </td>
-            <td class="actions">
-              <button
-                :class="{ primary: r.accepted && !picker.grabbed.has(r.guid) }"
-                :disabled="picker.grabbing === r.guid || picker.grabbed.has(r.guid)"
-                @click="grab(r)"
-              >
-                {{ picker.grabbed.has(r.guid) ? 'Sent' : 'Download' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <ReleasePicker
+      v-if="chosen"
+      :key="chosen.label"
+      :label="chosen.label"
+      :search="searchReleases"
+      :grab="grabRelease"
+      @close="chosen = undefined"
+    />
 
     <div class="mp-head">
       <h2>Books</h2>
@@ -222,10 +175,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
-import type { BookRow, BooksData, ReleaseRow } from '../src/console'
-import { formatStatus, KINDS, LABEL, mb, ONE } from './status'
+import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'
+import type { BookRow, BooksData } from '../src/console'
+import { formatStatus, KINDS, LABEL, ONE } from './status'
 
 type Kind = (typeof KINDS)[number]
 
@@ -321,52 +275,10 @@ async function remove(k: Kind) {
   router.push(otherId ? `/books/${otherId}` : '/books')
 }
 
-interface Picker {
-  label: string
-  kind: Kind
-  searching: boolean
-  results?: ReleaseRow[]
-  errors: { indexer: string; message: string }[]
-  error?: string
-  grabbing?: string
-  grabbed: Set<string>
+const chosen = ref<{ label: string; kind: Kind; bookId: number }>()
+function choose(k: Kind, b: BookRow) {
+  chosen.value = { label: `${b.title} (${ONE[k].toLowerCase()})`, kind: k, bookId: b.id }
 }
-const picker = ref<Picker>()
-const releasesEl = ref<HTMLElement>()
-
-async function choose(k: Kind, b: BookRow) {
-  const p = reactive<Picker>({
-    label: `${b.title} (${ONE[k].toLowerCase()})`,
-    kind: k,
-    searching: true,
-    errors: [],
-    grabbed: new Set(),
-  })
-  picker.value = p
-  await nextTick()
-  releasesEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  try {
-    const outcome = await data.value.search(followId(k), [b.id])
-    p.results = outcome.results
-    p.errors = outcome.errors
-  } catch (e) {
-    p.error = (e as Error).message
-  } finally {
-    p.searching = false
-  }
-}
-
-async function grab(r: ReleaseRow) {
-  const p = picker.value!
-  p.grabbing = r.guid
-  p.error = undefined
-  try {
-    await data.value.grab(followId(p.kind), r.guid)
-    p.grabbed.add(r.guid)
-  } catch (e) {
-    p.error = (e as Error).message
-  } finally {
-    p.grabbing = undefined
-  }
-}
+const searchReleases = () => data.value.search(followId(chosen.value!.kind), [chosen.value!.bookId])
+const grabRelease = (guid: string) => data.value.grab(followId(chosen.value!.kind), guid)
 </script>

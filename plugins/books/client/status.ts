@@ -1,3 +1,4 @@
+import { downloadStatus } from '@magpiejs/console-kit'
 import type { AuthorSummary, BookFormatState, BookRow } from '../src/console'
 
 export const KINDS = ['ebook', 'audiobook'] as const
@@ -16,30 +17,11 @@ export function authorStatus(a: AuthorSummary) {
   return { text: 'Complete', class: 'ok' }
 }
 
-const DOWNLOAD: Record<string, string> = {
-  grabbed: 'Sent to client',
-  queued: 'Queued',
-  paused: 'Paused',
-  stalled: 'Stalled',
-  import_pending: 'Importing soon',
-  importing: 'Importing',
-}
-
 /** Badge for a book in one format. */
 export function formatStatus(book: BookRow, state: BookFormatState) {
-  if (state.download) {
-    const { state: s, progress } = state.download
-    const text =
-      s === 'downloading' ? `Downloading ${Math.floor(progress * 100)}%` : (DOWNLOAD[s] ?? s)
-    return { text, class: 'info' }
-  }
+  if (state.download) return downloadStatus(state.download.state, state.download.progress)
   if (state.files?.length) return { text: state.files[0]!.quality, class: 'ok' }
   if (!book.released) return { text: book.releaseDate ? 'Upcoming' : 'Unreleased', class: '' }
   if (!state.monitored) return { text: 'Not monitored', class: '' }
   return { text: 'Missing', class: 'bad' }
 }
-
-export const mb = (bytes: number) =>
-  bytes >= 1024 ** 3
-    ? `${(bytes / 1024 ** 3).toFixed(1)} GB`
-    : `${Math.round(bytes / 1024 ** 2)} MB`

@@ -1,7 +1,7 @@
 <template>
   <section class="mu">
     <div class="mp-head"><h1>Add artist</h1></div>
-    <form class="mp-row search" @submit.prevent="search">
+    <form class="mp-row mp-search" @submit.prevent="search">
       <input v-model="term" placeholder="Search for an artist" data-testid="lookup" autofocus />
       <button class="primary" type="submit" :disabled="!term.trim() || searching">
         {{ searching ? 'Searching…' : 'Search' }}
@@ -17,7 +17,7 @@
         >
         first.
       </div>
-      <div v-else class="mp-card options">
+      <div v-else class="mp-card mp-options">
         <label>
           <span>Quality</span>
           <select v-model="form.profileId">
@@ -61,7 +61,12 @@
         </div>
       </div>
 
-      <div v-for="r in results" :key="r.ids.musicbrainz" class="result" data-testid="lookup-result">
+      <div
+        v-for="r in results"
+        :key="r.ids.musicbrainz"
+        class="mp-result"
+        data-testid="lookup-result"
+      >
         <div class="body">
           <div class="title">
             <strong>{{ r.title }}</strong>
