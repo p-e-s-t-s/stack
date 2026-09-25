@@ -53,7 +53,12 @@ export interface GrabOptions {
   quality: string
   formatScore: number
   manual?: boolean
+  /** The parts of the item the release covers (episodes, books, albums…). */
+  unitIds?: number[]
 }
+
+/** A download with the parts of its item it covers. */
+export type GrabWithUnits = schema.Grab & { unitIds: number[] }
 
 export interface DownloadsConfig {
   pollInterval: number
@@ -123,11 +128,13 @@ export class DownloadsService extends Service {
       if (hit) return { reason: `blocklisted: ${hit.reason}`, permanent: true }
     })
 
-    // movies only: a series has many episodes, and the series plugin checks those itself
+    // a release isn't wanted while an equal or better one is downloading: for items with
+    // parts, one that covers any of the same parts
     this.ctx.decision.rule('in-queue', ({ target, qualityRank, formatScore, rankOf }) => {
-      if (!target.mediaId || target.kind !== 'movie') return
-      const active = this.active().filter((g) => g.mediaId === target.mediaId)
-      for (const grab of active) {
+      if (!target.mediaId) return
+      const units = target.unitIds ?? []
+      for (const grab of this.activeFor(target.mediaId)) {
+        if (units.length && !grab.unitIds.some((id) => units.includes(id))) continue
         const rank = rankOf(grab.quality)
         if (rank > qualityRank || (rank === qualityRank && grab.formatScore >= formatScore)) {
           return `already downloading ${grab.title}`
@@ -255,6 +262,11 @@ export class DownloadsService extends Service {
       })
       .returning()
       .get()
+    if (options.unitIds?.length)
+      this.db
+        .insert(schema.grabUnits)
+        .values([...new Set(options.unitIds)].map((unitId) => ({ grabId: grab.id, unitId })))
+        .run()
     this.ctx.logger.info('grabbed %s with %s', release.title, clientOptions.name)
     this.ctx.emit('downloads/grabbed', grab)
     return grab
@@ -268,6 +280,36 @@ export class DownloadsService extends Service {
       .from(schema.grabs)
       .where(inArray(schema.grabs.state, schema.ACTIVE_STATES))
       .all()
+  }
+
+  /** Active downloads of one library item, with the units each covers. */
+  activeFor(mediaId: number): GrabWithUnits[] {
+    const active = this.active().filter((g) => g.mediaId === mediaId)
+    if (!active.length) return []
+    const links = this.db
+      .select()
+      .from(schema.grabUnits)
+      .where(
+        inArray(
+          schema.grabUnits.grabId,
+          active.map((g) => g.id),
+        ),
+      )
+      .all()
+    return active.map((grab) => ({
+      ...grab,
+      unitIds: links.filter((l) => l.grabId === grab.id).map((l) => l.unitId),
+    }))
+  }
+
+  /** The units a download covers. */
+  unitsOf(grabId: number) {
+    return this.db
+      .select()
+      .from(schema.grabUnits)
+      .where(eq(schema.grabUnits.grabId, grabId))
+      .all()
+      .map((l) => l.unitId)
   }
 
   get(id: number) {

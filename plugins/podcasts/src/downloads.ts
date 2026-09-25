@@ -4,27 +4,12 @@
 import type {} from '@magpiejs/downloads'
 import type { ReleaseInfo } from '@magpiejs/types'
 import type { Context } from 'cordis'
-import { inArray } from 'drizzle-orm'
 import type { PodcastsService } from './index'
-import * as schema from './schema'
 
 export default function podcastDownloads(ctx: Context, podcasts: PodcastsService) {
   /** Episodes of a podcast with a download in progress. */
-  function downloading(mediaId: number) {
-    const active = ctx.downloads.active().filter((g) => g.mediaId === mediaId)
-    if (!active.length) return new Set<number>()
-    const links = podcasts.db
-      .select()
-      .from(schema.grabEpisodes)
-      .where(
-        inArray(
-          schema.grabEpisodes.grabId,
-          active.map((g) => g.id),
-        ),
-      )
-      .all()
-    return new Set(links.map((l) => l.episodeId))
-  }
+  const downloading = (mediaId: number) =>
+    new Set(ctx.downloads.activeFor(mediaId).flatMap((g) => g.unitIds))
 
   /** Grabs episodes (the wanted ones when not given; given ones even after failures). */
   async function download(mediaId: number, episodeIds?: number[]) {
@@ -48,15 +33,12 @@ export default function podcastDownloads(ctx: Context, podcasts: PodcastsService
         publishedAt: episode.publishedAt ?? undefined,
       }
       try {
-        const grab = await ctx.downloads.grab(mediaId, release, {
+        await ctx.downloads.grab(mediaId, release, {
           quality: 'podcast-episode',
           formatScore: 0,
           manual: !!episodeIds,
+          unitIds: [episode.id],
         })
-        podcasts.db
-          .insert(schema.grabEpisodes)
-          .values({ grabId: grab.id, episodeId: episode.id })
-          .run()
         grabbed++
       } catch (error) {
         // no direct-download client, most likely: stop trying the rest
@@ -80,12 +62,8 @@ export default function podcastDownloads(ctx: Context, podcasts: PodcastsService
 
   ctx.on('downloads/failed', (grab) => {
     if (!podcasts.get(grab.mediaId)) return
-    for (const link of podcasts.db
-      .select()
-      .from(schema.grabEpisodes)
-      .where(inArray(schema.grabEpisodes.grabId, [grab.id]))
-      .all())
-      podcasts.failed(link.episodeId, grab.error ?? 'download failed')
+    for (const episodeId of ctx.downloads.unitsOf(grab.id))
+      podcasts.failed(episodeId, grab.error ?? 'download failed')
   })
   for (const event of ['downloads/grabbed', 'downloads/updated'] as const) {
     ctx.on(event, (grab) => {

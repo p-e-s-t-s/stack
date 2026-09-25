@@ -18,15 +18,16 @@ import console_ from './console'
 import automation from './automation'
 import { SERIES_NAMING } from './naming'
 import episodeImport from './import'
-import episodeSearch, { type EpisodeResult, type EpisodeSearch, pickReleases } from './search'
+import { grabResult, pickReleases } from '@magpiejs/units'
+import episodeSearch, { type EpisodeResult, type EpisodeSearch } from './search'
 import * as schema from './schema'
 
 export * from './schema'
 export { episodeFileName } from './import'
+export { pickReleases } from '@magpiejs/units'
 export {
   episodesFor,
   matchesSeries,
-  pickReleases,
   titlesOf,
   type EpisodeResult,
   type EpisodeSearch,
@@ -156,34 +157,14 @@ export class SeriesService extends Service {
     this.ctx.inject(['indexers', 'downloads'], (ctx) => void ctx.plugin(automation, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
-        this.grabber = async (seriesId, { release, decision, episodeIds }, manual) => {
-          const grab = await ctx.downloads.grab(seriesId, release, {
-            quality: decision.quality,
-            formatScore: decision.formatScore,
-            manual,
-          })
-          if (episodeIds.length) {
-            this.db
-              .insert(schema.grabEpisodes)
-              .values(episodeIds.map((episodeId) => ({ grabId: grab.id, episodeId })))
-              .run()
-          }
+        this.grabber = async (seriesId, result, manual) => {
+          const grab = await grabResult(ctx, seriesId, result, manual)
           this.ctx.emit('series/episodes', seriesId)
           return grab
         }
         return () => (this.grabber = undefined)
       }, 'series.grabber')
 
-      // a release isn't wanted while an equal or better one for its episodes is downloading
-      ctx.decision.rule('episode-in-queue', ({ target, qualityRank, formatScore, rankOf }) => {
-        if (target.kind === 'movie' || !target.mediaId || !target.unitIds?.length) return
-        for (const { grab } of this.activeGrabs(target.mediaId)) {
-          if (!grab.episodeIds.some((id) => target.unitIds!.includes(id))) continue
-          const rank = rankOf(grab.quality)
-          if (rank > qualityRank || (rank === qualityRank && grab.formatScore >= formatScore))
-            return `already downloading ${grab.title}`
-        }
-      })
       for (const event of ['downloads/grabbed', 'downloads/updated'] as const) {
         ctx.on(event, (grab) => {
           if (this.get(grab.mediaId)) this.ctx.emit('series/episodes', grab.mediaId)
@@ -205,36 +186,12 @@ export class SeriesService extends Service {
 
   /** Downloads in progress for a series, with the episodes each covers. */
   activeGrabs(seriesId: number) {
-    const downloads = this.ctx.get('downloads')
-    if (!downloads) return []
-    const active = downloads.active().filter((g) => g.mediaId === seriesId)
-    if (!active.length) return []
-    const links = this.db
-      .select()
-      .from(schema.grabEpisodes)
-      .where(
-        inArray(
-          schema.grabEpisodes.grabId,
-          active.map((g) => g.id),
-        ),
-      )
-      .all()
-    return active.map((grab) => ({
-      grab: {
-        ...grab,
-        episodeIds: links.filter((l) => l.grabId === grab.id).map((l) => l.episodeId),
-      },
-    }))
+    return this.ctx.get('downloads')?.activeFor(seriesId) ?? []
   }
 
   /** Episodes a grab covers. */
   grabEpisodes(grabId: number) {
-    return this.db
-      .select()
-      .from(schema.grabEpisodes)
-      .where(eq(schema.grabEpisodes.grabId, grabId))
-      .all()
-      .map((l) => l.episodeId)
+    return this.ctx.get('downloads')?.unitsOf(grabId) ?? []
   }
 
   /** Monitored, aired, regular or special episodes without a file or below the cutoff. */

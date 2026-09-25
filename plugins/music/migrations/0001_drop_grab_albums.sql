@@ -1,0 +1,1 @@
+DROP TABLE `music_grab_albums`;

@@ -140,7 +140,7 @@ describe('episode search', () => {
     // while those download, the same episodes aren't grabbed again
     const again = await ctx.series.search(seriesId, ids(1, 1), 'interactive')
     const single = again.results.find((r) => r.release.title.includes('S01E01'))!
-    expect(single.decision.rejections.map((r) => r.rule)).toContain('episode-in-queue')
+    expect(single.decision.rejections.map((r) => r.rule)).toContain('in-queue')
     const other = again.results.find((r) => r.release.title.startsWith('Other'))!
     expect(other.decision.rejections.map((r) => r.rule)).toContain('series-match')
   })

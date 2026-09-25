@@ -5,14 +5,14 @@ import HTTP from '@cordisjs/plugin-http'
 import Timer from '@cordisjs/plugin-timer'
 import DatabaseService from '@magpiejs/database'
 import DecisionService from '@magpiejs/decision'
-import DownloadsService, { grabs } from '@magpiejs/downloads'
+import DownloadsService, { grabs, grabUnits } from '@magpiejs/downloads'
 import ImportService from '@magpiejs/import'
 import JobsService from '@magpiejs/jobs'
 import LibraryService from '@magpiejs/library'
 import MetadataService from '@magpiejs/metadata'
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it } from 'vitest'
-import SeriesService, { grabEpisodes } from '../src'
+import SeriesService from '../src'
 
 let ctx: Context
 let dir: string
@@ -88,9 +88,9 @@ function download(title: string, quality: string, files: string[], episodes: num
     .returning()
     .get()
   const ids = ctx.series.episodes(seriesId).filter((e) => episodes.includes(e.number))
-  ctx.series.db
-    .insert(grabEpisodes)
-    .values(ids.map((e) => ({ grabId: grab.id, episodeId: e.id })))
+  ctx.downloads.db
+    .insert(grabUnits)
+    .values(ids.map((e) => ({ grabId: grab.id, unitId: e.id })))
     .run()
   return grab
 }

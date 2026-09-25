@@ -1,0 +1,23 @@
+{
+  "name": "@magpiejs/units",
+  "version": "0.0.0",
+  "description": "Searching, grabbing and automation for kinds of media whose items have parts (episodes, books, albums)",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/decision": "0.0.0",
+    "@magpiejs/downloads": "0.0.0",
+    "@magpiejs/indexers": "0.0.0",
+    "@magpiejs/jobs": "0.0.0",
+    "@magpiejs/types": "0.0.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10"
+  }
+}

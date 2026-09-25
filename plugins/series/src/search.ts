@@ -1,44 +1,21 @@
 // Episode searching. Loaded only while an indexers plugin is enabled: builds queries for the
-// wanted episodes, matches results to the series and to episodes, and runs them through the
-// decision engine with the episodes each release covers.
+// wanted episodes, and matches results to the series and to the episodes they cover (the
+// searching, evaluating and caching itself is @magpiejs/units').
 
-import {
-  compareDecisions,
-  type Decision,
-  type DecisionTarget,
-  profileRanks,
-} from '@magpiejs/decision'
+import { type DecisionTarget, profileRanks } from '@magpiejs/decision'
 import type {} from '@magpiejs/indexers'
 import { normalizeTitle, type ParsedRelease, parse } from '@magpiejs/parser'
 import type { ReleaseInfo, ReleaseQuery } from '@magpiejs/types'
+import { unitSearch } from '@magpiejs/units'
 import type { Context } from 'cordis'
 import type { Series, SeriesService } from './index'
 import type { Episode } from './schema'
 
-export type FoundRelease = ReleaseInfo & {
-  indexerName: string
-  indexerPriority: number
-  flags?: string[]
-}
-
-export interface EpisodeResult {
-  release: FoundRelease
-  decision: Decision
-  /** Episodes of the series this release covers. */
-  episodeIds: number[]
-}
-
-export interface EpisodeSearch {
-  /** Searches for these episodes (all monitored, aired, wanted ones when omitted). */
-  search(
-    seriesId: number,
-    episodeIds: number[],
-    kind?: 'automatic' | 'interactive',
-  ): Promise<{ results: EpisodeResult[]; errors: { indexer: string; message: string }[] }>
-  cached(seriesId: number, guid: string): EpisodeResult | undefined
-  /** Matches and evaluates releases for a series, best first (used by search and RSS). */
-  evaluate(seriesId: number, releases: FoundRelease[], wantedIds: Set<number>): EpisodeResult[]
-}
+export type {
+  FoundRelease,
+  UnitResult as EpisodeResult,
+  UnitSearch as EpisodeSearch,
+} from '@magpiejs/units'
 
 /** Normalized titles a release for this series may use: title, alternates, "title year". */
 export function titlesOf(series: Series, alternates: string[]) {
@@ -81,24 +58,7 @@ export function episodesFor(series: Series, parsed: ParsedRelease, episodes: Epi
   return episodes.filter((e) => e.season === eps.season && eps.numbers.includes(e.number))
 }
 
-/** Picks releases to grab: best first, skipping ones whose wanted episodes are already covered. */
-export function pickReleases(results: EpisodeResult[], wanted: Set<number>) {
-  const picked: EpisodeResult[] = []
-  const covered = new Set<number>()
-  for (const r of results) {
-    if (!r.decision.accepted) continue
-    const fresh = r.episodeIds.filter((id) => wanted.has(id) && !covered.has(id))
-    // a release that repeats anything already picked would download it twice
-    if (!fresh.length || r.episodeIds.some((id) => covered.has(id))) continue
-    picked.push(r)
-    for (const id of r.episodeIds) covered.add(id)
-  }
-  return picked
-}
-
 export default function episodeSearch(ctx: Context, series: SeriesService) {
-  const cache = new Map<number, { at: number; results: Map<string, EpisodeResult> }>()
-
   /**
    * Queries for these episodes. Standard: one per season, with the episode when it's the only
    * one. Daily: by air date. Anime: by title and absolute number, plus the season queries.
@@ -164,73 +124,30 @@ export default function episodeSearch(ctx: Context, series: SeriesService) {
     }
   }
 
-  const api: EpisodeSearch = {
-    async search(seriesId, episodeIds, kind = 'automatic') {
-      const show = series.get(seriesId)
-      if (!show) throw new Error(`series ${seriesId} not found`)
-      const all = series.episodes(seriesId)
-      const wanted = all.filter((e) => episodeIds.includes(e.id))
-      if (!wanted.length) return { results: [], errors: [] }
-
-      const releases: FoundRelease[] = []
-      const errors: { indexer: string; message: string }[] = []
-      for (const query of queries(show, wanted)) {
-        const outcome = await ctx.indexers.search(query, kind)
-        releases.push(...(outcome.releases as FoundRelease[]))
-        errors.push(...outcome.errors)
-      }
-
-      const wantedIds = new Set(wanted.map((e) => e.id))
-      const results = api.evaluate(seriesId, releases, wantedIds)
-      cache.set(seriesId, {
-        at: Date.now(),
-        results: new Map(results.map((r) => [r.release.guid, r])),
-      })
-      series.markSearched([...wantedIds])
-      return { results, errors }
-    },
-    evaluate(seriesId, releases, wantedIds) {
-      const show = series.get(seriesId)
-      if (!show) return []
-      const all = series.episodes(seriesId)
+  const api = unitSearch<Series, Episode>(ctx, {
+    item: (id) => series.get(id),
+    units: (id) => series.episodes(id),
+    queries,
+    parse: (title) => parse(title, { kind: 'series' }),
+    matcher(show, all, wanted) {
       const titles = titlesOf(show, ctx.library.alternateTitlesOf(show.id))
-      const seen = new Set<string>()
-      const results: EpisodeResult[] = []
-      for (const release of releases) {
-        if (seen.has(release.guid)) continue
-        seen.add(release.guid)
-        const parsed = parse(release.title, { kind: 'series' })
-        const covered = episodesFor(show, parsed, all)
-        const decision = ctx.decision.evaluate(
-          { info: release, parsed },
-          targetFor(show, parsed, covered),
-        )
-        const reject = (rule: string, reason: string) => {
-          decision.rejections.unshift({ rule, reason, permanent: true })
-          decision.accepted = false
-        }
+      return (base, release) => {
+        const parsed = base as ParsedRelease
         if (!matchesSeries(show, release, parsed, titles))
-          reject('series-match', 'is not this series')
-        else if (!covered.length) reject('episode-match', 'is not an episode of this series')
-        else if (!covered.some((e) => wantedIds.has(e.id)))
-          reject('episode-match', 'has none of the wanted episodes')
-        // prefer releases that cover more wanted episodes, then indexer priority
-        decision.rank.push(covered.filter((e) => wantedIds.has(e.id)).length)
-        decision.rank.push(-release.indexerPriority)
-        results.push({ release, decision, episodeIds: covered.map((e) => e.id) })
+          return { reject: { rule: 'series-match', reason: 'is not this series' } }
+        const covered = episodesFor(show, parsed, all)
+        if (!covered.length)
+          return { reject: { rule: 'episode-match', reason: 'is not an episode of this series' } }
+        if (!covered.some((e) => wanted.has(e.id)))
+          return { reject: { rule: 'episode-match', reason: 'has none of the wanted episodes' } }
+        return { units: covered }
       }
-      return results.sort(
-        (a, b) =>
-          Number(b.decision.accepted) - Number(a.decision.accepted) ||
-          compareDecisions(a.decision, b.decision),
-      )
     },
-    cached(seriesId, guid) {
-      const entry = cache.get(seriesId)
-      if (!entry || Date.now() - entry.at > 60 * 60_000) return
-      return entry.results.get(guid)
-    },
-  }
+    target: (show, parsed, covered) => targetFor(show, parsed as ParsedRelease, covered),
+    // prefer releases that cover more wanted episodes
+    rank: (covered, wanted) => [covered.filter((e) => wanted.has(e.id)).length],
+    markSearched: (_, ids) => series.markSearched(ids),
+  })
 
   ctx.indexers.searchType('series', {
     mode: 'tvsearch',

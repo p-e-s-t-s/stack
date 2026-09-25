@@ -23,6 +23,7 @@ import { audiobookFamily, ebookFamily } from './families'
 import bookImport from './import'
 import { BOOK_NAMING } from './naming'
 import * as schema from './schema'
+import { grabResult, pickReleases } from '@magpiejs/units'
 import bookSearch, { type BookResult, type BookSearch } from './search'
 
 export * from './families'
@@ -30,6 +31,7 @@ export { AUDIOBOOK_EXTENSIONS, EBOOK_EXTENSIONS, fileQuality } from './import'
 export * from './match'
 export * from './parse'
 export * from './schema'
+export { pickReleases } from '@magpiejs/units'
 export type { BookResult, BookSearch, FoundRelease } from './search'
 
 declare module '@magpiejs/types' {
@@ -163,33 +165,14 @@ export class BooksService extends Service {
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
-        this.grabber = async (mediaId, { release, decision, bookIds }, manual) => {
-          const grab = await ctx.downloads.grab(mediaId, release, {
-            quality: decision.quality,
-            formatScore: decision.formatScore,
-            manual,
-          })
-          if (bookIds.length)
-            this.db
-              .insert(schema.grabBooks)
-              .values(bookIds.map((bookId) => ({ grabId: grab.id, bookId })))
-              .run()
+        this.grabber = async (mediaId, result, manual) => {
+          const grab = await grabResult(ctx, mediaId, result, manual)
           this.ctx.emit('books/changed', mediaId)
           return grab
         }
         return () => (this.grabber = undefined)
       }, 'books.grabber')
 
-      // a release isn't wanted while an equal or better one of the book is downloading
-      ctx.decision.rule('book-in-queue', ({ target, qualityRank, formatScore, rankOf }) => {
-        if (target.kind !== 'book' || !target.mediaId || !target.unitIds?.length) return
-        for (const grab of this.activeGrabs(target.mediaId)) {
-          if (!grab.bookIds.some((id) => target.unitIds!.includes(id))) continue
-          const rank = rankOf(grab.quality)
-          if (rank > qualityRank || (rank === qualityRank && grab.formatScore >= formatScore))
-            return `already downloading ${grab.title}`
-        }
-      })
       for (const event of ['downloads/grabbed', 'downloads/updated'] as const)
         ctx.on(event, (grab) => {
           if (this.get(grab.mediaId)) this.ctx.emit('books/changed', grab.mediaId)
@@ -509,36 +492,12 @@ export class BooksService extends Service {
 
   /** Downloads in progress for a library item, with the books each is. */
   activeGrabs(mediaId: number) {
-    const active =
-      this.ctx
-        .get('downloads')
-        ?.active()
-        .filter((g) => g.mediaId === mediaId) ?? []
-    if (!active.length) return []
-    const links = this.db
-      .select()
-      .from(schema.grabBooks)
-      .where(
-        inArray(
-          schema.grabBooks.grabId,
-          active.map((g) => g.id),
-        ),
-      )
-      .all()
-    return active.map((grab) => ({
-      ...grab,
-      bookIds: links.filter((l) => l.grabId === grab.id).map((l) => l.bookId),
-    }))
+    return this.ctx.get('downloads')?.activeFor(mediaId) ?? []
   }
 
   /** Books a grab is. */
   grabBooks(grabId: number) {
-    return this.db
-      .select()
-      .from(schema.grabBooks)
-      .where(eq(schema.grabBooks.grabId, grabId))
-      .all()
-      .map((l) => l.bookId)
+    return this.ctx.get('downloads')?.unitsOf(grabId) ?? []
   }
 
   // ---- changing
@@ -639,19 +598,6 @@ export class BooksService extends Service {
 function byRelease(a: schema.Book, b: schema.Book) {
   const key = (x: schema.Book) => x.releaseDate ?? (x.year ? `${x.year}-99` : '9999')
   return key(a).localeCompare(key(b)) || a.id - b.id
-}
-
-/** The best accepted release of each wanted book. */
-export function pickReleases(results: BookResult[], wanted: Set<number>) {
-  const picked: BookResult[] = []
-  const covered = new Set<number>()
-  for (const r of results) {
-    if (!r.decision.accepted) continue
-    if (!r.bookIds.some((id) => wanted.has(id)) || r.bookIds.some((id) => covered.has(id))) continue
-    picked.push(r)
-    for (const id of r.bookIds) covered.add(id)
-  }
-  return picked
 }
 
 export default BooksService

@@ -1,5 +1,5 @@
 import { mediaFiles, mediaItems } from '@magpiejs/library/schema'
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 /** Which albums to monitor when an artist is added (among the types they're followed for). */
 export type MonitorOption = 'all' | 'future' | 'latest' | 'none'
@@ -74,21 +74,6 @@ export const trackFiles = sqliteTable(
       .references(() => tracks.id, { onDelete: 'cascade' }),
   },
   (t) => [uniqueIndex('music_track_files_track_idx').on(t.trackId)],
-)
-
-/**
- * Which album a download is. `grab_id` is a `downloads_grabs` id without a foreign key: music
- * works without the downloads plugin, whose table may not exist.
- */
-export const grabAlbums = sqliteTable(
-  'music_grab_albums',
-  {
-    grabId: integer('grab_id').notNull(),
-    albumId: integer('album_id')
-      .notNull()
-      .references(() => albums.id, { onDelete: 'cascade' }),
-  },
-  (t) => [primaryKey({ columns: [t.grabId, t.albumId] })],
 )
 
 export type ArtistDetails = typeof artists.$inferSelect

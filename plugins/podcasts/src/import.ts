@@ -6,9 +6,7 @@ import { extname, join, relative } from 'node:path'
 import { ImportError, type ImportResult } from '@magpiejs/import'
 import { renderName } from '@magpiejs/library'
 import type { Context } from 'cordis'
-import { eq } from 'drizzle-orm'
 import type { PodcastsService } from './index'
-import * as schema from './schema'
 
 export const PODCAST_EXTENSIONS = [
   '.mp3',
@@ -31,12 +29,8 @@ export default function podcastImport(ctx: Context, podcasts: PodcastsService) {
     async (item, grab, tools): Promise<ImportResult> => {
       const podcast = podcasts.get(item.id)
       if (!podcast) throw new ImportError('the podcast is no longer in the library')
-      const link = podcasts.db
-        .select()
-        .from(schema.grabEpisodes)
-        .where(eq(schema.grabEpisodes.grabId, grab.id))
-        .get()
-      const episode = link && podcasts.episode(link.episodeId)
+      const [episodeId] = ctx.get('downloads')?.unitsOf(grab.id) ?? []
+      const episode = episodeId !== undefined ? podcasts.episode(episodeId) : undefined
       if (!episode) throw new ImportError('the episode is no longer in the podcast')
 
       const [file] = await tools.files()

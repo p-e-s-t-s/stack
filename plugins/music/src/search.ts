@@ -1,38 +1,22 @@
 // Album searching. Loaded only while an indexers plugin is enabled: builds queries for the
-// wanted albums, matches results to the artist's albums, and runs them through the decision
-// engine with the album's length for size limits.
+// wanted albums and matches results to the artist's albums, with the album's length for size
+// limits (the searching, evaluating and caching itself is @magpiejs/units').
 
-import { compareDecisions, type Decision, type DecisionTarget } from '@magpiejs/decision'
+import type { DecisionTarget } from '@magpiejs/decision'
 import type {} from '@magpiejs/indexers'
-import type { ReleaseInfo, ReleaseQuery } from '@magpiejs/types'
+import type { ReleaseQuery } from '@magpiejs/types'
+import { unitSearch } from '@magpiejs/units'
 import type { Context } from 'cordis'
 import type { Artist, MusicService } from './index'
 import { matchAlbums } from './match'
-import { parseMusic } from './parse'
+import { type ParsedMusic, parseMusic } from './parse'
 import type { Album } from './schema'
 
-export type FoundRelease = ReleaseInfo & {
-  indexerName: string
-  indexerPriority: number
-}
-
-export interface AlbumResult {
-  release: FoundRelease
-  decision: Decision
-  /** The album this release is (empty when it isn't one of the artist's). */
-  albumIds: number[]
-}
-
-export interface AlbumSearch {
-  search(
-    mediaId: number,
-    albumIds: number[],
-    kind?: 'automatic' | 'interactive',
-  ): Promise<{ results: AlbumResult[]; errors: { indexer: string; message: string }[] }>
-  cached(mediaId: number, guid: string): AlbumResult | undefined
-  /** Matches and evaluates releases for an artist, best first (used by search and RSS). */
-  evaluate(mediaId: number, releases: FoundRelease[], wantedIds: Set<number>): AlbumResult[]
-}
+export type {
+  FoundRelease,
+  UnitResult as AlbumResult,
+  UnitSearch as AlbumSearch,
+} from '@magpiejs/units'
 
 /** Per-album queries for a few albums; one query for the artist when many are wanted. */
 const PER_ALBUM = 10
@@ -44,8 +28,6 @@ export const artistNames = (ctx: Context, artist: Artist) => [
 ]
 
 export default function albumSearch(ctx: Context, music: MusicService) {
-  const cache = new Map<number, { at: number; results: Map<string, AlbumResult> }>()
-
   function queries(artist: Artist, wanted: Album[]): ReleaseQuery[] {
     if (wanted.length > PER_ALBUM)
       return [{ kind: 'music', term: artist.title, fields: { artist: artist.title } }]
@@ -75,13 +57,12 @@ export default function albumSearch(ctx: Context, music: MusicService) {
     }
   }
 
-  const api: AlbumSearch = {
-    async search(mediaId, albumIds, kind = 'automatic') {
-      const artist = music.get(mediaId)
-      if (!artist) throw new Error(`artist ${mediaId} not found`)
-      const wanted = music.albums(mediaId).filter((a) => albumIds.includes(a.id))
-      if (!wanted.length) return { results: [], errors: [] }
-      // album lengths set the size limits
+  const api = unitSearch<Artist, Album>(ctx, {
+    item: (id) => music.get(id),
+    units: (id) => music.albums(id),
+    queries,
+    // album lengths set the size limits
+    async prepare(_, wanted) {
       for (const a of wanted) {
         try {
           await music.ensureTracks(a.id)
@@ -89,62 +70,27 @@ export default function albumSearch(ctx: Context, music: MusicService) {
           ctx.logger.warn('no track list for %s: %s', a.title, error)
         }
       }
-      const releases: FoundRelease[] = []
-      const errors: { indexer: string; message: string }[] = []
-      for (const query of queries(artist, wanted)) {
-        const outcome = await ctx.indexers.search(query, kind)
-        releases.push(...(outcome.releases as FoundRelease[]))
-        errors.push(...outcome.errors)
-      }
-      const wantedIds = new Set(wanted.map((a) => a.id))
-      const results = api.evaluate(mediaId, releases, wantedIds)
-      cache.set(mediaId, {
-        at: Date.now(),
-        results: new Map(results.map((r) => [r.release.guid, r])),
-      })
-      music.markSearched([...wantedIds])
-      return { results, errors }
     },
-
-    evaluate(mediaId, releases, wantedIds) {
-      const artist = music.get(mediaId)
-      if (!artist) return []
-      const albums = music.albums(mediaId)
+    parse: parseMusic,
+    matcher(artist, albums, wanted) {
       const names = artistNames(ctx, artist)
-      const seen = new Set<string>()
-      const results: AlbumResult[] = []
-      for (const release of releases) {
-        if (seen.has(release.guid)) continue
-        seen.add(release.guid)
-        const parsed = parseMusic(release.title)
+      return (parsed) => {
         // wanted albums first, so a release matching two titles goes to the wanted one
-        const [album] = matchAlbums(parsed, names, albums).sort(
-          (a, b) => Number(wantedIds.has(b.id)) - Number(wantedIds.has(a.id)),
+        const [album] = matchAlbums(parsed as ParsedMusic, names, albums).sort(
+          (a, b) => Number(wanted.has(b.id)) - Number(wanted.has(a.id)),
         )
-        const decision = ctx.decision.evaluate({ info: release, parsed }, targetFor(artist, album))
-        const reject = (rule: string, reason: string) => {
-          decision.rejections.unshift({ rule, reason, permanent: true })
-          decision.accepted = false
-        }
-        if (!album) reject('album-match', `is not an album by ${artist.title}`)
-        else if (!wantedIds.has(album.id))
-          reject('album-match', `is ${album.title}, which isn't wanted`)
-        decision.rank.push(-release.indexerPriority)
-        results.push({ release, decision, albumIds: album ? [album.id] : [] })
+        if (!album)
+          return { reject: { rule: 'album-match', reason: `is not an album by ${artist.title}` } }
+        if (!wanted.has(album.id))
+          return {
+            reject: { rule: 'album-match', reason: `is ${album.title}, which isn't wanted` },
+          }
+        return { units: [album] }
       }
-      return results.sort(
-        (a, b) =>
-          Number(b.decision.accepted) - Number(a.decision.accepted) ||
-          compareDecisions(a.decision, b.decision),
-      )
     },
-
-    cached(mediaId, guid) {
-      const entry = cache.get(mediaId)
-      if (!entry || Date.now() - entry.at > 60 * 60_000) return
-      return entry.results.get(guid)
-    },
-  }
+    target: (artist, _, covered) => targetFor(artist, covered[0]),
+    markSearched: (_, ids) => music.markSearched(ids),
+  })
 
   ctx.indexers.searchType('music', {
     mode: 'music',

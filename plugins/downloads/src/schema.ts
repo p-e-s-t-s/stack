@@ -1,6 +1,6 @@
 import { mediaItems } from '@magpiejs/library/schema'
 import type { Protocol, ReleaseInfo } from '@magpiejs/types'
-import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export type GrabState =
   | 'grabbed' // sent to the client, not seen in its list yet
@@ -72,6 +72,21 @@ export const blocklist = sqliteTable(
     createdAt: integer('created_at').notNull(),
   },
   (t) => [index('downloads_blocklist_media_idx').on(t.mediaId)],
+)
+
+/**
+ * The parts of a library item a download covers (episodes, books, albums…), by the kind
+ * plugin's own ids. Empty for items without parts (movies).
+ */
+export const grabUnits = sqliteTable(
+  'downloads_grab_units',
+  {
+    grabId: integer('grab_id')
+      .notNull()
+      .references(() => grabs.id, { onDelete: 'cascade' }),
+    unitId: integer('unit_id').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.grabId, t.unitId] })],
 )
 
 export type Grab = typeof grabs.$inferSelect

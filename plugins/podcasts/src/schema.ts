@@ -1,5 +1,5 @@
 import { mediaFiles, mediaItems } from '@magpiejs/library/schema'
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 /** Which episodes to download when a podcast is added. */
 export type MonitorOption = 'all' | 'new' | 'latest' | 'none'
@@ -64,24 +64,6 @@ export const episodeFiles = sqliteTable(
       .references(() => episodes.id, { onDelete: 'cascade' }),
   },
   (t) => [uniqueIndex('podcasts_episode_files_episode_idx').on(t.episodeId)],
-)
-
-/**
- * Which episode a download is for. `grab_id` is a `downloads_grabs` id without a foreign key:
- * podcasts works without the downloads plugin, whose table may not exist.
- */
-export const grabEpisodes = sqliteTable(
-  'podcasts_grab_episodes',
-  {
-    grabId: integer('grab_id').notNull(),
-    episodeId: integer('episode_id')
-      .notNull()
-      .references(() => episodes.id, { onDelete: 'cascade' }),
-  },
-  (t) => [
-    primaryKey({ columns: [t.grabId, t.episodeId] }),
-    index('podcasts_grab_episodes_episode_idx').on(t.episodeId),
-  ],
 )
 
 export type PodcastDetails = typeof details.$inferSelect

@@ -4,7 +4,6 @@ import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/webui'
 import type { MetadataSearchResult } from '@magpiejs/types'
 import type { Context } from 'cordis'
-import { inArray } from 'drizzle-orm'
 import { MAX_ATTEMPTS, type PodcastsService, type PodcastStats } from './index'
 import { toOpml } from './opml'
 import * as schema from './schema'
@@ -139,22 +138,9 @@ export default function console_(ctx: Context, podcasts: PodcastsService) {
 
   /** Download progress by episode id. */
   function downloads(mediaId: number) {
-    const active =
-      ctx
-        .get('downloads')
-        ?.active()
-        .filter((g) => g.mediaId === mediaId) ?? []
     const result = new Map<number, { state: string; progress: number }>()
-    if (!active.length) return result
-    const grabs = new Map(active.map((g) => [g.id, g]))
-    for (const link of podcasts.db
-      .select()
-      .from(schema.grabEpisodes)
-      .where(inArray(schema.grabEpisodes.grabId, [...grabs.keys()]))
-      .all()) {
-      const grab = grabs.get(link.grabId)!
-      result.set(link.episodeId, { state: grab.state, progress: grab.progress })
-    }
+    for (const grab of ctx.get('downloads')?.activeFor(mediaId) ?? [])
+      for (const id of grab.unitIds) result.set(id, { state: grab.state, progress: grab.progress })
     return result
   }
 

@@ -84,25 +84,6 @@ export const episodeFiles = sqliteTable(
   ],
 )
 
-/**
- * Which episodes a download covers (a season pack covers many). `grab_id` is a
- * `downloads_grabs` id without a foreign key: series works without the downloads plugin, whose
- * table may not exist.
- */
-export const grabEpisodes = sqliteTable(
-  'series_grab_episodes',
-  {
-    grabId: integer('grab_id').notNull(),
-    episodeId: integer('episode_id')
-      .notNull()
-      .references(() => episodes.id, { onDelete: 'cascade' }),
-  },
-  (t) => [
-    primaryKey({ columns: [t.grabId, t.episodeId] }),
-    index('series_grab_episodes_episode_idx').on(t.episodeId),
-  ],
-)
-
 export type SeriesDetails = typeof details.$inferSelect
 export type Season = typeof seasons.$inferSelect
 export type Episode = typeof episodes.$inferSelect

@@ -8,6 +8,13 @@
       "when": 1790235480237,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790310222431,
+      "tag": "0001_drop_grab_books",
+      "breakpoints": true
     }
   ]
 }

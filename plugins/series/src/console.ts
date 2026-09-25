@@ -168,8 +168,8 @@ export default function console_(ctx: Context, series: SeriesService) {
     async episodes(id) {
       const files = series.episodeFiles(id)
       const downloads = new Map<number, { state: string; progress: number }>()
-      for (const { grab } of series.activeGrabs(id))
-        for (const episodeId of grab.episodeIds)
+      for (const grab of series.activeGrabs(id))
+        for (const episodeId of grab.unitIds)
           downloads.set(episodeId, { state: grab.state, progress: grab.progress })
       return series.episodes(id).map((e) => {
         const file = files.get(e.id)
@@ -209,7 +209,7 @@ export default function console_(ctx: Context, series: SeriesService) {
       const episodes = new Map(series.episodes(id).map((e) => [e.id, e]))
       return {
         errors,
-        results: results.map(({ release: r, decision: d, episodeIds: covered }) => ({
+        results: results.map(({ release: r, decision: d, unitIds: covered }) => ({
           guid: r.guid,
           title: r.title,
           indexer: r.indexerName,

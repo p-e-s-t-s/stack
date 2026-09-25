@@ -177,7 +177,7 @@ export default function console_(ctx: Context, books: BooksService) {
         const files = books.bookFiles(f.id)
         const downloads = new Map<number, { state: string; progress: number }>()
         for (const grab of books.activeGrabs(f.id))
-          for (const bookId of grab.bookIds)
+          for (const bookId of grab.unitIds)
             downloads.set(bookId, { state: grab.state, progress: grab.progress })
         for (const b of books.books(f.id)) {
           const row = rows.get(b.id) ?? {
@@ -224,7 +224,7 @@ export default function console_(ctx: Context, books: BooksService) {
       const titles = new Map(books.books(f.id).map((b) => [b.id, b.title]))
       return {
         errors,
-        results: results.map(({ release: r, decision: d, bookIds: ids }) => ({
+        results: results.map(({ release: r, decision: d, unitIds: ids }) => ({
           guid: r.guid,
           title: r.title,
           indexer: r.indexerName,

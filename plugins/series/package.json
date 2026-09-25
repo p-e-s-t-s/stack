@@ -27,6 +27,7 @@
     "@magpiejs/metadata": "0.0.0",
     "@magpiejs/parser": "0.0.0",
     "@magpiejs/types": "0.0.0",
+    "@magpiejs/units": "0.0.0",
     "drizzle-orm": "0.45.3"
   },
   "peerDependencies": {

@@ -1,0 +1,1 @@
+DROP TABLE `books_grab_books`;

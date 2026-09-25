@@ -23,6 +23,7 @@ import { audioFamily } from './families'
 import albumImport from './import'
 import { MUSIC_NAMING } from './naming'
 import * as schema from './schema'
+import { grabResult, pickReleases } from '@magpiejs/units'
 import albumSearch, { type AlbumResult, type AlbumSearch } from './search'
 
 export * from './families'
@@ -30,6 +31,7 @@ export { AUDIO_EXTENSIONS, readTags } from './import'
 export * from './match'
 export * from './parse'
 export * from './schema'
+export { pickReleases } from '@magpiejs/units'
 export type { AlbumResult, AlbumSearch, FoundRelease } from './search'
 
 declare module '@magpiejs/types' {
@@ -165,33 +167,14 @@ export class MusicService extends Service {
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
-        this.grabber = async (mediaId, { release, decision, albumIds }, manual) => {
-          const grab = await ctx.downloads.grab(mediaId, release, {
-            quality: decision.quality,
-            formatScore: decision.formatScore,
-            manual,
-          })
-          if (albumIds.length)
-            this.db
-              .insert(schema.grabAlbums)
-              .values(albumIds.map((albumId) => ({ grabId: grab.id, albumId })))
-              .run()
+        this.grabber = async (mediaId, result, manual) => {
+          const grab = await grabResult(ctx, mediaId, result, manual)
           this.ctx.emit('music/changed', mediaId)
           return grab
         }
         return () => (this.grabber = undefined)
       }, 'music.grabber')
 
-      // a release isn't wanted while an equal or better one of the album is downloading
-      ctx.decision.rule('album-in-queue', ({ target, qualityRank, formatScore, rankOf }) => {
-        if (target.kind !== 'album' || !target.mediaId || !target.unitIds?.length) return
-        for (const grab of this.activeGrabs(target.mediaId)) {
-          if (!grab.albumIds.some((id) => target.unitIds!.includes(id))) continue
-          const rank = rankOf(grab.quality)
-          if (rank > qualityRank || (rank === qualityRank && grab.formatScore >= formatScore))
-            return `already downloading ${grab.title}`
-        }
-      })
       for (const event of ['downloads/grabbed', 'downloads/updated'] as const)
         ctx.on(event, (grab) => {
           if (this.get(grab.mediaId)) this.ctx.emit('music/changed', grab.mediaId)
@@ -509,35 +492,12 @@ export class MusicService extends Service {
 
   /** Downloads in progress for an artist, with the albums each is. */
   activeGrabs(mediaId: number) {
-    const active =
-      this.ctx
-        .get('downloads')
-        ?.active()
-        .filter((g) => g.mediaId === mediaId) ?? []
-    if (!active.length) return []
-    const links = this.db
-      .select()
-      .from(schema.grabAlbums)
-      .where(
-        inArray(
-          schema.grabAlbums.grabId,
-          active.map((g) => g.id),
-        ),
-      )
-      .all()
-    return active.map((grab) => ({
-      ...grab,
-      albumIds: links.filter((l) => l.grabId === grab.id).map((l) => l.albumId),
-    }))
+    return this.ctx.get('downloads')?.activeFor(mediaId) ?? []
   }
 
+  /** Albums a grab is. */
   grabAlbums(grabId: number) {
-    return this.db
-      .select()
-      .from(schema.grabAlbums)
-      .where(eq(schema.grabAlbums.grabId, grabId))
-      .all()
-      .map((l) => l.albumId)
+    return this.ctx.get('downloads')?.unitsOf(grabId) ?? []
   }
 
   // ---- changing
@@ -624,20 +584,6 @@ export class MusicService extends Service {
     }
     return grabbed
   }
-}
-
-/** The best accepted release of each wanted album. */
-export function pickReleases(results: AlbumResult[], wanted: Set<number>) {
-  const picked: AlbumResult[] = []
-  const covered = new Set<number>()
-  for (const r of results) {
-    if (!r.decision.accepted) continue
-    if (!r.albumIds.some((id) => wanted.has(id)) || r.albumIds.some((id) => covered.has(id)))
-      continue
-    picked.push(r)
-    for (const id of r.albumIds) covered.add(id)
-  }
-  return picked
 }
 
 export default MusicService

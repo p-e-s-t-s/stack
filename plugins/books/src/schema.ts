@@ -88,21 +88,6 @@ export const bookFiles = sqliteTable(
   (t) => [index('books_book_files_book_idx').on(t.bookId)],
 )
 
-/**
- * Which book a download is. `grab_id` is a `downloads_grabs` id without a foreign key: books
- * work without the downloads plugin, whose table may not exist.
- */
-export const grabBooks = sqliteTable(
-  'books_grab_books',
-  {
-    grabId: integer('grab_id').notNull(),
-    bookId: integer('book_id')
-      .notNull()
-      .references(() => books.id, { onDelete: 'cascade' }),
-  },
-  (t) => [primaryKey({ columns: [t.grabId, t.bookId] })],
-)
-
 export type Author = typeof authors.$inferSelect
 export type Book = typeof books.$inferSelect
 export type Followed = typeof followed.$inferSelect

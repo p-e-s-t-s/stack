@@ -196,7 +196,7 @@ export default function console_(ctx: Context, music: MusicService) {
   const downloadsOf = (id: number) => {
     const map = new Map<number, { state: string; progress: number }>()
     for (const grab of music.activeGrabs(id))
-      for (const albumId of grab.albumIds)
+      for (const albumId of grab.unitIds)
         map.set(albumId, { state: grab.state, progress: grab.progress })
     return map
   }
@@ -262,7 +262,7 @@ export default function console_(ctx: Context, music: MusicService) {
       const titles = new Map(music.albums(id).map((a) => [a.id, a.title]))
       return {
         errors,
-        results: results.map(({ release: r, decision: d, albumIds: ids }) => ({
+        results: results.map(({ release: r, decision: d, unitIds: ids }) => ({
           guid: r.guid,
           title: r.title,
           indexer: r.indexerName,
