@@ -3,25 +3,21 @@
 // indexers, Torznab, decision, downloads, import, library and calendar plugins, without any
 // of them knowing about it.
 
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { extname, join, relative } from 'node:path'
-import HTTP from '@cordisjs/plugin-http'
-import Timer from '@cordisjs/plugin-timer'
-import CalendarService, { entryState } from '@magpiejs/calendar'
-import DatabaseService from '@magpiejs/database'
-import DecisionService, { type BaseParsed, profileItems } from '@magpiejs/decision'
-import DownloadsService, { grabs } from '@magpiejs/downloads'
-import ImportService from '@magpiejs/import'
+import { entryState } from '@magpiejs/calendar'
+import { type BaseParsed, profileItems } from '@magpiejs/decision'
 import * as torznab from '@magpiejs/indexer-torznab'
-import IndexersService from '@magpiejs/indexers'
-import JobsService from '@magpiejs/jobs'
-import LibraryService, { renderName } from '@magpiejs/library'
-import { Context } from 'cordis'
-import { eq } from 'drizzle-orm'
-import { afterAll, beforeAll, expect, it } from 'vitest'
+import { renderName } from '@magpiejs/library'
+import {
+  createTestContext,
+  fakeDownloadClient,
+  fakeTorznab,
+  finishDownloads,
+} from '@magpiejs/testing'
+import type { Context } from 'cordis'
+import { afterAll, expect, it } from 'vitest'
 
 declare module '@magpiejs/types' {
   interface MediaKinds {
@@ -131,62 +127,26 @@ function notes(ctx: Context) {
 
 // ---- a Torznab indexer that offers book search
 
-let server: Server
-let base: string
-const requests: URLSearchParams[] = []
-beforeAll(async () => {
-  server = createServer((req, res) => {
-    const url = new URL(req.url!, 'http://x')
-    res.setHeader('content-type', 'application/xml')
-    if (url.searchParams.get('t') === 'caps') {
-      return res.end(`<caps><searching><search available="yes" supportedParams="q"/>
-        <book-search available="yes" supportedParams="q,author,title"/></searching>
-        <categories><category id="7000" name="Books"/></categories></caps>`)
-    }
-    requests.push(url.searchParams)
-    const item = (title: string, hash: string) =>
-      `<item><title>${title}</title><guid>${title}</guid>
-        <link>magnet:?xt=urn:btih:${hash}</link><torznab:attr name="seeders" value="5"/></item>`
-    res.end(`<rss xmlns:torznab="http://torznab.com/schemas/2015/feed"><channel>
-      ${item('Ann - Field Notes [draft]', 'a'.repeat(40))}
-      ${item('Ann - Field Notes [final]', 'b'.repeat(40))}
-      ${item('Bob - Other Notes [final]', 'c'.repeat(40))}
-    </channel></rss>`)
-  })
-  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+const fake = await fakeTorznab({
+  caps: { book: ['q', 'author', 'title'], categories: [{ id: 7000, name: 'Books' }] },
+  items: () => [
+    { title: 'Ann - Field Notes [draft]', hash: 'a'.repeat(40), seeders: 5 },
+    { title: 'Ann - Field Notes [final]', hash: 'b'.repeat(40), seeders: 5 },
+    { title: 'Bob - Other Notes [final]', hash: 'c'.repeat(40), seeders: 5 },
+  ],
 })
-afterAll(() => server.close())
+afterAll(() => fake.close())
 
 it('runs a kind defined outside the core from search to import', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'magpie-fixture-kind-'))
-  const ctx = new Context()
-  await ctx.plugin(Timer)
-  await ctx.plugin(HTTP)
-  await ctx.plugin(DatabaseService, { path: ':memory:' })
-  await ctx.plugin(JobsService, { pollInterval: 0 })
-  await ctx.plugin(DecisionService)
-  await ctx.plugin(LibraryService)
-  await ctx.plugin(IndexersService)
-  await ctx.plugin(DownloadsService)
-  await ctx.plugin(ImportService)
-  await ctx.plugin(CalendarService)
-  await ctx.plugin(torznab, { name: 'Books', url: `${base}/api` } as unknown as torznab.Config)
+  const ctx = await createTestContext()
+  await ctx.plugin(torznab, { name: 'Books', url: `${fake.url}/api` } as unknown as torznab.Config)
   await ctx.plugin({
     inject: ['library', 'decision', 'indexers', 'import', 'calendar'],
     apply: notes,
   })
-  ctx.downloads.register(
-    {
-      id: 'client',
-      protocol: 'torrent',
-      add: async (payload) => (payload as { hash: string }).hash,
-      list: async () => [],
-      remove: async () => {},
-      test: async () => ({ ok: true }),
-    },
-    { name: 'Client', priority: 1, category: 'magpie' },
-  )
+  const client = fakeDownloadClient()
+  ctx.downloads.register(client.client, { name: 'Client', priority: 1, category: 'magpie' })
 
   // the library item, with a profile of the kind's family
   const profile = ctx.decision.profiles('text')[0]!
@@ -206,7 +166,7 @@ it('runs a kind defined outside the core from search to import', async () => {
     { kind: 'note', term: 'Field Notes', fields: { author: 'Ann', title: 'Field Notes' } },
     'automatic',
   )
-  expect(Object.fromEntries(requests.at(-1)!)).toMatchObject({
+  expect(Object.fromEntries(fake.requests.at(-1)!)).toMatchObject({
     t: 'book',
     author: 'Ann',
     title: 'Field Notes',
@@ -230,18 +190,12 @@ it('runs a kind defined outside the core from search to import', async () => {
     quality: best.decision.quality,
     formatScore: best.decision.formatScore,
   })
-  const out = join(dir, 'downloads', grab.title)
-  mkdirSync(out, { recursive: true })
-  writeFileSync(join(out, 'notes.txt'), 'hello')
-  writeFileSync(join(out, 'cover.jpg'), 'x')
-  ctx.downloads.db
-    .update(grabs)
-    .set({ state: 'import_pending', outputPath: out })
-    .where(eq(grabs.id, grab.id))
-    .run()
 
   // import with the kind's importer, extensions and naming
-  await ctx.import.importGrab(grab.id)
+  await finishDownloads(ctx, {
+    dir: join(dir, 'downloads'),
+    files: () => ({ 'notes.txt': 'hello', 'cover.jpg': 'x' }),
+  })
   expect(ctx.downloads.get(grab.id)!.state).toBe('imported')
   expect(readdirSync(join(dir, 'notes', 'Field Notes'))).toEqual(['Ann - Field Notes [Final].txt'])
 

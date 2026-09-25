@@ -2,26 +2,18 @@
 // correct per-track names; a later FLAC 24-bit release replaces an MP3 album as an upgrade —
 // through the real indexers, Torznab, decision, downloads, import and calendar plugins.
 
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import HTTP from '@cordisjs/plugin-http'
-import Timer from '@cordisjs/plugin-timer'
-import CalendarService from '@magpiejs/calendar'
-import DatabaseService from '@magpiejs/database'
-import DecisionService from '@magpiejs/decision'
-import DownloadsService, { grabs } from '@magpiejs/downloads'
-import ImportService from '@magpiejs/import'
+import { grabs } from '@magpiejs/downloads'
 import * as torznab from '@magpiejs/indexer-torznab'
-import IndexersService from '@magpiejs/indexers'
-import JobsService from '@magpiejs/jobs'
-import LibraryService from '@magpiejs/library'
-import MetadataService from '@magpiejs/metadata'
-import { Context } from 'cordis'
-import { eq } from 'drizzle-orm'
-import { afterAll, beforeAll, expect, it } from 'vitest'
+import {
+  createTestContext,
+  fakeDownloadClient,
+  fakeTorznab,
+  finishDownloads,
+} from '@magpiejs/testing'
+import { afterAll, expect, it } from 'vitest'
 import MusicService from '../src'
 
 const TRACKS: Record<string, { number: number; tracks: string[] }[]> = {
@@ -55,43 +47,22 @@ const contents: Record<string, string[]> = {
   ],
 }
 
-let server: Server
-let base: string
-beforeAll(async () => {
-  server = createServer((req, res) => {
-    const url = new URL(req.url!, 'http://x')
-    res.setHeader('content-type', 'application/xml')
-    if (url.searchParams.get('t') === 'caps')
-      return res.end(`<caps><searching><search available="yes" supportedParams="q"/>
-        <music-search available="yes" supportedParams="q,artist,album"/></searching>
-        <categories><category id="3000" name="Audio"/></categories></caps>`)
-    const item = (title: string, i: number) =>
-      `<item><title>${title}</title><guid>${title}</guid><size>100000000</size>
-        <link>magnet:?xt=urn:btih:${String(i).repeat(40)}</link><torznab:attr name="seeders" value="9"/></item>`
-    res.end(`<rss xmlns:torznab="http://torznab.com/schemas/2015/feed"><channel>
-      ${offered.map((t) => item(t, Object.keys(contents).indexOf(t) + 1)).join('')}
-    </channel></rss>`)
-  })
-  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+const fake = await fakeTorznab({
+  caps: { music: ['q', 'artist', 'album'], categories: [{ id: 3000, name: 'Audio' }] },
+  items: () =>
+    offered.map((title) => ({
+      title,
+      size: 100_000_000,
+      hash: String(Object.keys(contents).indexOf(title) + 1).repeat(40),
+      seeders: 9,
+    })),
 })
-afterAll(() => server.close())
+afterAll(() => fake.close())
 
 it('finds wanted albums, imports them track by track, and upgrades MP3 to FLAC 24-bit', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'magpie-music-'))
-  const ctx = new Context()
-  await ctx.plugin(Timer)
-  await ctx.plugin(HTTP)
-  await ctx.plugin(DatabaseService, { path: ':memory:' })
-  await ctx.plugin(JobsService, { pollInterval: 0 })
-  await ctx.plugin(DecisionService)
-  await ctx.plugin(LibraryService)
-  await ctx.plugin(MetadataService)
-  await ctx.plugin(IndexersService)
-  await ctx.plugin(DownloadsService)
-  await ctx.plugin(ImportService)
-  await ctx.plugin(CalendarService)
-  await ctx.plugin(torznab, { name: 'Music', url: `${base}/api` } as unknown as torznab.Config)
+  const ctx = await createTestContext()
+  await ctx.plugin(torznab, { name: 'Music', url: `${fake.url}/api` } as unknown as torznab.Config)
   await ctx.plugin(MusicService)
   ctx.metadata.register({
     id: 'musicbrainz',
@@ -122,33 +93,17 @@ it('finds wanted albums, imports them track by track, and upgrades MP3 to FLAC 2
       })),
     }),
   })
-  ctx.downloads.register(
-    {
-      id: 'client',
-      protocol: 'torrent',
-      add: async (payload) => (payload as { hash: string }).hash,
-      list: async () => [],
-      remove: async () => {},
-      test: async () => ({ ok: true }),
-    },
-    { name: 'Client', priority: 1, category: 'magpie' },
-  )
+  const client = fakeDownloadClient()
+  ctx.downloads.register(client.client, { name: 'Client', priority: 1, category: 'magpie' })
   /** The client finishes each active download with its files (all but `leaveOut`). */
-  const finish = async (leaveOut: string[] = []) => {
-    for (const grab of ctx.downloads.active().filter((g) => g.state !== 'import_failed')) {
-      const out = join(dir, 'downloads', grab.title)
-      for (const name of contents[grab.title]!.filter((n) => !leaveOut.includes(n))) {
-        mkdirSync(join(out, name, '..'), { recursive: true })
-        writeFileSync(join(out, name), 'audio')
-      }
-      ctx.downloads.db
-        .update(grabs)
-        .set({ state: 'import_pending', outputPath: out })
-        .where(eq(grabs.id, grab.id))
-        .run()
-      await ctx.import.importGrab(grab.id)
-    }
-  }
+  const finish = (leaveOut: string[] = []) =>
+    finishDownloads(ctx, {
+      dir: join(dir, 'downloads'),
+      files: (grab) =>
+        Object.fromEntries(
+          contents[grab.title]!.filter((n) => !leaveOut.includes(n)).map((n) => [n, 'audio']),
+        ),
+    })
   const tree = (album: string) =>
     (readdirSync(join(dir, 'music', 'Radiohead', album), { recursive: true }) as string[]).sort()
 

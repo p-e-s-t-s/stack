@@ -1,22 +1,12 @@
 // Phase 4 exit: a standard series (season pack), a daily and an anime series each go from
 // search to import, with a fake indexer and download client.
 
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import HTTP from '@cordisjs/plugin-http'
-import Timer from '@cordisjs/plugin-timer'
-import DatabaseService from '@magpiejs/database'
-import DecisionService from '@magpiejs/decision'
-import DownloadsService, { grabs } from '@magpiejs/downloads'
-import ImportService from '@magpiejs/import'
-import IndexersService from '@magpiejs/indexers'
-import JobsService from '@magpiejs/jobs'
-import LibraryService from '@magpiejs/library'
-import MetadataService from '@magpiejs/metadata'
+import { createTestContext, fakeDownloadClient, finishDownloads } from '@magpiejs/testing'
 import type { EpisodeMetadata, ReleaseInfo, ReleaseQuery } from '@magpiejs/types'
-import { Context } from 'cordis'
-import { eq } from 'drizzle-orm'
+import type { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import SeriesService, { type SeriesType } from '../src'
 
@@ -78,17 +68,7 @@ const release = (title: string, size = 2 * GB): ReleaseInfo => ({
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'magpie-tv-e2e-'))
   queries.length = 0
-  ctx = new Context()
-  await ctx.plugin(Timer)
-  await ctx.plugin(HTTP)
-  await ctx.plugin(DatabaseService, { path: ':memory:' })
-  await ctx.plugin(JobsService, { pollInterval: 0 })
-  await ctx.plugin(DecisionService)
-  await ctx.plugin(LibraryService)
-  await ctx.plugin(MetadataService)
-  await ctx.plugin(IndexersService)
-  await ctx.plugin(DownloadsService)
-  await ctx.plugin(ImportService)
+  ctx = await createTestContext({ calendar: false })
   await ctx.plugin(SeriesService)
   ctx.metadata.register({
     id: 'tmdb',
@@ -118,17 +98,11 @@ beforeEach(async () => {
     },
     { name: 'Fake', priority: 1, enableRss: true, enableAutomatic: true, enableInteractive: true },
   )
-  ctx.downloads.register(
-    {
-      id: 'client',
-      protocol: 'torrent',
-      add: async (payload) => (payload as { hash: string }).hash,
-      list: async () => [],
-      remove: async () => {},
-      test: async () => ({ ok: true }),
-    },
-    { name: 'Client', priority: 1, category: 'magpie' },
-  )
+  ctx.downloads.register(fakeDownloadClient().client, {
+    name: 'Client',
+    priority: 1,
+    category: 'magpie',
+  })
   ctx.library.addRootFolder(join(dir, 'tv'), 'series')
 })
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
@@ -144,20 +118,16 @@ async function addShow(tmdbId: number, seriesType: SeriesType) {
 }
 
 /** The download client finished every grab: files on disk, grabs ready to import. */
-async function finishDownloads(files: Record<string, string[]>) {
-  for (const grab of ctx.downloads.active()) {
-    const out = join(dir, 'downloads', grab.title)
-    mkdirSync(out, { recursive: true })
-    for (const name of files[grab.title] ?? [`${grab.title}.mkv`])
-      writeFileSync(join(out, name), Buffer.alloc(1000))
-    ctx.downloads.db
-      .update(grabs)
-      .set({ state: 'import_pending', outputPath: out })
-      .where(eq(grabs.id, grab.id))
-      .run()
-    await ctx.import.importGrab(grab.id)
-    expect(ctx.downloads.get(grab.id)!.state).toBe('imported')
-  }
+async function finish(files: Record<string, string[]>) {
+  const active = ctx.downloads.active()
+  await finishDownloads(ctx, {
+    dir: join(dir, 'downloads'),
+    files: (grab) =>
+      Object.fromEntries(
+        (files[grab.title] ?? [`${grab.title}.mkv`]).map((name) => [name, Buffer.alloc(1000)]),
+      ),
+  })
+  for (const grab of active) expect(ctx.downloads.get(grab.id)!.state).toBe('imported')
 }
 
 const tree = (folder: string) =>
@@ -176,7 +146,7 @@ describe('series end to end', () => {
     expect(await ctx.series.searchAndGrab(show.id)).toEqual([
       'Plain.Show.S01.1080p.WEB-DL.x264-GRP',
     ])
-    await finishDownloads({
+    await finish({
       'Plain.Show.S01.1080p.WEB-DL.x264-GRP': [1, 2, 3].map(
         (e) => `Plain.Show.S01E0${e}.1080p.WEB-DL.x264-GRP.mkv`,
       ),
@@ -199,7 +169,7 @@ describe('series end to end', () => {
       [2024, '01/03'],
     ])
     expect(grabbed).toEqual(['Late.Talk.2024.01.02.Guest.One.1080p.WEB.h264-EDITH'])
-    await finishDownloads({})
+    await finish({})
     expect(tree(show.folder)).toEqual([
       'Season 2024/Late Talk - 2024-01-02 - Guest 1 [WEB-DL-1080p].mkv',
     ])
@@ -211,7 +181,7 @@ describe('series end to end', () => {
       q.term === 'Frieren 03' ? [release('[SubsPlease] Frieren - 03 (1080p) [ABCD1234].mkv')] : []
     const grabbed = await ctx.series.searchAndGrab(show.id)
     expect(grabbed).toEqual(['[SubsPlease] Frieren - 03 (1080p) [ABCD1234].mkv'])
-    await finishDownloads({
+    await finish({
       '[SubsPlease] Frieren - 03 (1080p) [ABCD1234].mkv': [
         '[SubsPlease] Frieren - 03 (1080p) [ABCD1234].mkv',
       ],
