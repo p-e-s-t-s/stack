@@ -1,0 +1,14 @@
+{
+  "name": "@magpiejs/console-kit",
+  "version": "0.0.0",
+  "description": "Shared web console building blocks for Magpie's kind plugins: status formatting and the release picker panel",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ReleasePicker.vue": "./src/ReleasePicker.vue"
+  },
+  "dependencies": {
+    "@magpiejs/types": "0.0.0"
+  }
+}

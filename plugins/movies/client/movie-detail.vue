@@ -1,7 +1,7 @@
 <template>
   <section v-if="movie" class="mv">
-    <a class="back" href="/movies" @click.prevent="router.push('/movies')">← Movies</a>
-    <div class="hero">
+    <a class="mp-back" href="/movies" @click.prevent="router.push('/movies')">← Movies</a>
+    <div class="mp-hero">
       <img v-if="movie.posterUrl" class="poster" :src="movie.posterUrl" alt="" />
       <div v-else class="poster placeholder">{{ movie.title }}</div>
       <div class="info">
@@ -41,7 +41,7 @@
       </div>
     </div>
 
-    <div v-if="editing" class="mp-card edit">
+    <div v-if="editing" class="mp-card mp-edit">
       <div class="mp-field">
         <label>Quality profile</label>
         <select

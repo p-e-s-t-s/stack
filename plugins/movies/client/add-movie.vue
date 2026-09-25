@@ -9,7 +9,7 @@
         >add your API key</a
       >.
     </p>
-    <form class="mp-row search" @submit.prevent="search">
+    <form class="mp-row mp-search" @submit.prevent="search">
       <input
         v-model="term"
         placeholder="Search for a movie by title"
@@ -30,7 +30,7 @@
         >
         first.
       </div>
-      <div v-else class="mp-card options">
+      <div v-else class="mp-card mp-options">
         <label>
           <span>Quality</span>
           <select v-model="form.profileId">
@@ -57,7 +57,7 @@
         </label>
       </div>
 
-      <div v-for="r in results" :key="r.ids.tmdb" class="result" data-testid="lookup-result">
+      <div v-for="r in results" :key="r.ids.tmdb" class="mp-result" data-testid="lookup-result">
         <img v-if="r.posterUrl" class="poster" :src="r.posterUrl" alt="" />
         <div v-else class="poster placeholder" />
         <div class="body">

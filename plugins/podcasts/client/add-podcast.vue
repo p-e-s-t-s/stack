@@ -1,7 +1,7 @@
 <template>
   <section class="pc">
     <div class="mp-head"><h1>Add podcast</h1></div>
-    <div class="tabs">
+    <div class="mp-tabs">
       <button
         v-for="(label, key) in TABS"
         :key="key"
@@ -18,7 +18,7 @@
       <a href="/settings/media" @click.prevent="router.push('/settings/media')">Media management</a>
       first.
     </div>
-    <div v-else class="mp-card options">
+    <div v-else class="mp-card mp-options">
       <label v-if="data.rootFolders.length > 1">
         <span>Folder</span>
         <select v-model="form.rootFolderId">
@@ -48,14 +48,14 @@
     </div>
 
     <template v-if="tab === 'search'">
-      <form class="mp-row search" @submit.prevent="search">
+      <form class="mp-row mp-search" @submit.prevent="search">
         <input v-model="term" placeholder="Search for a podcast" data-testid="lookup" autofocus />
         <button class="primary" type="submit" :disabled="!term.trim() || busy">
           {{ busy === 'search' ? 'Searching…' : 'Search' }}
         </button>
       </form>
       <p v-if="error" class="mp-error">{{ error }}</p>
-      <div v-for="r in results" :key="r.ids.itunes" class="result" data-testid="lookup-result">
+      <div v-for="r in results" :key="r.ids.itunes" class="mp-result" data-testid="lookup-result">
         <img v-if="r.posterUrl" class="poster" :src="r.posterUrl" alt="" />
         <div v-else class="poster placeholder" />
         <div class="body">
@@ -82,7 +82,7 @@
     </template>
 
     <template v-else-if="tab === 'url'">
-      <form class="mp-row search" @submit.prevent="preview">
+      <form class="mp-row mp-search" @submit.prevent="preview">
         <input
           v-model="feedUrl"
           type="url"

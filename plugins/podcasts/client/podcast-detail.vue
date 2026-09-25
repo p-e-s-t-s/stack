@@ -1,7 +1,7 @@
 <template>
   <section v-if="podcast" class="pc">
-    <a class="back" href="/podcasts" @click.prevent="router.push('/podcasts')">← Podcasts</a>
-    <div class="hero">
+    <a class="mp-back" href="/podcasts" @click.prevent="router.push('/podcasts')">← Podcasts</a>
+    <div class="mp-hero">
       <img v-if="podcast.posterUrl" class="poster" :src="podcast.posterUrl" alt="" />
       <div v-else class="poster placeholder">{{ podcast.title }}</div>
       <div class="info">
@@ -16,7 +16,7 @@
         </div>
         <div class="status">
           <span class="mp-badge" :class="status.class">{{ status.text }}</span>
-          <span class="mp-muted mp-small count">
+          <span class="mp-muted mp-small mp-count">
             {{ podcast.stats.downloaded }} of {{ podcast.stats.episodes }} episodes downloaded
           </span>
         </div>
@@ -45,7 +45,7 @@
       </div>
     </div>
 
-    <div v-if="editing" class="mp-card edit">
+    <div v-if="editing" class="mp-card mp-edit">
       <div class="mp-field">
         <label>Following</label>
         <div>

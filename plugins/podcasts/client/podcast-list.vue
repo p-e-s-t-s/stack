@@ -26,11 +26,11 @@
       No podcasts yet. Use <strong>Add podcast</strong> to search for one, paste a feed URL or
       import an OPML file.
     </p>
-    <div class="grid">
+    <div class="mp-grid">
       <a
         v-for="p in shown"
         :key="p.id"
-        class="card"
+        class="tile"
         :href="`/podcasts/${p.id}`"
         data-testid="podcast-card"
         @click.prevent="router.push(`/podcasts/${p.id}`)"
@@ -39,7 +39,7 @@
         <div v-else class="poster placeholder">{{ p.title }}</div>
         <div class="title">{{ p.title }}</div>
         <div class="meta">
-          <span class="mp-muted count">{{ p.stats.downloaded }} / {{ p.stats.episodes }}</span>
+          <span class="mp-muted mp-count">{{ p.stats.downloaded }} / {{ p.stats.episodes }}</span>
           <span class="mp-badge" :class="podcastStatus(p).class">{{ podcastStatus(p).text }}</span>
         </div>
       </a>

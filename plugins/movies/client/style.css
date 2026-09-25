@@ -1,10 +1,18 @@
-/* Layout for the movie pages; buttons, inputs, tables and badges come from the shell. */
+/* Layout specific to the movie pages; the grid, hero, results and edit form come from the
+   shell (.mp-grid, .mp-hero, .mp-result, .mp-edit…). */
 
 .mv .filter {
   width: 220px;
 }
+.mv .poster {
+  aspect-ratio: 2 / 3;
+}
+.mv .folder {
+  margin: 10px 0 0;
+  word-break: break-all;
+}
 
-/* setup checklist */
+/* setup checklist, shown until every step is done */
 .mv .setup ol {
   list-style: none;
   padding: 0;
@@ -35,165 +43,4 @@
 .mv .setup li.done > span:nth-child(2) {
   color: var(--mp-muted);
   text-decoration: line-through;
-}
-
-/* poster grid */
-.mv .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 20px 16px;
-}
-.mv .card {
-  color: inherit;
-  text-decoration: none;
-  display: block;
-}
-.mv .card:hover .poster {
-  outline: 2px solid var(--mp-accent);
-  outline-offset: 2px;
-}
-.mv .poster {
-  aspect-ratio: 2 / 3;
-  width: 100%;
-  object-fit: cover;
-  border-radius: 6px;
-  background: var(--mp-surface-2);
-  display: block;
-}
-.mv .poster.placeholder {
-  display: grid;
-  place-items: center;
-  padding: 12px;
-  text-align: center;
-  color: var(--mp-muted);
-  font-weight: 600;
-  border: 1px solid var(--mp-border);
-}
-.mv .card .title {
-  font-weight: 600;
-  margin-top: 8px;
-  line-height: 1.3;
-}
-.mv .card .meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-}
-
-/* add movie */
-.mv .search {
-  max-width: 640px;
-  margin-bottom: 16px;
-}
-.mv .search input {
-  flex: 1;
-}
-.mv .options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
-  align-items: end;
-}
-.mv .options label {
-  display: grid;
-  gap: 4px;
-  font-size: 12.5px;
-  color: var(--mp-muted);
-}
-.mv .options label.check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  color: var(--mp-text);
-  font-size: 14px;
-}
-.mv .result {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--mp-border);
-}
-.mv .result .poster {
-  width: 70px;
-  flex-shrink: 0;
-}
-.mv .result .body {
-  flex: 1;
-  min-width: 0;
-}
-.mv .result .overview {
-  margin: 4px 0 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* movie detail */
-.mv .back {
-  display: inline-block;
-  margin-bottom: 14px;
-  color: var(--mp-muted);
-  text-decoration: none;
-  font-size: 13px;
-}
-.mv .hero {
-  display: flex;
-  gap: 28px;
-  align-items: flex-start;
-}
-.mv .hero .poster {
-  width: 180px;
-  flex-shrink: 0;
-}
-.mv .hero .info {
-  flex: 1;
-  min-width: 0;
-}
-.mv .hero .year {
-  font-weight: 400;
-}
-.mv .facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-top: 6px;
-}
-.mv .status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0;
-}
-.mv .overview {
-  max-width: 720px;
-}
-.mv .edit {
-  margin-top: 20px;
-  max-width: 640px;
-}
-.mv .folder {
-  margin: 10px 0 0;
-  word-break: break-all;
-}
-.mv .releases .release {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 12.5px;
-  word-break: break-all;
-  color: var(--mp-text);
-}
-.mv .releases tr.rejected td {
-  opacity: 0.7;
-}
-@media (max-width: 720px) {
-  .mv .hero {
-    flex-direction: column;
-  }
-  .mv .hero .poster {
-    width: 140px;
-  }
 }

@@ -24,11 +24,11 @@
     <p v-if="!data.movies.length" class="mp-empty">
       No movies yet. Use <strong>Add movie</strong> to find one.
     </p>
-    <div class="grid">
+    <div class="mp-grid">
       <a
         v-for="m in shown"
         :key="m.id"
-        class="card"
+        class="tile"
         :href="`/movie/${m.id}`"
         data-testid="movie-card"
         @click.prevent="router.push(`/movie/${m.id}`)"

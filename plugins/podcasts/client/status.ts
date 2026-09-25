@@ -1,3 +1,4 @@
+import { DOWNLOAD_LABELS, downloadStatus } from '@magpiejs/console-kit'
 import type { PodcastEpisodeRow, PodcastSummary } from '../src/console'
 
 /** Badge for a podcast on the grid. */
@@ -8,24 +9,16 @@ export function podcastStatus(p: PodcastSummary) {
   return { text: 'Up to date', class: 'ok' }
 }
 
-const DOWNLOAD: Record<string, string> = {
-  grabbed: 'Queued',
-  queued: 'Queued',
-  paused: 'Paused',
-  stalled: 'Stalled',
-  import_pending: 'Importing soon',
-  importing: 'Importing',
-}
+/** A grabbed episode just moves to the download client's queue, so it stays "Queued" here. */
+const EPISODE_LABELS: Record<string, string> = { ...DOWNLOAD_LABELS, grabbed: 'Queued' }
 
 /** Badge for one episode. */
 export function episodeStatus(e: PodcastEpisodeRow) {
   if (e.download) {
     const { state, progress } = e.download
-    const text =
-      state === 'downloading'
-        ? `Downloading ${Math.floor(progress * 100)}%`
-        : (DOWNLOAD[state] ?? state)
-    return { text, class: 'info' }
+    return state === 'downloading'
+      ? downloadStatus(state, progress)
+      : { text: EPISODE_LABELS[state] ?? state, class: 'info' }
   }
   if (e.file) return { text: 'Downloaded', class: 'ok' }
   if (e.failed) return { text: 'Failed', class: 'bad' }
@@ -41,5 +34,3 @@ export function duration(seconds: number | null) {
   const m = Math.round((seconds % 3600) / 60)
   return h ? `${h} h ${m} min` : `${m} min`
 }
-
-export const mb = (bytes: number) => `${Math.round(bytes / 1024 ** 2)} MB`
