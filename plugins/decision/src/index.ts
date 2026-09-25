@@ -96,8 +96,10 @@ export class DecisionService extends Service {
       const taken = new Set(this.families().flatMap((f) => f.qualities.map((q) => q.id)))
       const clash = definition.qualities.find((q) => taken.has(q.id))
       if (clash) throw new Error(`quality ${clash.id} already belongs to another family`)
-      this.familyMap.set(definition.id, definition as unknown as QualityFamily)
+      // seed before registering: a bad `defaultProfiles` list (e.g. a duplicate name) throws
+      // here, and the family must not end up half-registered with no way to remove it
       this.seed(definition as unknown as QualityFamily)
+      this.familyMap.set(definition.id, definition as unknown as QualityFamily)
       this.ctx.emit('decision/families')
       return () => {
         this.familyMap.delete(definition.id)
@@ -140,7 +142,11 @@ export class DecisionService extends Service {
         .where(eq(schema.profiles.family, family.id))
         .get()
       if (existing) return
+      const seen = new Set<string>()
       for (const p of family.defaultProfiles) {
+        if (seen.has(p.name))
+          throw new Error(`quality family ${family.id} has two default profiles named "${p.name}"`)
+        seen.add(p.name)
         tx.insert(schema.profiles)
           .values({
             name: p.name,
@@ -149,7 +155,6 @@ export class DecisionService extends Service {
             cutoff: p.cutoff,
             languages: p.languages ?? [],
           })
-          .onConflictDoNothing()
           .run()
       }
     })

@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 /** One entry of a profile's ordered quality list: a quality or a group of equal ones. */
 export type ProfileItem =
@@ -12,23 +12,28 @@ export const qualitySizes = sqliteTable('decision_quality_sizes', {
   max: integer('max'),
 })
 
-export const profiles = sqliteTable('decision_profiles', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull().unique(),
-  /** The quality family this profile's items come from (`video`, `audio`…). */
-  family: text('family').notNull().default('video'),
-  /** Worst to best. */
-  items: text('items', { mode: 'json' }).$type<ProfileItem[]>().notNull(),
-  /** A quality, or a group name from `items`. */
-  cutoff: text('cutoff').notNull(),
-  minFormatScore: integer('min_format_score').notNull().default(0),
-  cutoffFormatScore: integer('cutoff_format_score').notNull().default(0),
-  upgradesAllowed: integer('upgrades_allowed', { mode: 'boolean' }).notNull().default(true),
-  /** ISO 639-1 codes; empty means any language. */
-  languages: text('languages', { mode: 'json' }).$type<string[]>().notNull(),
-  minSeeders: integer('min_seeders').notNull().default(1),
-  minAgeMinutes: integer('min_age_minutes').notNull().default(0),
-})
+export const profiles = sqliteTable(
+  'decision_profiles',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    /** Unique within its family; two families may each have a profile of the same name. */
+    name: text('name').notNull(),
+    /** The quality family this profile's items come from (`video`, `audio`…). */
+    family: text('family').notNull().default('video'),
+    /** Worst to best. */
+    items: text('items', { mode: 'json' }).$type<ProfileItem[]>().notNull(),
+    /** A quality, or a group name from `items`. */
+    cutoff: text('cutoff').notNull(),
+    minFormatScore: integer('min_format_score').notNull().default(0),
+    cutoffFormatScore: integer('cutoff_format_score').notNull().default(0),
+    upgradesAllowed: integer('upgrades_allowed', { mode: 'boolean' }).notNull().default(true),
+    /** ISO 639-1 codes; empty means any language. */
+    languages: text('languages', { mode: 'json' }).$type<string[]>().notNull(),
+    minSeeders: integer('min_seeders').notNull().default(1),
+    minAgeMinutes: integer('min_age_minutes').notNull().default(0),
+  },
+  (t) => [uniqueIndex('decision_profiles_family_name_idx').on(t.family, t.name)],
+)
 
 /** Conditions every family understands; families add their own (`resolution`, `bitrate`…). */
 export type GenericCondition = 'title' | 'group' | 'language' | 'size' | 'indexerFlag'

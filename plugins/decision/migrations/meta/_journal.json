@@ -15,6 +15,13 @@
       "when": 1790231804538,
       "tag": "0001_families",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790310909863,
+      "tag": "0002_profile_name_per_family",
+      "breakpoints": true
     }
   ]
 }

@@ -58,6 +58,55 @@ it('judges releases with a registered family', async () => {
   expect(ctx.decision.profiles('video').map((p) => p.name)).toEqual(['Any', 'HD', 'Ultra HD'])
   expect(ctx.decision.qualityName('flac')).toBe('FLAC')
 
+  // profile names are unique per family, not across every family: a third family reusing a
+  // name from video ("Any") or from audio ("Lossless") must seed both, not silently drop one
+  const fiber2 = await ctx.plugin(
+    withFamily({
+      ...audio,
+      id: 'audio3',
+      qualities: [{ id: 'audio3-only', name: 'Only' }],
+      defaultProfiles: [
+        {
+          name: 'Any',
+          items: profileItems(['audio3-only'], ['audio3-only']),
+          cutoff: 'audio3-only',
+        },
+        {
+          name: 'Lossless',
+          items: profileItems(['audio3-only'], ['audio3-only']),
+          cutoff: 'audio3-only',
+        },
+      ],
+    }),
+  )
+  expect(ctx.decision.profiles('audio3').map((p) => p.name)).toEqual(['Any', 'Lossless'])
+  expect(ctx.decision.profiles('video').map((p) => p.name)).toContain('Any')
+  expect(ctx.decision.profiles('audio').map((p) => p.name)).toContain('Lossless')
+  await fiber2.dispose()
+
+  // two default profiles of the same family sharing a name is a plugin bug, not silence
+  await expect(
+    ctx.plugin(
+      withFamily({
+        ...audio,
+        id: 'audio4',
+        qualities: [{ id: 'audio4-only', name: 'Only' }],
+        defaultProfiles: [
+          {
+            name: 'Same',
+            items: profileItems(['audio4-only'], ['audio4-only']),
+            cutoff: 'audio4-only',
+          },
+          {
+            name: 'Same',
+            items: profileItems(['audio4-only'], ['audio4-only']),
+            cutoff: 'audio4-only',
+          },
+        ],
+      }),
+    ),
+  ).rejects.toThrow('audio4 has two default profiles named "Same"')
+
   // formats with another family's conditions don't apply; the family's own do
   const x265 = ctx.decision.saveFormat({
     name: 'Not x265',

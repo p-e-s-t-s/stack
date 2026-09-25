@@ -154,7 +154,7 @@ it('finds wanted albums, imports them track by track, and upgrades MP3 to FLAC 2
 
   const artist = await ctx.music.add({
     artistId: 'A1',
-    profileId: ctx.decision.profiles('audio').find((p) => p.name === 'Any audio')!.id,
+    profileId: ctx.decision.profiles('audio').find((p) => p.name === 'Any')!.id,
     rootFolderId: ctx.library.addRootFolder(join(dir, 'music'), 'music').id,
   })
   await ctx.jobs.tick()

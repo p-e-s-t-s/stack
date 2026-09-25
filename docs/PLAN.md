@@ -645,9 +645,64 @@ How it was built:
 - The track file template uses `{Disc Prefix}` (`1-` on multi-disc albums, empty otherwise):
   naming tokens are matched without regard to case, so `{Disc}` would have been confused
   with `{disc:0}`.
-- Profile names are unique across families, so the audio family's widest profile is
-  `Any audio`.
+- Building this family exposed that profile names were unique across *all* families, so the
+  audio family's widest profile ("Any") silently failed to seed against video's own "Any" —
+  and the profiles settings page could hit the same collision from its family switcher, since
+  "New profile" is the default name in every family. Fixed at the source (see the cleanup
+  note below `@magpiejs/units`): profile names are now unique per family.
 - MusicBrainz has no artist pictures; the pages show the newest album's cover.
+
+### Cleanup after Phase 4.8 — @magpiejs/units, two silent-failure traps
+
+With five kinds built (movies, series, podcasts, books, music), series, books and music had
+each grown a near-identical ~350 lines: a per-grab link table, an "already downloading"
+decision rule, an interactive-search cache, the evaluate/match/reject/rank/sort loop,
+`pickReleases`, and a ~90-line automation module (search on add, retry after a failed
+download, a daily wanted sweep, RSS matching). This pulled all of that into a new package,
+`@magpiejs/units`, for any kind whose library items have parts:
+
+- `unitSearch(ctx, spec)`: a kind supplies `queries()` (building indexer queries stays
+  kind-specific — season/daily/anime queries look nothing like per-book or per-album ones),
+  `parse()`, `matcher()` (which parts of the item a release covers, or why not) and `target()`
+  (the decision target for those parts); the loop, interactive-search caching and sort order
+  are shared.
+- `unitAutomation(ctx, spec)`: the search-on-add job, the failed-download retry, the daily
+  sweep of items with wanted parts not searched in the last day, and RSS matching, all shared;
+  a kind only supplies how to look up wanted parts and which library items an RSS release
+  might be for.
+- `pickReleases` and `grabResult` (sends a release to a download client with the parts it
+  covers already attached) are shared too.
+- `downloads` gained a generic `downloads_grab_units` link table (`grabId`, `unitId`),
+  `GrabOptions.unitIds`, `activeFor(mediaId)` and `unitsOf(grabId)`, replacing series',
+  books', music's and podcasts' own link tables (each dropped with a migration) and the
+  movies-only `in-queue` rule plus the three copies of it (`episode-in-queue`,
+  `book-in-queue`, `album-in-queue`) with one rule usable by any kind.
+- No behavior change: all four kinds' exit tests and the full suite still pass.
+
+Building the audio family in Phase 4.8 had also exposed two silent-failure traps, fixed here
+rather than worked around:
+
+- **Profile names were unique across every family, not per family.** `decision_profiles.name`
+  had a bare column-level unique constraint, so when the audio family's default "Any" profile
+  tried to seed against video's existing "Any", it silently failed to seed (later, seeding
+  used `onConflictDoNothing`, so it looked like normal idempotent re-seeding rather than an
+  error) — the workaround at the time was naming it "Any audio" instead. The same trap was
+  reachable from the profiles settings page too, since every family's "New profile" button
+  proposes the literal name "New profile". Fixed by scoping the unique index to
+  `(family, name)`; `decision.family()` now also seeds before registering (so a bad
+  `defaultProfiles` list doesn't leave the family half-registered with no way to remove it)
+  and throws immediately if a family's own `defaultProfiles` repeats a name, rather than
+  dropping the duplicate. The "Any audio" profile is "Any" again.
+- **Naming tokens collided by case.** `renderName` resolves `{Token}` case-insensitively (on
+  purpose, so a hand-typed template still works whatever case someone uses), which meant two
+  *different* tokens whose names only differ by case — the music track file template's
+  `{Disc}` and `{disc:0}` — silently resolved to whichever one came first, producing wrong
+  file names (`101 - Title.mp3` instead of `01 - Title.mp3` on a single-disc album). The
+  practical fix at the time was renaming the token to `{Disc Prefix}`, which stands. The
+  underlying trap is now also closed at the source: `library.registerNaming()` rejects a
+  naming scheme whose declared tokens differ only by case (ignoring a `:0+` pad suffix), so
+  the next kind plugin to make this mistake gets a clear error instead of a silent wrong
+  answer.
 
 ### Phase 5 — Migration & library scan
 - Library scan / existing folder import (§5.5).

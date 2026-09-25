@@ -98,7 +98,7 @@ it('adds an artist, wants albums of chosen types, and finds them', async () => {
       }
     },
   })
-  const profileId = ctx.decision.profiles('audio').find((p) => p.name === 'Any audio')!.id
+  const profileId = ctx.decision.profiles('audio').find((p) => p.name === 'Any')!.id
   const artist = await ctx.music.add({
     artistId: 'A1',
     profileId,

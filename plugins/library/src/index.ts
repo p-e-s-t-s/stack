@@ -142,6 +142,17 @@ export class LibraryService extends Service {
   /** Declares a kind's naming templates for the caller's lifetime. */
   registerNaming(kind: MediaKind, scheme: NamingScheme) {
     return this.ctx.effect(() => {
+      // renderName resolves `{Token}` case-insensitively (so a hand-edited template can spell
+      // it however), which means two tokens that differ only by case — `Disc` and `disc:0` —
+      // would silently resolve to whichever one happens to come first: catch that here instead.
+      const seen = new Map<string, string>()
+      for (const token of scheme.tokens) {
+        const base = token.split(':')[0]!.toLowerCase()
+        const clash = seen.get(base)
+        if (clash)
+          throw new Error(`naming tokens "${clash}" and "${token}" of ${kind} differ only by case`)
+        seen.set(base, token)
+      }
       this.schemes.set(kind, scheme)
       this.ctx.emit('library/kinds')
       return () => {

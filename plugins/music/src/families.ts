@@ -77,7 +77,7 @@ export const audioFamily: QualityFamily<ParsedMusic> = {
   },
   defaultProfiles: [
     {
-      name: 'Any audio',
+      name: 'Any',
       items: profileItems(
         ALL,
         ALL.filter((q) => q !== 'audio-unknown'),
