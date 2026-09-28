@@ -2,7 +2,8 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import BetterSqlite3 from 'better-sqlite3'
+import { DatabaseSync } from 'node:sqlite'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { checkOwnership, getApplied, type Migration, readMigrations, runMigrations } from '../src'
 
@@ -10,13 +11,13 @@ const library = readMigrations(new URL('./fixtures/library/migrations', import.m
 const subtitles = readMigrations(new URL('./fixtures/subtitles/migrations', import.meta.url))
 
 let dir: string
-let db: BetterSqlite3.Database
+let db: DatabaseSync
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'magpie-db-'))
-  db = new BetterSqlite3(join(dir, 'test.db'))
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
+  db = new DatabaseSync(join(dir, 'test.db'))
+  db.exec('PRAGMA journal_mode = WAL')
+  db.exec('PRAGMA foreign_keys = ON')
 })
 
 afterEach(() => {
@@ -49,7 +50,7 @@ describe('runMigrations', () => {
       '0002_title_nullable',
     ])
     expect(count('subtitles_assignments')).toBe(2)
-    expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
+    expect((db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys).toBe(1)
 
     db.exec('DELETE FROM library_media WHERE id = 1')
     expect(count('subtitles_assignments')).toBe(1)
@@ -122,12 +123,12 @@ describe('runMigrations', () => {
 describe('crash safety', () => {
   it('leaves the database unchanged when the process dies mid-migration', () => {
     const file = join(dir, 'crash.db')
-    const script = new URL('./fixtures/crash.ts', import.meta.url).pathname
+    const script = fileURLToPath(new URL('./fixtures/crash.ts', import.meta.url))
     expect(() =>
       execFileSync(process.execPath, ['--import', 'tsx', script, file], { stdio: 'pipe' }),
     ).toThrow()
 
-    const after = new BetterSqlite3(file)
+    const after = new DatabaseSync(file)
     try {
       expect(getApplied(after, 'library')).toEqual([])
       const tables = after

@@ -9,7 +9,7 @@
     </div>
     <p v-if="data.artists.length" class="mp-lead">{{ summary }}</p>
     <div v-if="!data.rootFolders.length" class="mp-card">
-      Add a <strong>Music</strong> root folder in
+      Choose a library location in
       <a href="/settings/media" @click.prevent="router.push('/settings/media')">Media management</a>
       to start adding artists.
     </div>

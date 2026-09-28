@@ -4,29 +4,28 @@
 
     <h2>Root folders</h2>
     <p class="mp-lead">
-      Where your library lives: one root folder per kind of media, with a folder per movie, series…
-      inside.
+      Choose one library location. Magpie creates a folder inside it for each media type.
     </p>
-    <table v-if="data.rootFolders.length" class="mp-table">
+    <form class="mp-row add" @submit.prevent="saveRoot">
+      <input
+        v-model="path"
+        placeholder="/data/media"
+        class="path"
+        data-testid="root-path"
+      />
+      <button class="primary" type="submit" :disabled="!path.trim()" data-testid="save-root">
+        Save location
+      </button>
+      <span v-if="saved === 'root'" class="mp-muted">Saved.</span>
+    </form>
+    <table v-if="data.rootFolders.length" class="mp-table folders">
       <tbody>
         <tr v-for="f in data.rootFolders" :key="f.id">
-          <td class="mono">{{ f.path }}</td>
           <td class="mp-muted">{{ kindLabel(f.kind) }}</td>
-          <td class="actions">
-            <button class="small danger" @click="data.removeRootFolder(f.id)">Remove</button>
-          </td>
+          <td class="mono">{{ f.path }}</td>
         </tr>
       </tbody>
     </table>
-    <form class="mp-row add" @submit.prevent="add">
-      <input v-model="path" placeholder="/data/media/movies" class="path" data-testid="root-path" />
-      <select v-model="kind">
-        <option v-for="k in data.kinds" :key="k.id" :value="k.id">{{ k.label }}</option>
-      </select>
-      <button class="primary" type="submit" :disabled="!path.trim()" data-testid="add-root">
-        Add folder
-      </button>
-    </form>
     <p v-if="error" class="mp-error">{{ error }}</p>
 
     <template v-for="k in data.kinds" :key="k.id">
@@ -82,8 +81,7 @@ import { useRpc } from '@cordisjs/client'
 import type { LibraryData } from '../src/console'
 
 const data = useRpc<LibraryData>()
-const path = ref('')
-const kind = ref<string>(data.value.kinds[0]?.id ?? 'movie')
+const path = ref(data.value.libraryRoot)
 const kindLabel = (id: string) => data.value.kinds.find((k) => k.id === id)?.label ?? id
 const error = ref('')
 const saved = ref<string>()
@@ -91,10 +89,11 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 const naming = ref(clone(data.value.naming))
 const files = ref(clone(data.value.files))
 watch(
-  () => [data.value.naming, data.value.files] as const,
-  ([n, f]) => {
+  () => [data.value.naming, data.value.files, data.value.libraryRoot] as const,
+  ([n, f, root]) => {
     naming.value = clone(n)
     files.value = clone(f)
+    path.value = root
   },
   { deep: true },
 )
@@ -107,11 +106,11 @@ function flash(what: string) {
   setTimeout(() => (saved.value = undefined), 2000)
 }
 
-async function add() {
+async function saveRoot() {
   error.value = ''
   try {
-    await data.value.addRootFolder(path.value.trim(), kind.value as never)
-    path.value = ''
+    await data.value.saveLibraryRoot(path.value.trim())
+    flash('root')
   } catch (e) {
     error.value = (e as Error).message
   }
@@ -134,6 +133,9 @@ async function saveFiles() {
   max-width: 420px;
 }
 .add {
+  margin-top: 12px;
+}
+.folders {
   margin-top: 12px;
 }
 .save {

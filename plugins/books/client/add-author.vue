@@ -26,7 +26,7 @@
             <span>{{ LABEL[k] }}</span>
           </label>
           <p v-if="!data.rootFolders[k].length" class="mp-muted mp-small">
-            Add {{ k === 'ebook' ? 'an Ebooks' : 'an Audiobooks' }} root folder in
+            Choose a library location in
             <a href="/settings/media" @click.prevent="router.push('/settings/media')"
               >Media management</a
             >

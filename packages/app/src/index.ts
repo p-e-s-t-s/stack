@@ -78,7 +78,10 @@ export async function start(options: StartOptions) {
   await ctx.plugin(Loader, { baseUrl: import.meta.url })
   const id = await ctx.loader.create({
     name: '@cordisjs/plugin-include',
-    config: { path: resolve(configDir, 'magpie.yml'), initial: defaultConfig(options) },
+    config: {
+      path: pathToFileURL(resolve(configDir, 'magpie.yml')).href,
+      initial: defaultConfig(options),
+    },
   })
   await ctx.loader.await()
   // wait for the plugins listed in magpie.yml, not just the include entry

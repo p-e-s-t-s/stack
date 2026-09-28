@@ -3,7 +3,7 @@
 
 import type { Drizzle } from '@magpiejs/database'
 import type { ReleaseInfo } from '@magpiejs/types'
-import type BetterSqlite3 from 'better-sqlite3'
+import type { DatabaseSync } from 'node:sqlite'
 import { type Context, Service } from 'cordis'
 import { and, eq } from 'drizzle-orm'
 import { type BaseParsed, type QualityFamily, VIDEO_PROFILES, videoFamily } from './families'
@@ -402,7 +402,7 @@ function groupRank(profile: schema.Profile, name: string) {
 /** The video family's default profiles (`Any`, `HD`, `Ultra HD`). */
 export const DEFAULT_PROFILES = VIDEO_PROFILES
 
-function seedDefaults(db: BetterSqlite3.Database) {
+function seedDefaults(db: DatabaseSync) {
   const size = db.prepare('INSERT INTO decision_quality_sizes (quality, min) VALUES (?, ?)')
   for (const { id } of videoFamily.qualities) size.run(id, videoFamily.defaultSizes?.[id] ?? 0)
   const profile = db.prepare(

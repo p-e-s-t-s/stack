@@ -2,13 +2,13 @@
 //
 // Migrations are drizzle-kit output: `meta/_journal.json` plus one `<tag>.sql` file per
 // entry, statements separated by `--> statement-breakpoint`. Everything here is
-// synchronous (better-sqlite3), so migrations from different plugins can never interleave.
+// synchronous (node:sqlite), so migrations from different plugins can never interleave.
 
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type BetterSqlite3 from 'better-sqlite3'
+import type { DatabaseSync } from 'node:sqlite'
 import { checkOwnership, NAMESPACE_PATTERN } from './ownership'
 
 export const MIGRATIONS_TABLE = '_magpie_migrations'
@@ -20,7 +20,7 @@ export interface Migration {
 }
 
 /** A TypeScript data step that runs right after the SQL of the migration with the same tag. */
-export type MigrationStep = (db: BetterSqlite3.Database) => void
+export type MigrationStep = (db: DatabaseSync) => void
 
 export class MigrationError extends Error {
   constructor(
@@ -69,7 +69,7 @@ export function splitStatements(content: string) {
   )
 }
 
-export function ensureMigrationsTable(db: BetterSqlite3.Database) {
+export function ensureMigrationsTable(db: DatabaseSync) {
   db.exec(`CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     namespace TEXT NOT NULL,
@@ -86,12 +86,12 @@ export interface AppliedMigration {
   applied_at: string
 }
 
-export function getApplied(db: BetterSqlite3.Database, namespace: string): AppliedMigration[] {
+export function getApplied(db: DatabaseSync, namespace: string): AppliedMigration[] {
   return db
     .prepare(
       `SELECT tag, hash, applied_at FROM ${MIGRATIONS_TABLE} WHERE namespace = ? ORDER BY id`,
     )
-    .all(namespace) as AppliedMigration[]
+    .all(namespace) as unknown as AppliedMigration[]
 }
 
 /** Returns the pending migrations, or throws if the recorded history doesn't match. */
@@ -139,7 +139,7 @@ export interface RunOptions {
  * Applies all pending migrations of one namespace in a single transaction, with foreign
  * key enforcement off and `PRAGMA foreign_key_check` before commit. Returns the applied tags.
  */
-export function runMigrations(db: BetterSqlite3.Database, options: RunOptions): string[] {
+export function runMigrations(db: DatabaseSync, options: RunOptions): string[] {
   const { namespace, migrations, steps = {}, now = () => new Date() } = options
   if (!NAMESPACE_PATTERN.test(namespace)) {
     throw new Error(`invalid namespace "${namespace}": use lowercase letters and digits`)
@@ -171,13 +171,13 @@ export function runMigrations(db: BetterSqlite3.Database, options: RunOptions): 
   const insert = db.prepare(
     `INSERT INTO ${MIGRATIONS_TABLE} (namespace, tag, hash, applied_at) VALUES (?, ?, ?, ?)`,
   )
-  const apply = db.transaction(() => {
+  const apply = () => {
     for (const migration of pending) {
       for (const statement of migration.statements) db.exec(statement)
       steps[migration.tag]?.(db)
       insert.run(namespace, migration.tag, migration.hash, now().toISOString())
     }
-    const violations = db.pragma('foreign_key_check') as unknown[]
+    const violations = db.prepare('PRAGMA foreign_key_check').all() as unknown[]
     if (violations.length) {
       throw new MigrationError(
         'foreign-key',
@@ -185,13 +185,20 @@ export function runMigrations(db: BetterSqlite3.Database, options: RunOptions): 
         `migration leaves ${violations.length} foreign key violation(s): ${JSON.stringify(violations.slice(0, 5))}`,
       )
     }
-  })
+  }
 
   // must be set outside a transaction to take effect
-  const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1
-  db.pragma('foreign_keys = OFF')
+  const fkWasOn = (db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys === 1
+  db.exec('PRAGMA foreign_keys = OFF')
   try {
-    apply()
+    db.exec('BEGIN')
+    try {
+      apply()
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
   } catch (error) {
     if (error instanceof MigrationError) throw error
     throw new MigrationError(
@@ -203,7 +210,7 @@ export function runMigrations(db: BetterSqlite3.Database, options: RunOptions): 
       },
     )
   } finally {
-    if (fkWasOn) db.pragma('foreign_keys = ON')
+    if (fkWasOn) db.exec('PRAGMA foreign_keys = ON')
   }
   return pending.map((m) => m.tag)
 }

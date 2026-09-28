@@ -74,7 +74,7 @@ Consequences:
 | HTTP in | `@cordisjs/plugin-server` |
 | HTTP out | `@cordisjs/plugin-http` (+ per-host rate limiter we add) |
 | UI | `@cordisjs/plugin-webui` + `@cordisjs/client` + `@cordisjs/components` (Vue 3, Element Plus, UnoCSS). Core only; all pages are ours |
-| DB | SQLite + Drizzle ORM for schema and queries, with our own Cordis plugin layer `@magpiejs/database` (§4.2) that gives each plugin its own tables, versioned migrations and real foreign keys, tied to the plugin lifecycle. Driver: `better-sqlite3` (decided in Phase 1, §4.2) |
+| DB | SQLite + Drizzle ORM for schema and queries, with our own Cordis plugin layer `@magpiejs/database` (§4.2) that gives each plugin its own tables, versioned migrations and real foreign keys, tied to the plugin lifecycle. Driver: Node's built-in `node:sqlite` |
 | Config schemas | `schemastery` |
 | Tests | Vitest; `msw` for HTTP mocks; Playwright for a few UI smoke tests |
 | Media probing | `ffprobe` (bundled in Docker image) |
@@ -349,7 +349,7 @@ after a backup. It never happens automatically on disable or uninstall.
 **Connection settings:** `journal_mode=WAL`, `busy_timeout`, `foreign_keys=ON`,
 scheduled `VACUUM INTO` backups with retention.
 
-**Driver (decided in Phase 1): `better-sqlite3`.** It installs from prebuilt binaries,
+**Driver: Node's built-in `node:sqlite`.** It requires no native npm dependency,
 and its Drizzle driver runs transactions synchronously, so no other plugin's query can
 slip into an open migration transaction. Drizzle's `node:sqlite` driver only exists in the
 Drizzle 1.0 release candidate; revisit once 1.0 is stable. The layer hides the choice from
@@ -860,7 +860,7 @@ search and replace works from the UI.
 | Indexer sites break or block | Handled by Prowlarr; Magpie backs off and marks the indexer unhealthy |
 | Scope is large (four mature apps) | Phase 3 MVP first; each later phase is independently shippable |
 | Our own schema layer is code we maintain | Kept small (registration + migration runner); Drizzle does the SQL; crash and ownership tests in CI |
-| `node:sqlite` still marked experimental; Drizzle's `node-sqlite` driver only in 1.0 RC | Phase 1 driver test; `better-sqlite3` fallback behind the same layer |
+| `node:sqlite` and Drizzle's `node-sqlite` driver are newer APIs | Pin Node and Drizzle RC versions in CI and exercise migration/backup tests |
 
 ## 11. Decisions
 

@@ -78,7 +78,7 @@ const steps = computed(() => {
       done: s.rootFolder,
       path: '/settings/media',
       text: 'Choose where your movies live',
-      why: 'a root folder for the library',
+      why: 'a location for the library',
     },
     {
       done: s.indexer,

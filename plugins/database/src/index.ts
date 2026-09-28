@@ -4,9 +4,9 @@
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import BetterSqlite3 from 'better-sqlite3'
+import { DatabaseSync } from 'node:sqlite'
 import { type Context, Service } from 'cordis'
-import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
+import { drizzle, type NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite'
 import z from 'schemastery'
 import { NAMESPACE_PATTERN } from './ownership'
 import {
@@ -67,7 +67,7 @@ export const DatabaseConfig: z<Partial<DatabaseConfig>, DatabaseConfig> = z.obje
 export class DatabaseService extends Service {
   static Config = DatabaseConfig
 
-  sqlite!: BetterSqlite3.Database
+  sqlite!: DatabaseSync
   config: DatabaseConfig
   private filename!: string
   private active = new Map<string, number>()
@@ -82,11 +82,11 @@ export class DatabaseService extends Service {
     this.filename = this.config.path === ':memory:' ? ':memory:' : resolve(base, this.config.path)
     if (this.filename !== ':memory:') mkdirSync(dirname(this.filename), { recursive: true })
 
-    this.sqlite = new BetterSqlite3(this.filename)
-    this.sqlite.pragma('journal_mode = WAL')
-    this.sqlite.pragma('synchronous = NORMAL')
-    this.sqlite.pragma(`busy_timeout = ${this.config.busyTimeout}`)
-    this.sqlite.pragma('foreign_keys = ON')
+    this.sqlite = new DatabaseSync(this.filename)
+    this.sqlite.exec('PRAGMA journal_mode = WAL')
+    this.sqlite.exec('PRAGMA synchronous = NORMAL')
+    this.sqlite.exec(`PRAGMA busy_timeout = ${this.config.busyTimeout}`)
+    this.sqlite.exec('PRAGMA foreign_keys = ON')
     this.assertNoInterruptedRebuild()
     this.ctx.logger.info('opened %C', this.filename)
     yield () => this.sqlite.close()
@@ -105,7 +105,7 @@ export class DatabaseService extends Service {
    */
   register<S extends Record<string, unknown>>(
     options: RegisterOptions<S>,
-  ): BetterSQLite3Database<S> {
+  ): Drizzle<S> {
     const caller = this.ctx
     const { namespace, schema, steps } = options
     if (!NAMESPACE_PATTERN.test(namespace)) {
@@ -141,7 +141,7 @@ export class DatabaseService extends Service {
       }
     }, `database.register(${namespace})`)
 
-    return drizzle(this.sqlite, { schema })
+    return drizzle({ client: this.sqlite })
   }
 
   /** Snapshot of the whole database via `VACUUM INTO`. Returns the file path. */
@@ -187,16 +187,21 @@ export class DatabaseService extends Service {
       )
       .all(`${namespace}\\_%`) as { type: string; name: string }[]
     this.backup(`drop-${namespace}`)
-    this.sqlite.pragma('foreign_keys = OFF')
+    this.sqlite.exec('PRAGMA foreign_keys = OFF')
     try {
-      this.sqlite.transaction(() => {
+      this.sqlite.exec('BEGIN')
+      try {
         for (const { type, name } of objects) {
           this.sqlite.exec(`DROP ${type === 'view' ? 'VIEW' : 'TABLE'} IF EXISTS "${name}"`)
         }
         this.sqlite.prepare(`DELETE FROM ${MIGRATIONS_TABLE} WHERE namespace = ?`).run(namespace)
-      })()
+        this.sqlite.exec('COMMIT')
+      } catch (error) {
+        this.sqlite.exec('ROLLBACK')
+        throw error
+      }
     } finally {
-      this.sqlite.pragma('foreign_keys = ON')
+      this.sqlite.exec('PRAGMA foreign_keys = ON')
     }
     return objects.map((o) => o.name)
   }
@@ -235,4 +240,5 @@ function getTableName(value: unknown): string | undefined {
 }
 
 export default DatabaseService
-export type { BetterSQLite3Database as Drizzle }
+export type Drizzle<_S extends Record<string, unknown> = Record<string, unknown>> =
+  NodeSQLiteDatabase

@@ -12,7 +12,7 @@
       v-if="!data.rootFolders.ebook.length && !data.rootFolders.audiobook.length"
       class="mp-card"
     >
-      Add an <strong>Ebooks</strong> or <strong>Audiobooks</strong> root folder in
+      Choose a library location in
       <a href="/settings/media" @click.prevent="router.push('/settings/media')">Media management</a>
       to start following authors.
     </div>

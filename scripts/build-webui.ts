@@ -4,11 +4,14 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { build } from '@cordisjs/client/lib'
 
-const plugins = new URL('../plugins/', import.meta.url).pathname
-
-execFileSync('npm', ['run', 'build', '-w', '@magpiejs/webui'], { stdio: 'inherit' })
+const plugins = fileURLToPath(new URL('../plugins/', import.meta.url))
+execFileSync('npm', ['run', 'build', '-w', '@magpiejs/webui'], {
+  stdio: 'inherit',
+  shell: process.platform === 'win32',
+})
 
 for (const name of readdirSync(plugins)) {
   const dir = join(plugins, name)

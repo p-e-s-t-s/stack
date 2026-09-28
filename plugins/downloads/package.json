@@ -23,7 +23,7 @@
     "@magpiejs/library": "0.0.0",
     "@magpiejs/parser": "0.0.0",
     "@magpiejs/types": "0.0.0",
-    "drizzle-orm": "0.45.3",
+    "drizzle-orm": "1.0.0-rc.4",
     "schemastery": "^3.18.0"
   },
   "peerDependencies": {
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@magpiejs/webui": "0.0.0",
     "cordis": "4.0.0-rc.10",
-    "drizzle-kit": "0.31.11",
+    "drizzle-kit": "1.0.0-rc.4",
     "@magpiejs/downloader-qbittorrent": "0.0.0"
   }
 }

@@ -24,7 +24,7 @@
 
     <template v-if="results.length">
       <div v-if="!data.rootFolders.length" class="mp-card">
-        Add a movie root folder in
+        Choose a library location in
         <a href="/settings/media" @click.prevent="router.push('/settings/media')"
           >Media management</a
         >

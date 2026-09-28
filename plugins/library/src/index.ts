@@ -2,7 +2,7 @@
 // Kind-specific data lives in the kind's plugin (e.g. `movies_details`).
 
 import { mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@magpiejs/decision'
 import { normalizeTitle } from '@magpiejs/parser'
@@ -127,6 +127,7 @@ export class LibraryService extends Service {
   registerKind(info: KindInfo) {
     return this.ctx.effect(() => {
       this.kindInfo.set(info.id, info)
+      this.ensureKindRoot(info.id)
       this.ctx.emit('library/kinds')
       return () => {
         this.kindInfo.delete(info.id)
@@ -168,6 +169,44 @@ export class LibraryService extends Service {
 
   // ---- root folders
 
+  /** One parent directory for the whole library. Each kind lives in `<root>/<kind>`. */
+  libraryRoot() {
+    return this.setting<string>('libraryRoot')
+  }
+
+  /**
+   * Sets the library parent directory and recreates the kind roots beneath it. Once media has
+   * been added, changing this setting is blocked because changing database paths would not move
+   * the files on disk.
+   */
+  saveLibraryRoot(path: string) {
+    const root = resolve(path)
+    const current = this.libraryRoot()
+    if (current === root) {
+      for (const kind of this.kindInfo.keys()) this.ensureKindRoot(kind)
+      return
+    }
+    const item = this.db.select({ id: schema.mediaItems.id }).from(schema.mediaItems).get()
+    if (item) {
+      throw new Error('the library location cannot be changed after media has been added')
+    }
+
+    mkdirSync(root, { recursive: true })
+    for (const kind of this.kindInfo.keys()) mkdirSync(join(root, kind), { recursive: true })
+
+    this.db.transaction((tx) => {
+      tx.delete(schema.rootFolders).run()
+      for (const kind of this.kindInfo.keys()) {
+        tx.insert(schema.rootFolders).values({ path: join(root, kind), kind }).run()
+      }
+      tx.insert(schema.settings)
+        .values({ key: 'libraryRoot', value: root })
+        .onConflictDoUpdate({ target: schema.settings.key, set: { value: root } })
+        .run()
+    })
+    this.ctx.emit('library/root-folders')
+  }
+
   rootFolders(kind?: MediaKind) {
     const q = this.db.select().from(schema.rootFolders)
     return (kind ? q.where(eq(schema.rootFolders.kind, kind)) : q)
@@ -184,6 +223,15 @@ export class LibraryService extends Service {
 
   removeRootFolder(id: number) {
     this.db.delete(schema.rootFolders).where(eq(schema.rootFolders.id, id)).run()
+    this.ctx.emit('library/root-folders')
+  }
+
+  private ensureKindRoot(kind: MediaKind) {
+    const root = this.libraryRoot()
+    if (!root || this.rootFolders(kind).length) return
+    const path = join(root, kind)
+    mkdirSync(path, { recursive: true })
+    this.db.insert(schema.rootFolders).values({ path, kind }).run()
     this.ctx.emit('library/root-folders')
   }
 

@@ -14,12 +14,12 @@ export interface KindSettings extends KindInfo {
 
 export interface LibraryData {
   kinds: KindSettings[]
+  libraryRoot: string
   rootFolders: RootFolder[]
   /** Naming templates by kind. */
   naming: Record<string, Record<string, string>>
   files: FileHandling
-  addRootFolder(path: string, kind: MediaKind): Promise<void>
-  removeRootFolder(id: number): Promise<void>
+  saveLibraryRoot(path: string): Promise<void>
   saveNaming(kind: MediaKind, values: Record<string, string>): Promise<void>
   saveFiles(files: FileHandling): Promise<void>
 }
@@ -42,6 +42,7 @@ export default function console_(ctx: Context, library: LibraryService) {
           },
         }
       }),
+      libraryRoot: library.libraryRoot() ?? '',
       rootFolders: library.rootFolders(),
       naming: Object.fromEntries(kinds.map((k) => [k.id, library.naming(k.id)])),
       files: library.fileHandling(),
@@ -52,15 +53,10 @@ export default function console_(ctx: Context, library: LibraryService) {
 
   const data: LibraryData = {
     ...snapshot(),
-    async addRootFolder(path, kind) {
+    async saveLibraryRoot(path) {
       if (!path.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(path))
         throw new Error('use an absolute path')
-      if (!library.kinds().some((k) => k.id === kind)) throw new Error(`unknown kind ${kind}`)
-      library.addRootFolder(path, kind)
-      refresh()
-    },
-    async removeRootFolder(id) {
-      library.removeRootFolder(id)
+      library.saveLibraryRoot(path)
       refresh()
     },
     async saveNaming(kind, values) {
