@@ -1,6 +1,6 @@
 # Phase 7 — Subtitles / Bazarr replacement
 
-Implementation plan; no subtitle runtime is implemented by this document.
+Implementation plan. Status: the subtitles plugin, OpenSubtitles and SubDL adapters, and console/API are implemented; this document remains the design reference and acceptance checklist (fixture-backed exit evidence for 7c–7f is still to be gathered).
 
 ## Outcome and scope
 

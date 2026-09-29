@@ -217,7 +217,7 @@ export class SubtitlesService extends Service {
         monitored = monitored && rows.some(e=>e.monitored)
       } else monitored = false
     }
-    return { query: {kind:item.kind as 'movie'|'series',title:item.title,year:item.year,ids:item.externalIds,releaseName:file.releaseName,releaseGroup:file.releaseGroup,size:file.size,duration:facts?.duration,episodes}, monitored }
+    return { query: {kind:item.kind as 'movie'|'series',title:item.title,year:item.year,ids:Object.fromEntries(Object.entries(item.externalIds ?? {}).filter((e): e is [string,string]=>e[1] != null).map(([k,v])=>[k,String(v)])),releaseName:file.releaseName,releaseGroup:file.releaseGroup,size:file.size,duration:facts?.duration,episodes}, monitored }
   }
   recompute(fileId: number) {
     const {item} = this.file(fileId)
@@ -232,9 +232,9 @@ export class SubtitlesService extends Service {
       let result = evaluate(r,profile,rows,!!p?.facts && !p.error,monitored,this.now())
       if (result.state !== 'disabled' && item.kind === 'series' && !query.episodes.length) result = {state:'unknown',reason:'episode identity not yet available'}
       const prior = this.db.select().from(schema.wanted).where(and(eq(schema.wanted.fileId,fileId),eq(schema.wanted.requirementId,r.id))).get()
-      const same = prior?.generation === p?.generation && prior.profileId === profile.id && prior.revision === profile.revision
-      const values = {fileId,requirementId:r.id,profileId:profile.id,revision:profile.revision,generation:p?.generation ?? 'unknown',state:result.state,reason:result.reason,attempts:same ? prior.attempts : 0,nextSearchAt:same ? prior.nextSearchAt : 0}
-      if (same && ['missing','upgradeable'].includes(result.state) && prior.nextSearchAt > this.now()) { values.state = prior.state === 'blocked' ? 'blocked' : 'waiting'; values.reason = prior.reason }
+      const same = !!prior && prior.generation === (p?.generation ?? 'unknown') && prior.profileId === profile.id && prior.revision === profile.revision
+      const values = {fileId,requirementId:r.id,profileId:profile.id,revision:profile.revision,generation:p?.generation ?? 'unknown',state:result.state,reason:result.reason,attempts:same ? prior!.attempts : 0,nextSearchAt:same ? prior!.nextSearchAt : 0}
+      if (same && ['missing','upgradeable'].includes(result.state) && prior!.nextSearchAt > this.now()) { values.state = prior!.state === 'blocked' ? 'blocked' : 'waiting'; values.reason = prior!.reason }
       this.db.insert(schema.wanted).values(values).onConflictDoUpdate({target:[schema.wanted.fileId,schema.wanted.requirementId],set:values}).run()
     }
   }
