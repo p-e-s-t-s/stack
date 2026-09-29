@@ -1,0 +1,46 @@
+{
+  "version": "6",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "views": {},
+  "_meta": {
+    "tables": {},
+    "schemas": {},
+    "columns": {}
+  },
+  "id": "0e842bda-6a15-4562-bfad-4fe0cd8cd849",
+  "tables": {
+    "import_sessions": {
+      "checkConstraints": {},
+      "indexes": {},
+      "name": "import_sessions",
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "foreignKeys": {},
+      "columns": {
+        "data": {
+          "primaryKey": false,
+          "autoincrement": false,
+          "type": "text",
+          "notNull": true,
+          "name": "data"
+        },
+        "updated_at": {
+          "primaryKey": false,
+          "autoincrement": false,
+          "type": "integer",
+          "notNull": true,
+          "name": "updated_at"
+        },
+        "id": {
+          "primaryKey": true,
+          "autoincrement": true,
+          "type": "integer",
+          "notNull": true,
+          "name": "id"
+        }
+      }
+    }
+  },
+  "dialect": "sqlite",
+  "enums": {}
+}

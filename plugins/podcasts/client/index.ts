@@ -1,3 +1,4 @@
+import { registerPage } from '@magpiejs/console-kit/navigation'
 import type { Context } from '@cordisjs/client'
 import PodcastList from './podcast-list.vue'
 import AddPodcast from './add-podcast.vue'
@@ -5,7 +6,8 @@ import PodcastDetail from './podcast-detail.vue'
 import './style.css'
 
 export default function (ctx: Context) {
-  ctx.client.router.page({
+  registerPage(ctx, {
+    navigation: { group: 'library', icon: 'podcasts' },
     path: '/podcasts',
     name: 'Podcasts',
     order: 880,

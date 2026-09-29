@@ -6,9 +6,14 @@
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
-    "./ReleasePicker.vue": "./src/ReleasePicker.vue"
+    "./ReleasePicker.vue": "./src/ReleasePicker.vue",
+    "./DownloadProgress.vue": "./src/DownloadProgress.vue",
+    "./navigation": "./client/navigation.ts"
   },
   "dependencies": {
     "@magpiejs/types": "0.0.0"
+  },
+  "peerDependencies": {
+    "@cordisjs/client": "0.8.2"
   }
 }

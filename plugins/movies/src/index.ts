@@ -40,6 +40,8 @@ export interface Movie extends MediaItem {
 }
 
 export interface AddMovieOptions {
+  /** Existing folder relative to the root, used by library adoption. */
+  folder?: string
   tmdbId: number
   profileId: number
   rootFolderId: number
@@ -126,9 +128,13 @@ export class MoviesService extends Service {
         return () => (this.grabber = undefined)
       }, 'movies.grabber')
     })
-    this.ctx.library.registerKind({ id: 'movie', label: 'Movies' })
+    this.ctx.library.registerKind({
+      id: 'movie',
+      label: 'Movies',
+      browse: { addPath: '/movies/add', detailPath: '/movie' },
+    })
     this.ctx.library.registerNaming('movie', MOVIE_NAMING)
-    this.ctx.inject(['import'], (ctx) => void ctx.plugin(movieImport))
+    this.ctx.inject(['import'], (ctx) => void ctx.plugin(movieImport, this))
     this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(movieCalendar, this))
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))
@@ -178,6 +184,10 @@ export class MoviesService extends Service {
       .get()
     if (found) throw new Error('this movie is already in the library')
     const meta = await this.provider().getMovie!(String(options.tmdbId))
+    if (
+      this.db.select().from(schema.details).where(eq(schema.details.tmdbId, options.tmdbId)).get()
+    )
+      throw new Error('this movie is already in the library')
     const naming = this.ctx.library.naming('movie')
     const item = this.ctx.library.add(
       {
@@ -191,7 +201,8 @@ export class MoviesService extends Service {
         primaryProvider: 'tmdb',
         profileId: options.profileId,
         rootFolderId: options.rootFolderId,
-        folder: renderName(naming.movieFolder!, { Title: meta.title, Year: meta.year }),
+        folder:
+          options.folder ?? renderName(naming.movieFolder!, { Title: meta.title, Year: meta.year }),
         refreshedAt: Date.now(),
       },
       meta.alternateTitles,

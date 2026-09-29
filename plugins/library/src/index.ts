@@ -96,6 +96,8 @@ export function sortTitle(title: string) {
 
 /** A kind of media a plugin manages, as shown in the web console. */
 export interface KindInfo {
+  /** Discovery actions contributed by the kind plugin. */
+  browse?: { addPath: string; detailPath: string }
   id: MediaKind
   /** Plural, e.g. `Movies`. */
   label: string
@@ -197,7 +199,9 @@ export class LibraryService extends Service {
     this.db.transaction((tx) => {
       tx.delete(schema.rootFolders).run()
       for (const kind of this.kindInfo.keys()) {
-        tx.insert(schema.rootFolders).values({ path: join(root, kind), kind }).run()
+        tx.insert(schema.rootFolders)
+          .values({ path: join(root, kind), kind })
+          .run()
       }
       tx.insert(schema.settings)
         .values({ key: 'libraryRoot', value: root })
@@ -358,6 +362,18 @@ export class LibraryService extends Service {
       .returning()
       .get()
     if (row) this.ctx.emit('library/file-removed', this.get(row.mediaId)!, row)
+    return row
+  }
+
+  updateFile(id: number, values: Partial<Omit<schema.MediaFile, 'id' | 'addedAt'>>) {
+    const row = this.db
+      .update(schema.mediaFiles)
+      .set(values)
+      .where(eq(schema.mediaFiles.id, id))
+      .returning()
+      .get()
+    if (!row) throw new Error('file record not found')
+    this.ctx.emit('library/file-added', this.get(row.mediaId)!, row)
     return row
   }
 

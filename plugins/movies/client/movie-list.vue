@@ -2,24 +2,13 @@
   <section class="mv">
     <div class="mp-head">
       <h1>Movies</h1>
+      <button @click="router.push('/import?kind=movie')">Import existing library</button>
       <input v-if="data.movies.length" v-model="filter" placeholder="Filter" class="filter" />
       <button class="primary" data-testid="add-movie" @click="router.push('/movies/add')">
         Add movie
       </button>
     </div>
     <p v-if="data.movies.length" class="mp-lead">{{ summary }}</p>
-
-    <div v-if="steps.some((s) => !s.done)" class="mp-card setup" data-testid="setup">
-      <h3>Finish setting up Magpie</h3>
-      <ol>
-        <li v-for="s in steps" :key="s.path" :class="{ done: s.done }">
-          <span class="check">{{ s.done ? '✓' : '' }}</span>
-          <a v-if="!s.done" :href="s.path" @click.prevent="router.push(s.path)">{{ s.text }}</a>
-          <span v-else>{{ s.text }}</span>
-          <span class="mp-muted mp-small"> — {{ s.why }}</span>
-        </li>
-      </ol>
-    </div>
 
     <p v-if="!data.movies.length" class="mp-empty">
       No movies yet. Use <strong>Add movie</strong> to find one.
@@ -49,6 +38,7 @@
 import { computed, ref } from 'vue'
 import { useRouter, useRpc } from '@cordisjs/client'
 import type { MoviesData } from '../src/console'
+import DownloadProgress from '@magpiejs/console-kit/DownloadProgress.vue'
 import { movieStatus } from './status'
 
 const data = useRpc<MoviesData>()
@@ -62,36 +52,7 @@ const summary = computed(() => {
   const all = data.value.movies
   const have = all.filter((m) => m.file).length
   const missing = all.filter((m) => movieStatus(m).text === 'Missing').length
-  return `${all.length} movies · ${have} downloaded · ${missing} missing`
-})
-
-const steps = computed(() => {
-  const s = data.value.setup
-  return [
-    {
-      done: s.metadata,
-      path: '/settings/metadata',
-      text: 'Add your TMDB API key',
-      why: 'to look up movies',
-    },
-    {
-      done: s.rootFolder,
-      path: '/settings/media',
-      text: 'Choose where your movies live',
-      why: 'a location for the library',
-    },
-    {
-      done: s.indexer,
-      path: '/settings/indexers',
-      text: 'Add an indexer',
-      why: 'to search for releases (e.g. from Prowlarr)',
-    },
-    {
-      done: s.client,
-      path: '/settings/clients',
-      text: 'Add a download client',
-      why: 'qBittorrent downloads what Magpie picks',
-    },
-  ]
+  const downloading = all.filter((m) => m.download).length
+  return `${all.length} movies · ${have} downloaded · ${downloading} active downloads · ${missing} missing`
 })
 </script>

@@ -1,6 +1,7 @@
 // File operations for importing: finding the video, hardlink/copy/move, recycle bin.
 
 import { constants } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import * as fs from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 
@@ -37,7 +38,7 @@ export type FileSystem = typeof fileSystem
 export async function findFiles(
   path: string,
   extensions: ReadonlySet<string>,
-  options: { skipExtras?: boolean } = {},
+  options: { skipExtras?: boolean; maxDepth?: number } = {},
   fsx: FileSystem = fileSystem,
 ): Promise<{ path: string; size: number }[]> {
   const stat = await fsx.stat(path)
@@ -49,9 +50,14 @@ export async function findFiles(
       const full = join(dir, entry.name)
       if (entry.isDirectory()) {
         const extras = /^(samples?|extras|featurettes|behind the scenes|trailers?)$/i
-        if (depth < 3 && !(options.skipExtras && extras.test(entry.name)))
-          await walk(full, depth + 1)
+        if (options.skipExtras && extras.test(entry.name)) continue
+        if (depth >= (options.maxDepth ?? 3)) {
+          if (options.maxDepth !== undefined) throw new Error(`scan depth exceeded at ${full}`)
+          continue
+        }
+        await walk(full, depth + 1)
       } else if (
+        entry.isFile() &&
         extensions.has(extname(entry.name).toLowerCase()) &&
         !(options.skipExtras && /(^|[._ -])sample([._ -]|$)/i.test(entry.name))
       ) {
@@ -112,15 +118,61 @@ export async function transfer(
   return method
 }
 
+/** Stage an incoming file before moving an existing destination out of the way. */
+export async function placeSafely(
+  source: string,
+  dest: string,
+  mode: 'hardlink' | 'copy' | 'move',
+  recycleBin: string,
+  fsx: FileSystem = fileSystem,
+) {
+  const exists = await fsx.stat(dest).then(
+    () => true,
+    (e) => {
+      if (e.code === 'ENOENT') return false
+      throw e
+    },
+  )
+  if (!exists) return transfer(source, dest, mode, fsx)
+  if (source === dest) return mode
+  const staged = `${dest}.magpie-incoming-${randomUUID()}`
+  const backup = `${staged}.previous`
+  const method = await transfer(source, staged, mode === 'move' ? 'copy' : mode, fsx)
+  await fsx.rename(dest, backup)
+  try {
+    await fsx.rename(staged, dest)
+  } catch (error) {
+    await fsx.rename(backup, dest)
+    await fsx.unlink(staged).catch(() => {})
+    throw error
+  }
+  await recycle(backup, recycleBin, fsx, dest)
+  if (mode === 'move') await fsx.unlink(source)
+  return mode === 'move' ? 'move' : method
+}
+
 /** Moves a file into the recycle bin (keeping its folder name), or deletes it. */
-export async function recycle(path: string, recycleBin: string, fsx: FileSystem = fileSystem) {
+export async function recycle(
+  path: string,
+  recycleBin: string,
+  fsx: FileSystem = fileSystem,
+  originalPath = path,
+) {
   if (!recycleBin) {
     await fsx.unlink(path).catch((e) => {
       if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
     })
     return
   }
-  const target = join(recycleBin, basename(dirname(path)), basename(path))
+  let target = join(recycleBin, basename(dirname(originalPath)), basename(originalPath))
+  const exists = await fsx.stat(target).then(
+    () => true,
+    (e) => {
+      if (e.code === 'ENOENT') return false
+      throw e
+    },
+  )
+  if (exists) target += `.${randomUUID()}`
   await fsx.mkdir(dirname(target), { recursive: true })
   try {
     await fsx.rename(path, target)

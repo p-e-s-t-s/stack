@@ -49,6 +49,123 @@ export function episodeFileName(
 }
 
 export default function episodeImport(ctx: Context, series: SeriesService) {
+  ctx.import.review.register('series', {
+    lookup: (term) => series.lookup(term),
+    async adopt(row, rootFolderId) {
+      const existing = series.list().find((s) => s.details.tmdbId === row.tmdbId)
+      if (existing) {
+        if (existing.folder !== row.folder || existing.rootFolderId !== rootFolderId)
+          throw new ImportError('this series exists in another folder')
+        return existing
+      }
+      return series.add({
+        tmdbId: row.tmdbId!,
+        profileId: row.profileId!,
+        rootFolderId,
+        folder: row.folder,
+        monitor: 'none',
+        seriesType: row.seriesType ?? 'standard',
+        search: false,
+      })
+    },
+    async validateAdoption(row) {
+      const provider = ctx.metadata.for('series', 'tmdb')
+      if (!provider?.getEpisodes) throw new ImportError('enable a TV metadata provider')
+      const episodes = (await provider.getEpisodes(String(row.tmdbId))).sort(
+        (a, b) => a.season - b.season || a.number - b.number,
+      )
+      row.episodeChoices = episodes.map((e) => ({
+        key: `${e.season}:${e.number}`,
+        label: `S${e.season}E${e.number} — ${e.title ?? ''}`,
+      }))
+      if (!row.episodeKeys?.length) {
+        const parsed = parse(basename(row.source, extname(row.source)), { kind: 'series' })
+        const numbers = parsed.episodes
+        let absolute = 0
+        row.episodeKeys = episodes
+          .filter((e) => {
+            if (e.season > 0) absolute++
+            if (numbers?.airDate) return e.airDate === numbers.airDate
+            if (
+              numbers?.absolute?.length ||
+              (numbers?.season === undefined && numbers?.numbers.length)
+            )
+              return (
+                e.season > 0 &&
+                (numbers.absolute ?? numbers.numbers).includes(e.absoluteNumber ?? absolute)
+              )
+            return numbers?.season === e.season && numbers.numbers.includes(e.number)
+          })
+          .map((e) => `${e.season}:${e.number}`)
+      }
+      if (
+        !row.episodeKeys.length ||
+        row.episodeKeys.some((k) => !row.episodeChoices!.some((e) => e.key === k))
+      )
+        throw new ImportError('choose episode numbers for this file')
+    },
+    episodes: (id) => series.episodes(id),
+    fileEpisodes: (fileId) =>
+      series
+        .list()
+        .flatMap((show) =>
+          [...series.episodeFiles(show.id)].filter(([, f]) => f.id === fileId).map(([id]) => id),
+        ),
+    plan(item, row) {
+      const show = series.get(item.id)
+      if (!show) throw new ImportError('series not found')
+      const parsed = parse(row.releaseName ?? basename(row.source, extname(row.source)), {
+        kind: 'series',
+      })
+      const episodes = series.episodes(item.id)
+      const covered = row.episodeIds?.length
+        ? episodes.filter((e) => row.episodeIds!.includes(e.id))
+        : row.episodeKeys?.length
+          ? episodes.filter((e) => row.episodeKeys!.includes(`${e.season}:${e.number}`))
+          : episodesFor(show, parsed, episodes)
+      if (
+        !covered.length ||
+        (row.episodeIds?.length && covered.length !== new Set(row.episodeIds).size)
+      )
+        throw new ImportError('choose episodes belonging to this series')
+      const links = series.episodeFiles(item.id)
+      const ids = new Set(covered.map((e) => e.id))
+      const conflicts = [
+        ...new Set(covered.flatMap((e) => (links.get(e.id) ? [links.get(e.id)!.id] : []))),
+      ]
+      // Do not recycle a multi-episode file still needed by episodes outside this selection.
+      const replaceable = conflicts.filter((fid) =>
+        [...links].every(([eid, file]) => file.id !== fid || ids.has(eid)),
+      )
+      const naming = ctx.library.naming('series')
+      const seasonDir = show.details.seasonFolders
+        ? renderName(naming.seasonFolder!, { season: covered[0]!.season })
+        : ''
+      const name = episodeFileName(
+        show,
+        covered,
+        { quality: row.quality, qualityName: ctx.decision.qualityName(row.quality), parsed },
+        naming,
+      )
+      return {
+        destination: join(
+          ctx.library.folderOf(item),
+          seasonDir,
+          name + extname(row.source).toLowerCase(),
+        ),
+        episodeIds: covered.map((e) => e.id),
+        conflicts,
+        preserve: conflicts.filter((id) => !replaceable.includes(id)),
+      }
+    },
+    record(item, row, file) {
+      series.replaceFileLinks(file.id, row.episodeIds!)
+      ctx.emit('series/episodes', item.id)
+    },
+    finishAdoption: (id, monitored) => {
+      series.finishAdoption(id, monitored)
+    },
+  })
   async function importEpisodes(itemId: number, grab: Grab, tools: ImportTools) {
     const show = series.get(itemId)
     if (!show) throw new ImportError('the series is no longer in the library')
@@ -56,7 +173,6 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
     const episodes = series.episodes(show.id)
     const grabbed = new Set(series.grabEpisodes(grab.id))
     const releaseParsed = parse(grab.title, { kind: 'series' })
-    const naming = ctx.library.naming('series')
     const folder = ctx.library.folderOf(show)
     const quality = grab.quality
 
@@ -90,17 +206,14 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
         continue
       }
 
-      const seasonDir =
-        show.details.seasonFolders && naming.seasonFolder
-          ? renderName(naming.seasonFolder, { season: covered[0]!.season })
-          : ''
-      const fileName = episodeFileName(
-        show,
-        covered,
-        { quality, qualityName: ctx.decision.qualityName(quality), parsed },
-        naming,
-      )
-      const dest = join(folder, seasonDir, fileName + extname(video.path).toLowerCase())
+      const dest = ctx.import.review
+        .adapter('series')
+        .plan(show, {
+          source: video.path,
+          quality,
+          episodeIds: covered.map((e) => e.id),
+          releaseName: parsed.input,
+        }).destination
 
       // files this one replaces entirely; a multi-episode file that also holds other
       // episodes stays for those
@@ -113,8 +226,6 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
       const replaced = [...old.values()].filter((file) =>
         [...files].every(([episodeId, f]) => f.id !== file.id || coveredIds.has(episodeId)),
       )
-      for (const file of replaced) if (join(folder, file.path) === dest) await tools.recycle(dest)
-
       const method = await tools.place(video.path, dest)
 
       for (const file of replaced) {

@@ -1,0 +1,16 @@
+{
+  "name": "@magpiejs/subtitles",
+  "version": "0.0.0",
+  "description": "Subtitle profiles, inventory, acquisition, upgrades and sync",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": "./src/index.ts", "./schema": "./src/schema.ts", "./files": "./src/files.ts", "./transport": "./src/transport.ts" },
+  "magpie": { "namespace": "subtitles" },
+  "scripts": { "db:generate": "drizzle-kit generate" },
+  "dependencies": {
+    "@magpiejs/database": "0.0.0", "@magpiejs/library": "0.0.0", "@magpiejs/jobs": "0.0.0", "@magpiejs/types": "0.0.0", "@magpiejs/http-utils": "0.0.0", "@magpiejs/console-kit": "0.0.0",
+    "drizzle-orm": "1.0.0-rc.4", "schemastery": "3.18.0", "fflate": "^0.8.3"
+  },
+  "peerDependencies": { "cordis": "4.0.0-rc.10" },
+  "devDependencies": { "@magpiejs/api": "0.0.0", "@magpiejs/series": "0.0.0", "@magpiejs/webui": "0.0.0", "@magpiejs/testing": "0.0.0", "cordis": "4.0.0-rc.10", "drizzle-kit": "1.0.0-rc.4" }
+}

@@ -62,6 +62,8 @@ export interface Series extends MediaItem {
 }
 
 export interface AddSeriesOptions {
+  /** Existing folder relative to the root, used by library adoption. */
+  folder?: string
   tmdbId: number
   profileId: number
   rootFolderId: number
@@ -171,7 +173,11 @@ export class SeriesService extends Service {
         })
       }
     })
-    this.ctx.library.registerKind({ id: 'series', label: 'Series' })
+    this.ctx.library.registerKind({
+      id: 'series',
+      label: 'Series',
+      browse: { addPath: '/series/add', detailPath: '/series' },
+    })
     this.ctx.library.registerNaming('series', SERIES_NAMING)
     this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(seriesCalendar, this))
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
@@ -263,6 +269,10 @@ export class SeriesService extends Service {
     const provider = this.provider()
     const meta = await provider.getSeries!(String(options.tmdbId))
     const episodes = withAbsoluteNumbers(await provider.getEpisodes!(String(options.tmdbId)))
+    if (
+      this.db.select().from(schema.details).where(eq(schema.details.tmdbId, options.tmdbId)).get()
+    )
+      throw new Error('this series is already in the library')
     const naming = this.ctx.library.naming('series')
     const monitor = options.monitor ?? 'all'
 
@@ -283,7 +293,9 @@ export class SeriesService extends Service {
         primaryProvider: 'tmdb',
         profileId: options.profileId,
         rootFolderId: options.rootFolderId,
-        folder: renderName(naming.seriesFolder!, { 'Series Title': meta.title, Year: meta.year }),
+        folder:
+          options.folder ??
+          renderName(naming.seriesFolder!, { 'Series Title': meta.title, Year: meta.year }),
         refreshedAt: Date.now(),
       },
       meta.alternateTitles,
@@ -523,6 +535,16 @@ export class SeriesService extends Service {
         tx.insert(schema.episodeFiles).values({ fileId, episodeId }).run()
       }
     })
+    for (const id of new Set(episodeIds.map(id => this.episode(id)?.mediaId).filter((id): id is number => id !== undefined))) this.ctx.emit('series/episodes', id)
+  }
+
+  replaceFileLinks(fileId: number, episodeIds: number[]) {
+    this.db.delete(schema.episodeFiles).where(eq(schema.episodeFiles.fileId, fileId)).run()
+    for (const episodeId of episodeIds) {
+      this.db.delete(schema.episodeFiles).where(eq(schema.episodeFiles.episodeId, episodeId)).run()
+      this.db.insert(schema.episodeFiles).values({ fileId, episodeId }).run()
+    }
+    for (const id of new Set(episodeIds.map(id => this.episode(id)?.mediaId).filter((id): id is number => id !== undefined))) this.ctx.emit('series/episodes', id)
   }
 
   update(
@@ -571,6 +593,18 @@ export class SeriesService extends Service {
       .all()
     for (const mediaId of new Set(rows.map((r) => r.mediaId)))
       this.ctx.emit('series/episodes', mediaId)
+  }
+
+  /** Enable monitoring after all selected adoption files have been registered. */
+  finishAdoption(id: number, monitored: boolean) {
+    this.db
+      .update(schema.details)
+      .set({ monitorNew: monitored })
+      .where(eq(schema.details.mediaId, id))
+      .run()
+    for (const season of this.get(id)?.seasons ?? [])
+      if (season.number > 0) this.monitorSeason(id, season.number, monitored)
+    this.ctx.library.update(id, { monitored })
   }
 
   markSearched(episodeIds: number[], now = Date.now()) {

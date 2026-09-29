@@ -32,7 +32,7 @@ export default function console_(ctx: Context, settings: SettingsService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
-      routes: ['/settings/indexers', '/settings/clients', '/settings/metadata'],
+      routes: ['/settings/indexers', '/settings/clients', '/settings/metadata', '/settings/subtitles'],
     },
     data,
   )

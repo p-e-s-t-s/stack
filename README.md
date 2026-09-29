@@ -58,6 +58,58 @@ npm start
 4. In the plugin, `inject: ['database']` (plus the owner of any table you reference) and
    call `ctx.database.register({ namespace, schema, migrations })`.
 
+## Plugin page navigation
+
+Register visible console pages with `registerPage` from `@magpiejs/console-kit/navigation`:
+
+```ts
+import { registerPage } from '@magpiejs/console-kit/navigation'
+
+registerPage(ctx, {
+  path: '/catalog',
+  name: 'Catalog',
+  component: Catalog,
+  order: 900,
+  navigation: { group: 'library', icon: 'books', aliases: ['/item'] },
+})
+```
+
+Navigation groups are `library`, `activity`, `configuration`, `system`, and `other`.
+Configuration and system pages appear inside Settings. The shell uses metadata,
+not URL conventions, to choose a group. Higher page `order` appears first;
+ties sort by page ID. Disabled pages do not appear in navigation.
+
+`icon` selects a shell SVG icon (`movies`, `series`, `podcasts`, `books`, `music`,
+`calendar`, `activity`, `history`, `settings`, or `other`); unknown icons use `other`.
+`aliases` declares additional route prefixes that should highlight this page.
+The page's own path and descendants are matched automatically.
+
+Set `navigation.default: true` for the preferred landing page or preferred Settings
+page. Defaults are resolved independently for primary navigation and Settings.
+If multiple defaults exist, group order then page order decides; without a default,
+the first available page is used. Group order is Library, Activity, Other for primary
+navigation, and Configuration, System for Settings.
+
+Keep detail and add routes registered through Cordis with `disabled: () => true`.
+Existing enabled pages without metadata appear under Other for compatibility.
+Add `@magpiejs/console-kit` to the plugin's dependencies when using the helper.
+
+## Browse discovery
+
+`@magpiejs/browse` provides `/browse`. New installations enable it by default; existing
+installations can add `- name: '@magpiejs/browse'` to `magpie.yml`.
+The page appears when a registered library kind contributes `browse: { addPath,
+detailPath }`. Disabling that kind removes its shelves and actions immediately.
+Metadata providers optionally expose `discoveryFeeds` and `discover(feedId, region)`;
+Browse intersects those capabilities with the live kind registry, without depending on
+movie, TV, or provider implementations. Providers without discovery continue to work.
+
+Enable TMDB with an API key in Metadata settings for movie and TV shelves. Country
+defaults to US; trending is TMDB interest, and new digital releases can include rental
+or purchase while a film is still in theaters. Results are cached for 15 minutes;
+library membership is checked afresh. Cards open existing library items or prefill
+the kind's add-page search, keeping its quality and folder choices in that plugin.
+
 ## Checks
 
 ```sh

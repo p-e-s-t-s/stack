@@ -94,6 +94,29 @@ export function multipart(parts: Part[]) {
   return { body: Buffer.concat(chunks), contentType: `multipart/form-data; boundary=${boundary}` }
 }
 
+/** qBittorrent 5.2 returns JSON; older versions return an empty body or `Ok.`. */
+export function addedTorrentId(text: string, fallbackHash: string) {
+  const body = text.trim()
+  if (!body || body === 'Ok.') return fallbackHash.toLowerCase()
+  try {
+    const result = JSON.parse(body)
+    if (
+      result &&
+      result.failure_count === 0 &&
+      ((Number.isInteger(result.success_count) && result.success_count > 0) ||
+        (Number.isInteger(result.pending_count) && result.pending_count > 0))
+    ) {
+      const id = result.added_torrent_ids?.[0]
+      return typeof id === 'string' && /^[a-f\d]{40,64}$/i.test(id)
+        ? id.toLowerCase()
+        : fallbackHash.toLowerCase()
+    }
+  } catch {
+    // Preserve a useful error for legacy failures and unexpected response bodies.
+  }
+  throw new Error(`qBittorrent did not accept the torrent: ${body}`)
+}
+
 export function apply(ctx: Context, config: Config) {
   const base = config.url.replace(/\/+$/, '')
   const id = `qbittorrent:${(ctx.fiber as { entry?: { options: { id: string } } }).entry?.options.id ?? config.name}`
@@ -105,28 +128,29 @@ export function apply(ctx: Context, config: Config) {
       data: new URLSearchParams({ username: config.username, password: config.password }),
       headers: { Referer: base },
       validateStatus: () => true,
+      timeout: 30_000,
     } as never)
     const text = await response.text()
     const sid = /SID=[^;]+/.exec(response.headers.get('set-cookie') ?? '')?.[0]
     if (response.status === 403)
       throw new Error('qBittorrent refused the login (too many failed attempts?)')
+    if (response.status >= 400) throw new Error(`qBittorrent login: HTTP ${response.status}`)
     if (!sid || text.trim() !== 'Ok.')
       throw new Error('qBittorrent login failed: check the username and password')
     cookie = sid
   }
 
-  /** Calls the API, logging in first and again when the session has expired. */
+  /** Try the API directly for auth bypass; log in on rejection or session expiry. */
   async function call(
     path: string,
     init: { method?: string; data?: unknown; contentType?: string } = {},
   ) {
     for (let attempt = 0; attempt < 2; attempt++) {
-      if (!cookie) await login()
       const response = await ctx.http(`${base}/api/v2${path}`, {
         method: init.method ?? 'GET',
         data: init.data,
         headers: {
-          Cookie: cookie!,
+          ...(cookie && { Cookie: cookie }),
           Referer: base,
           ...(init.contentType && { 'Content-Type': init.contentType }),
         },
@@ -135,6 +159,7 @@ export function apply(ctx: Context, config: Config) {
       } as never)
       if (response.status === 403) {
         cookie = undefined
+        if (attempt === 0) await login()
         continue
       }
       if (response.status >= 400)
@@ -151,6 +176,15 @@ export function apply(ctx: Context, config: Config) {
     async add(payload, options) {
       if (payload.type === 'nzb') throw new Error('qBittorrent cannot download usenet releases')
       if (payload.type === 'url') throw new Error('qBittorrent only downloads torrents')
+      // A retry after an uncertain add must adopt the existing torrent, not submit it twice.
+      const category = options.category ?? config.category
+      const existing = (await (
+        await call(
+          `/torrents/info?hashes=${encodeURIComponent(payload.hash)}&category=${encodeURIComponent(category)}`,
+        )
+      ).json()) as Torrent[]
+      if (existing.some((torrent) => torrent.hash.toLowerCase() === payload.hash.toLowerCase()))
+        return payload.hash.toLowerCase()
       const parts: Part[] = [
         payload.type === 'magnet'
           ? { name: 'urls', value: payload.uri }
@@ -160,14 +194,13 @@ export function apply(ctx: Context, config: Config) {
               data: payload.data,
               type: 'application/x-bittorrent',
             },
-        { name: 'category', value: options.category ?? config.category },
+        { name: 'category', value: category },
       ]
       if (options.paused) parts.push({ name: 'paused', value: 'true' })
       const { body, contentType } = multipart(parts)
       const response = await call('/torrents/add', { method: 'POST', data: body, contentType })
       const text = (await response.text()).trim()
-      if (text && text !== 'Ok.') throw new Error(`qBittorrent did not accept the torrent: ${text}`)
-      return payload.hash
+      return addedTorrentId(text, payload.hash)
     },
 
     async list() {

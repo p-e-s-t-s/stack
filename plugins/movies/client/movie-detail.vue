@@ -32,6 +32,10 @@
             {{ searching ? 'Searching…' : 'Choose a release' }}
           </button>
           <button data-testid="edit-movie" @click="editing = !editing">Edit</button>
+          <button @click="router.push(`/import?mediaId=${movie.id}`)">Rescan files</button>
+          <button @click="router.push(`/import?mediaId=${movie.id}&mode=repair`)">
+            Repair files
+          </button>
           <button :disabled="busy === 'refresh'" @click="refresh">Refresh</button>
           <button class="danger" @click="remove">Remove</button>
         </div>
@@ -82,7 +86,7 @@
       <template v-if="movie.download">
         <div class="mp-row">
           <strong>{{ downloadLabel(movie.download.state) }}</strong>
-          <span class="mp-muted">{{ (movie.download.progress * 100).toFixed(0) }}%</span>
+          <span class="mp-muted">{{ downloadPercent(movie.download.progress) }}%</span>
         </div>
         <div class="mp-progress" style="margin-top: 8px">
           <div :style="{ width: `${movie.download.progress * 100}%` }" />
@@ -172,6 +176,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import type { MoviesData, ReleaseRow } from '../src/console'
+import { downloadPercent } from '@magpiejs/console-kit'
+import DownloadProgress from '@magpiejs/console-kit/DownloadProgress.vue'
 import { downloadLabel, gb, movieStatus } from './status'
 
 const data = useRpc<MoviesData>()
