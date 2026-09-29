@@ -32,7 +32,7 @@
               <div class="mp-row progress-head">
                 <span class="mp-badge" :class="badge(g.state)">{{ label(g.state) }}</span>
                 <span class="mp-muted mp-small">
-                  {{ g.state === 'downloading' ? `${Math.floor(g.progress * 100)}%` : '' }}
+                  {{ downloadPercent(g.progress) }}%
                   {{ eta(g.etaSeconds) }}
                 </span>
               </div>
@@ -43,6 +43,13 @@
               <div class="mp-muted mp-small">{{ g.client }}</div>
             </td>
             <td class="actions">
+              <button
+                v-if="g.state === 'import_failed'"
+                class="small"
+                @click="router.push(`/import?grabId=${g.id}`)"
+              >
+                Repair import
+              </button>
               <button
                 class="small"
                 title="Remove from the download client"
@@ -97,6 +104,8 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useRouter, useRpc } from '@cordisjs/client'
+import { downloadPercent } from '@magpiejs/console-kit'
+import DownloadProgress from '@magpiejs/console-kit/DownloadProgress.vue'
 import type { DownloadsData } from '../src/console'
 
 const data = useRpc<DownloadsData>()

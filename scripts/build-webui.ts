@@ -17,5 +17,7 @@ for (const name of readdirSync(plugins)) {
   const dir = join(plugins, name)
   if (!existsSync(join(dir, 'client', 'index.ts'))) continue
   console.log(`building client entry of plugins/${name}`)
-  await build(dir)
+  // Import supplies a manifest hook that also works with the workspace's mixed
+  // Vite versions; disable Cordis's inline manifest setting for that entry.
+  await build(dir, name === 'import' ? { build: { manifest: false } } : {})
 }

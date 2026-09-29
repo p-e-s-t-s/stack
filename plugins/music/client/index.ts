@@ -1,3 +1,4 @@
+import { registerPage } from '@magpiejs/console-kit/navigation'
 import type { Context } from '@cordisjs/client'
 import ArtistList from './artist-list.vue'
 import AddArtist from './add-artist.vue'
@@ -6,7 +7,13 @@ import AlbumDetail from './album-detail.vue'
 import './style.css'
 
 export default function (ctx: Context) {
-  ctx.client.router.page({ path: '/music', name: 'Music', order: 865, component: ArtistList })
+  registerPage(ctx, {
+    navigation: { group: 'library', icon: 'music' },
+    path: '/music',
+    name: 'Music',
+    order: 865,
+    component: ArtistList,
+  })
   // registered before the detail pages so `/music/add` isn't read as an id
   ctx.client.router.page({
     path: '/music/add',

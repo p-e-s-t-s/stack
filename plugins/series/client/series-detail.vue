@@ -35,6 +35,10 @@
             {{ busy === 'search' ? 'Searching…' : 'Search monitored' }}
           </button>
           <button data-testid="edit-series" @click="editing = !editing">Edit</button>
+          <button @click="router.push(`/import?mediaId=${series.id}`)">Rescan files</button>
+          <button @click="router.push(`/import?mediaId=${series.id}&mode=repair`)">
+            Repair files
+          </button>
           <button :disabled="busy === 'refresh'" @click="refresh">
             {{ busy === 'refresh' ? 'Refreshing…' : 'Refresh' }}
           </button>

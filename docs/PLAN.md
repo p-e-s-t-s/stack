@@ -738,6 +738,8 @@ Out of scope: running indexer site definitions ourselves (Cardigann), FlareSolve
 Prowlarr already does both.
 
 ### Phase 7 — Subtitles (Bazarr replacement)
+Detailed implementation plan: [phase-7-subtitles.md](phase-7-subtitles.md).
+
 - `plugins/subtitles`: subtitle profiles (languages, forced, hearing-impaired, cutoff),
   detection of embedded tracks (ffprobe) and external `.srt/.ass` files, "wanted"
   computation per file.
@@ -762,8 +764,13 @@ search and replace works from the UI.
   refs, post-processing status handling).
 - Notifiers: Discord, Telegram, ntfy, generic webhook, email; media server refresh
   (Plex, Jellyfin, Emby) on import.
-- Overseerr/Jellyseerr compatibility: extend the `/api/v3` shim with movie/series
+  Detailed architecture, delivery guarantees, provider scope and acceptance checks:
+  [Notifications and media-server refresh](notifications-media-refresh.md).
+- Seerr-first request-app compatibility (legacy Overseerr/Jellyseerr where practical):
+  extend the `/api/v3` shim with movie/series
   add/lookup, quality profile and root folder listing, as used by those apps.
+  Detailed scope, routing, contracts and acceptance checks:
+  [Request-app compatibility](request-app-compatibility.md).
 - Import lists: TMDB lists, Trakt, IMDb lists, Plex watchlist.
 - Metadata: `metadata-anidb` for anime; `metadata-tvdb` (v4 API, subscriber PIN);
   `mapping-xem` scene numbering; TMDB episode groups for alternate orderings (moved from

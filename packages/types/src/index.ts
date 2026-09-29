@@ -150,9 +150,18 @@ export interface TrackListMetadata {
   }[]
 }
 
+export interface DiscoveryFeed {
+  id: string
+  kind: MediaKind
+  label: string
+  description?: string
+}
+
 export interface MetadataProvider {
   id: string
   kinds: MediaKind[]
+  discoveryFeeds?: DiscoveryFeed[]
+  discover?(feedId: string, region: string): Promise<MetadataSearchResult[]>
   search(query: SearchQuery): Promise<MetadataSearchResult[]>
   getMovie?(externalId: string): Promise<MovieMetadata>
   getSeries?(externalId: string): Promise<SeriesMetadata>
@@ -301,6 +310,8 @@ export interface NotificationEvent {
   body?: string
   data?: Record<string, unknown>
 }
+
+export * from './subtitles'
 
 export interface Notifier {
   id: string

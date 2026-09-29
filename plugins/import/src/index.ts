@@ -14,17 +14,22 @@ import {
   fileSystem,
   findFiles,
   recycle,
-  transfer,
+  placeSafely,
   VIDEO_EXTENSIONS,
 } from './files'
+import { ReviewService } from './review'
+import reviewConsole from './console'
 
 export * from './files'
+export * from './review'
 
 declare module 'cordis' {
   interface Context {
     import: ImportService
   }
   interface Events {
+    'import/adapters'(): void
+    'import/review'(): void
     'import/completed'(item: MediaItem, grab: Grab, details: ImportResult): void
     'import/failed'(item: MediaItem | undefined, grab: Grab, reason: string): void
   }
@@ -77,9 +82,10 @@ export interface ImporterOptions {
 export class ImportError extends Error {}
 
 export class ImportService extends Service {
-  static inject = ['downloads', 'library', 'decision', 'jobs']
+  static inject = ['database', 'downloads', 'library', 'decision', 'jobs']
 
   fs = fileSystem
+  review!: ReviewService
   private importers = new Map<MediaKind, { importer: Importer; options: ImporterOptions }>()
 
   constructor(ctx: Context) {
@@ -87,6 +93,8 @@ export class ImportService extends Service {
   }
 
   [Service.init]() {
+    this.review = new ReviewService(this.ctx)
+    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(reviewConsole, this.review))
     this.ctx.jobs.define(
       'import.download',
       ({ grabId }: { grabId: number }) => this.importGrab(grabId),
@@ -99,6 +107,28 @@ export class ImportService extends Service {
         if (grab.state === 'import_pending') this.enqueue(grab.id)
     })
     this.ctx.jobs.schedule('import.sweep', 'import.sweep', 5 * 60_000)
+    this.ctx.jobs.define(
+      'import.rescan',
+      async () => {
+        for (const item of this.ctx.library.list()) {
+          if (!this.review.kinds().includes(item.kind as 'movie' | 'series')) continue
+          try {
+            const session = await this.review.scan({
+              kind: item.kind as 'movie' | 'series',
+              mode: 'rescan',
+              path: this.ctx.library.folderOf(item),
+              mediaId: item.id,
+            })
+            const preview = await this.review.preview(session.id, session.rows, 'hardlink')
+            await this.review.commit(preview.id)
+          } catch (error) {
+            this.ctx.logger.warn('rescan of %s failed: %s', item.title, (error as Error).message)
+          }
+        }
+      },
+      { maxAttempts: 1 },
+    )
+    this.ctx.jobs.schedule('import.rescan-daily', 'import.rescan', 24 * 60 * 60_000)
   }
 
   /** Sets how downloads for a kind of media are imported, for the caller's lifetime. */
@@ -115,6 +145,12 @@ export class ImportService extends Service {
 
   /** Imports one finished download. Failures mark the grab `import_failed` with the reason. */
   async importGrab(grabId: number) {
+    const grab = this.ctx.downloads.get(grabId)
+    if (!grab) return
+    return this.review.withItemLock(grab.mediaId, () => this.importGrabUnlocked(grabId))
+  }
+
+  private async importGrabUnlocked(grabId: number) {
     const grab = this.ctx.downloads.get(grabId)
     if (!grab || (grab.state !== 'import_pending' && grab.state !== 'import_failed')) return
     const item = this.ctx.library.get(grab.mediaId)
@@ -171,7 +207,7 @@ export class ImportService extends Service {
       place: (source, dest) => {
         // usenet and direct downloads aren't seeded: move them
         const mode = grab.protocol !== 'torrent' ? 'move' : files.useHardlinks ? 'hardlink' : 'copy'
-        return transfer(source, dest, mode, this.fs)
+        return placeSafely(source, dest, mode, files.recycleBin, this.fs)
       },
       recycle: (path) => recycle(path, files.recycleBin, this.fs),
       isUpgrade: (candidate, existing) => {

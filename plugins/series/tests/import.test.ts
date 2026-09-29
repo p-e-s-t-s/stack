@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import HTTP from '@cordisjs/plugin-http'
 import Timer from '@cordisjs/plugin-timer'
 import DatabaseService from '@magpiejs/database'
@@ -98,7 +98,9 @@ function download(title: string, quality: string, files: string[], episodes: num
 const season = () => readdirSync(join(dir, 'tv', 'Test Show (2020)', 'Season 01')).sort()
 const fileOf = () => {
   const files = ctx.series.episodeFiles(seriesId)
-  return ctx.series.episodes(seriesId).map((e) => files.get(e.id)?.path.split('/').pop() ?? '-')
+  return ctx.series
+    .episodes(seriesId)
+    .map((e) => (files.get(e.id) ? basename(files.get(e.id)!.path) : '-'))
 }
 
 describe('episode import', () => {

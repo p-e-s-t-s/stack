@@ -9,6 +9,7 @@ import type { Context } from 'cordis'
 import { cutoffMet } from '@magpiejs/decision'
 import { isAvailable, type Movie, type MoviesService } from './index'
 import type { MinimumAvailability } from './schema'
+import { movieDownloads } from './download-state'
 
 export interface DownloadState {
   state: string
@@ -121,35 +122,12 @@ function summarize(m: Movie): MovieSummary {
 }
 
 export default function console_(ctx: Context, movies: MoviesService) {
-  // live download state per movie, from the downloads plugin's events
-  const downloads = new Map<number, DownloadState>()
-  const ACTIVE = [
-    'grabbed',
-    'queued',
-    'downloading',
-    'paused',
-    'stalled',
-    'import_pending',
-    'importing',
-  ]
-  const track = (grab: { mediaId: number; state: string; progress: number }) => {
-    if (ACTIVE.includes(grab.state))
-      downloads.set(grab.mediaId, { state: grab.state, progress: grab.progress })
-    else downloads.delete(grab.mediaId)
-  }
   ctx.inject(['downloads'], (ctx) => {
-    for (const grab of ctx.downloads.active()) track(grab)
     refresh()
-    ctx.effect(() => () => {
-      downloads.clear()
-      refresh()
-    })
+    ctx.effect(() => () => refresh())
   })
   for (const event of ['downloads/grabbed', 'downloads/updated'] as const) {
-    ctx.on(event, (grab) => {
-      track(grab)
-      refresh()
-    })
+    ctx.on(event, () => refresh())
   }
 
   const setup = (): SetupState => ({
@@ -159,12 +137,15 @@ export default function console_(ctx: Context, movies: MoviesService) {
     client: !!ctx.get('downloads')?.listClients().length,
   })
 
-  const snapshot = () => ({
-    setup: setup(),
-    movies: movies.list().map((m) => ({ ...summarize(m), download: downloads.get(m.id) })),
-    profiles: ctx.decision.profiles('video').map((p) => ({ id: p.id, name: p.name })),
-    rootFolders: ctx.library.rootFolders('movie').map((f) => ({ id: f.id, path: f.path })),
-  })
+  const snapshot = () => {
+    const downloads = movieDownloads(ctx.get('downloads')?.active() ?? [])
+    return {
+      setup: setup(),
+      movies: movies.list().map((m) => ({ ...summarize(m), download: downloads.get(m.id) })),
+      profiles: ctx.decision.profiles('video').map((p) => ({ id: p.id, name: p.name })),
+      rootFolders: ctx.library.rootFolders('movie').map((f) => ({ id: f.id, path: f.path })),
+    }
+  }
   const refresh = ctx.debounce(() => entry.mutate((d) => Object.assign(d, snapshot())), 100)
   for (const event of [
     'library/added',

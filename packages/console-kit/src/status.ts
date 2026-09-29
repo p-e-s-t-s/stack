@@ -29,6 +29,7 @@ export function fileSize(bytes: number) {
 
 /** Labels for a grab's state, everywhere except `downloading` (which also carries a percent). */
 export const DOWNLOAD_LABELS: Record<string, string> = {
+  downloading: 'Downloading',
   grabbed: 'Sent to client',
   queued: 'Queued',
   paused: 'Paused',
@@ -37,11 +38,15 @@ export const DOWNLOAD_LABELS: Record<string, string> = {
   importing: 'Importing',
 }
 
+export function downloadPercent(progress: number) {
+  return Math.floor(Math.min(1, Math.max(0, Number.isFinite(progress) ? progress : 0)) * 100)
+}
+
 /** Badge text and class for an active download, e.g. `Downloading 42%`. */
 export function downloadStatus(state: string, progress: number) {
   const text =
     state === 'downloading'
-      ? `Downloading ${Math.floor(progress * 100)}%`
+      ? `Downloading ${downloadPercent(progress)}%`
       : (DOWNLOAD_LABELS[state] ?? state)
   return { text, class: 'info' }
 }

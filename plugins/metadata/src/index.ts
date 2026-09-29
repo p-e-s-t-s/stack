@@ -38,6 +38,10 @@ export class MetadataService extends Service {
     }, `metadata.register(${provider.id})`)
   }
 
+  discovery() {
+    return [...this.providers.values()].filter((p) => p.discover && p.discoveryFeeds?.length)
+  }
+
   get(id: string) {
     return this.providers.get(id)
   }

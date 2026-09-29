@@ -1,3 +1,4 @@
+import { registerPage } from '@magpiejs/console-kit/navigation'
 import type { Context } from '@cordisjs/client'
 import SeriesList from './series-list.vue'
 import AddSeries from './add-series.vue'
@@ -5,7 +6,13 @@ import SeriesDetail from './series-detail.vue'
 import './style.css'
 
 export default function (ctx: Context) {
-  ctx.client.router.page({ path: '/series', name: 'Series', order: 890, component: SeriesList })
+  registerPage(ctx, {
+    navigation: { group: 'library', icon: 'series' },
+    path: '/series',
+    name: 'Series',
+    order: 890,
+    component: SeriesList,
+  })
   // registered before the detail page so `/series/add` isn't read as a series id
   ctx.client.router.page({
     path: '/series/add',

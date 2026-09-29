@@ -1,3 +1,4 @@
+import { registerPage } from '@magpiejs/console-kit/navigation'
 import type { Context } from '@cordisjs/client'
 import AuthorList from './author-list.vue'
 import AddAuthor from './add-author.vue'
@@ -5,7 +6,13 @@ import AuthorDetail from './author-detail.vue'
 import './style.css'
 
 export default function (ctx: Context) {
-  ctx.client.router.page({ path: '/books', name: 'Books', order: 870, component: AuthorList })
+  registerPage(ctx, {
+    navigation: { group: 'library', icon: 'books' },
+    path: '/books',
+    name: 'Books',
+    order: 870,
+    component: AuthorList,
+  })
   // registered before the detail page so `/books/add` isn't read as an id
   ctx.client.router.page({
     path: '/books/add',

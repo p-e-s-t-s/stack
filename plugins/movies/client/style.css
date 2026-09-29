@@ -12,35 +12,6 @@
   word-break: break-all;
 }
 
-/* setup checklist, shown until every step is done */
-.mv .setup ol {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.mv .setup li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 5px 0;
-}
-.mv .setup .check {
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1.5px solid var(--mp-border);
-  font-size: 11px;
-  flex-shrink: 0;
-  transform: translateY(3px);
-}
-.mv .setup li.done .check {
-  background: var(--mp-ok);
-  border-color: var(--mp-ok);
-  color: #fff;
-}
-.mv .setup li.done > span:nth-child(2) {
-  color: var(--mp-muted);
-  text-decoration: line-through;
+.mv .movie-download-progress {
+  margin-top: 10px;
 }

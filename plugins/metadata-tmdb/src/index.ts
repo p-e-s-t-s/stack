@@ -148,6 +148,59 @@ export function apply(ctx: Context, config: Config) {
   const provider: MetadataProvider = {
     id: 'tmdb',
     kinds: ['movie', 'series'],
+    discoveryFeeds: [
+      {
+        id: 'movie-trending',
+        kind: 'movie',
+        label: 'Trending movies',
+        description: 'Top 10 on TMDB this week.',
+      },
+      { id: 'movie-popular', kind: 'movie', label: 'Popular movies' },
+      { id: 'movie-theaters', kind: 'movie', label: 'In theaters' },
+      {
+        id: 'movie-digital',
+        kind: 'movie',
+        label: 'New on digital',
+        description: 'Digital releases in the last 30 days, including rental and purchase.',
+      },
+      {
+        id: 'series-trending',
+        kind: 'series',
+        label: 'Trending TV',
+        description: 'Top 10 on TMDB this week.',
+      },
+      { id: 'series-popular', kind: 'series', label: 'Popular TV' },
+      { id: 'series-airing', kind: 'series', label: 'On the air' },
+    ],
+    async discover(feedId, region) {
+      const routes: Record<string, string> = {
+        'movie-trending': '/trending/movie/week',
+        'movie-popular': '/movie/popular',
+        'movie-theaters': '/movie/now_playing',
+        'movie-digital': '/discover/movie',
+        'series-trending': '/trending/tv/week',
+        'series-popular': '/tv/popular',
+        'series-airing': '/tv/on_the_air',
+      }
+      const path = routes[feedId]
+      if (!path) throw new Error('Unknown discovery feed')
+      const now = Date.now()
+      const date = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+      const params = {
+        region,
+        include_adult: 'false',
+        ...(feedId === 'movie-digital' && {
+          with_release_type: '4',
+          'release_date.gte': date(now - 30 * 86_400_000),
+          'release_date.lte': date(now),
+          sort_by: 'popularity.desc',
+        }),
+      }
+      const results = feedId.startsWith('series-')
+        ? (await get<{ results: TmdbSeries[] }>(path, params)).results.map(seriesBase)
+        : (await get<{ results: TmdbMovie[] }>(path, params)).results.map(base)
+      return results.slice(0, feedId.endsWith('trending') ? 10 : 20)
+    },
 
     async search(query: SearchQuery) {
       if (query.kind === 'series') {

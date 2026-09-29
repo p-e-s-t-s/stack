@@ -1,8 +1,10 @@
+import { registerPage } from '@magpiejs/console-kit/navigation'
 import type { Context } from '@cordisjs/client'
 import MediaManagement from './media-management.vue'
 
 export default function (ctx: Context) {
-  ctx.client.router.page({
+  registerPage(ctx, {
+    navigation: { group: 'configuration', icon: 'books' },
     path: '/settings/media',
     name: 'Media management',
     order: 90,

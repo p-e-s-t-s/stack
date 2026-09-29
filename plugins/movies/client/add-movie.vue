@@ -87,12 +87,13 @@
 
 <script lang="ts" setup>
 import { reactive, ref, watch } from 'vue'
-import { useRouter, useRpc } from '@cordisjs/client'
+import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import type { MoviesData } from '../src/console'
 
 const data = useRpc<MoviesData>()
 const router = useRouter()
-const term = ref('')
+const route = useRoute()
+const term = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const error = ref('')
 const searching = ref(false)
 const adding = ref(false)
@@ -112,6 +113,17 @@ watch(
     if (!folders.some((f) => f.id === form.rootFolderId)) form.rootFolderId = folders[0]?.id
   },
   { deep: true },
+)
+
+watch(
+  () => route.query.q,
+  (q) => {
+    if (typeof q === 'string' && q.trim()) {
+      term.value = q
+      void search()
+    }
+  },
+  { immediate: true },
 )
 
 async function search() {
