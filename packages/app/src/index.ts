@@ -50,6 +50,9 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/import' },
     { name: '@magpiejs/history' },
     { name: '@magpiejs/subtitles' },
+    // subtitle providers; enable from Settings → Subtitles once they have an API key
+    { name: '@magpiejs/subtitles-opensubtitles', disabled: true, config: { apiKey: '' } },
+    { name: '@magpiejs/subtitles-subdl', disabled: true, config: { apiKey: '' } },
     { name: '@magpiejs/calendar' },
     { name: '@magpiejs/browse' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
