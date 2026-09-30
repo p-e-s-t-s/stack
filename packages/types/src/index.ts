@@ -275,33 +275,6 @@ export interface DownloadClient {
   test(): Promise<TestResult>
 }
 
-// Subtitles
-
-export interface SubtitleQuery {
-  languages: string[]
-  ids?: ExternalIds
-  fileHash?: string
-  releaseName?: string
-  season?: number
-  episode?: number
-}
-
-export interface SubtitleCandidate {
-  providerId: string
-  id: string
-  language: string
-  forced: boolean
-  hearingImpaired: boolean
-  score: number
-  releaseName?: string
-}
-
-export interface SubtitleProvider {
-  id: string
-  search(query: SubtitleQuery): Promise<SubtitleCandidate[]>
-  download(candidate: SubtitleCandidate): Promise<Uint8Array>
-}
-
 // Notifications
 
 export interface NotificationEvent {
@@ -311,10 +284,10 @@ export interface NotificationEvent {
   data?: Record<string, unknown>
 }
 
-export * from './subtitles'
-
 export interface Notifier {
   id: string
   events: string[]
   send(event: NotificationEvent): Promise<void>
 }
+
+export * from './subtitles'

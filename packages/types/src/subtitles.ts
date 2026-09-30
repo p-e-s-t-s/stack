@@ -1,3 +1,5 @@
+import type { ExternalIds } from './index'
+
 export type SubtitleFormat = 'srt' | 'ass' | 'ssa' | 'vtt'
 
 export interface SubtitleRequirement {
@@ -15,7 +17,7 @@ export interface SubtitleSearchContext {
   kind: 'movie' | 'series'
   title: string
   year: number | null
-  ids: Record<string, string>
+  ids: ExternalIds
   releaseName: string | null
   releaseGroup: string | null
   size: number

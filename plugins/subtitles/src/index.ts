@@ -232,7 +232,7 @@ export class SubtitlesService extends Service {
       let result = evaluate(r,profile,rows,!!p?.facts && !p.error,monitored,this.now())
       if (result.state !== 'disabled' && item.kind === 'series' && !query.episodes.length) result = {state:'unknown',reason:'episode identity not yet available'}
       const prior = this.db.select().from(schema.wanted).where(and(eq(schema.wanted.fileId,fileId),eq(schema.wanted.requirementId,r.id))).get()
-      const same = prior?.generation === p?.generation && prior.profileId === profile.id && prior.revision === profile.revision
+      const same = !!prior && prior.generation === p?.generation && prior.profileId === profile.id && prior.revision === profile.revision
       const values = {fileId,requirementId:r.id,profileId:profile.id,revision:profile.revision,generation:p?.generation ?? 'unknown',state:result.state,reason:result.reason,attempts:same ? prior.attempts : 0,nextSearchAt:same ? prior.nextSearchAt : 0}
       if (same && ['missing','upgradeable'].includes(result.state) && prior.nextSearchAt > this.now()) { values.state = prior.state === 'blocked' ? 'blocked' : 'waiting'; values.reason = prior.reason }
       this.db.insert(schema.wanted).values(values).onConflictDoUpdate({target:[schema.wanted.fileId,schema.wanted.requirementId],set:values}).run()
