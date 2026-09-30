@@ -8,3 +8,26 @@
 .mv .movie-download-progress {
   margin-top: 10px;
 }
+
+/* Extra versions: a row each, only shown once a movie has more than one. */
+.mv .version {
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+
+.mv .version .grow {
+  flex: 1;
+}
+
+.mv .add-version {
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.mv .add-version:hover {
+  opacity: 1;
+}

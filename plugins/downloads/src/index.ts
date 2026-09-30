@@ -53,6 +53,8 @@ export interface GrabOptions {
   quality: string
   formatScore: number
   manual?: boolean
+  /** The version of the item this is for (`library_targets`); absent is the primary target. */
+  targetId?: number | null
   /** The parts of the item the release covers (episodes, books, albums…). */
   unitIds?: number[]
 }
@@ -134,6 +136,8 @@ export class DownloadsService extends Service {
       if (!target.mediaId) return
       const units = target.unitIds ?? []
       for (const grab of this.activeFor(target.mediaId)) {
+        // a 4K download in progress doesn't suppress the 1080p one
+        if ((grab.targetId ?? null) !== (target.targetId ?? null)) continue
         if (units.length && !grab.unitIds.some((id) => units.includes(id))) continue
         const rank = rankOf(grab.quality)
         if (rank > qualityRank || (rank === qualityRank && grab.formatScore >= formatScore)) {
@@ -246,6 +250,7 @@ export class DownloadsService extends Service {
       .insert(schema.grabs)
       .values({
         mediaId,
+        targetId: options.targetId ?? null,
         release,
         title: release.title,
         quality: options.quality,

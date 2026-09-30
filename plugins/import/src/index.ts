@@ -179,7 +179,9 @@ export class ImportService extends Service {
 
   private tools(item: MediaItem, grab: Grab, options: ImporterOptions): ImportTools {
     const files = this.ctx.library.fileHandling()
-    const profile = this.ctx.decision.profile(item.profileId)
+    // an extra version is judged by its own profile
+    const target = grab.targetId ? this.ctx.library.target(grab.targetId) : undefined
+    const profile = this.ctx.decision.profile(target?.profileId ?? item.profileId)
     const extensions = new Set(options.extensions ?? VIDEO_EXTENSIONS)
     const video = !options.extensions
     return {

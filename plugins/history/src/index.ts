@@ -41,16 +41,21 @@ export class HistoryService extends Service {
         quality: quality(g.quality),
         indexer: g.release.indexerId,
         manual: g.manual,
+        targetId: g.targetId,
       }),
     )
     this.ctx.on('downloads/failed', (g) =>
-      this.add(g.mediaId, 'download-failed', g.title, { reason: g.error }),
+      this.add(g.mediaId, 'download-failed', g.title, { reason: g.error, targetId: g.targetId }),
     )
     this.ctx.on('import/completed', (item, g, result) =>
-      this.add(item.id, 'imported', g.title, { quality: quality(g.quality), ...result }),
+      this.add(item.id, 'imported', g.title, {
+        quality: quality(g.quality),
+        targetId: g.targetId,
+        ...result,
+      }),
     )
     this.ctx.on('import/failed', (item, g, reason) =>
-      this.add(g.mediaId, 'import-failed', g.title, { reason }),
+      this.add(g.mediaId, 'import-failed', g.title, { reason, targetId: g.targetId }),
     )
     this.ctx.inject(['subtitles'], ctx => {
       ctx.on('subtitles/action', (mediaId, type, detail) => this.add(mediaId, type, String(detail.location ?? 'Subtitles'), detail))

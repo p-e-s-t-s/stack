@@ -4,6 +4,7 @@ import type { Context } from 'cordis'
 import type { Drizzle } from '@magpiejs/database'
 import type { MediaItem, MediaFile } from '@magpiejs/library'
 import type { MetadataSearchResult } from '@magpiejs/types'
+import { profileRanks } from '@magpiejs/decision'
 import { parse } from '@magpiejs/parser'
 import { fileSystem, findFiles, VIDEO_EXTENSIONS, transfer, recycle } from './files'
 import * as schema from './schema'
@@ -30,6 +31,8 @@ export interface ReviewRow {
   episodeKeys?: string[]
   episodeChoices?: { key: string; label: string }[]
   replace: boolean
+  /** The version of the item the file is for (`library_targets`); null/absent is the primary. */
+  targetId?: number | null
   destination?: string
   conflicts?: number[]
   suggestions: (MetadataSearchResult & { libraryId?: number })[]
@@ -59,7 +62,7 @@ export interface FilePlan {
 }
 export type FileSelection = Pick<
   ReviewRow,
-  'source' | 'quality' | 'releaseName' | 'episodeIds' | 'episodeKeys'
+  'source' | 'quality' | 'releaseName' | 'episodeIds' | 'episodeKeys' | 'targetId'
 >
 export interface ReviewAdapter {
   lookup(term: string): Promise<MetadataSearchResult[]>
@@ -249,7 +252,10 @@ export class ReviewService {
         status: 'pending',
         error,
       }
-      if (knownFile) row.episodeIds = adapter.fileEpisodes?.(knownFile.id)
+      if (knownFile) {
+        row.episodeIds = adapter.fileEpisodes?.(knownFile.id)
+        row.targetId = knownFile.targetId
+      } else if (existing) Object.assign(row, this.assignTarget(existing, file.path, quality))
       row.releaseName = knownFile?.releaseName ?? basename(file.path, extname(file.path))
       if (existing) {
         try {
@@ -290,6 +296,34 @@ export class ReviewService {
     session.id = id
     return this.save(session)
   }
+  /**
+   * Which version of an item an unrecorded file is for: by its ` - <Version>` file-name
+   * suffix, otherwise the only version whose profile allows its quality. Several fitting
+   * versions is ambiguous: the row is left for the user to decide instead of guessing.
+   */
+  private assignTarget(
+    item: MediaItem,
+    path: string,
+    quality: string,
+  ): Partial<Pick<ReviewRow, 'targetId' | 'error' | 'selected'>> {
+    const extras = this.ctx.library.targets(item.id)
+    if (!extras.length) return {}
+    const name = basename(path, extname(path)).toLowerCase()
+    const suffixed = extras.filter((t) => name.endsWith(` - ${t.name.toLowerCase()}`))
+    if (suffixed.length === 1) return { targetId: suffixed[0]!.id }
+    const fits = [{ id: null as number | null, profileId: item.profileId }, ...extras].filter(
+      (t) => {
+        const profile = this.ctx.decision.profile(t.profileId)
+        return !!profile && profileRanks(profile).allowed.has(quality)
+      },
+    )
+    if (fits.length === 1) return { targetId: fits[0]!.id }
+    return {
+      targetId: null,
+      selected: false,
+      error: 'this item has several versions: choose which one this file is for',
+    }
+  }
   async preview(
     id: number,
     edits: ReviewRow[],
@@ -317,6 +351,8 @@ export class ReviewService {
         episodeIds: edit.episodeIds,
         episodeKeys: edit.episodeKeys,
         replace: !!edit.replace,
+        // an edit that doesn't mention a version keeps the one the scan assigned
+        targetId: edit.targetId === undefined ? row.targetId : edit.targetId,
         seriesType: edit.seriesType,
         releaseName: edit.releaseName,
       })
@@ -353,7 +389,9 @@ export class ReviewService {
           {
             kind: session.kind === 'movie' ? 'movie' : 'episode',
             mediaId: item?.id,
-            profileId: item?.profileId ?? row.profileId!,
+            profileId:
+              (row.targetId && this.ctx.library.target(row.targetId)?.profileId) ||
+              (item?.profileId ?? row.profileId!),
           },
         ).formatScore
         if (item) {
@@ -426,8 +464,13 @@ export class ReviewService {
     } else {
       const movies = new Set<string>()
       for (const row of session.rows.filter((r) => r.selected && !r.error && r.status !== 'done')) {
-        const key = row.mediaId ? `id:${row.mediaId}` : `tmdb:${row.tmdbId}`
-        if (movies.has(key)) row.error = 'choose one main file per movie'
+        const key = row.mediaId
+          ? `id:${row.mediaId}:${row.targetId ?? 'primary'}`
+          : `tmdb:${row.tmdbId}`
+        if (movies.has(key))
+          row.error = row.targetId
+            ? 'choose one file per version'
+            : 'choose one main file per movie'
         movies.add(key)
       }
     }
@@ -572,6 +615,7 @@ export class ReviewService {
           this.ctx.library.db.transaction(() => {
             const values = {
               mediaId: item.id,
+              targetId: row.targetId ?? null,
               path: relative(folder, dest),
               size: row.size,
               quality: row.quality,

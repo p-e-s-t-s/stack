@@ -1,7 +1,7 @@
 import { profiles } from '@magpiejs/decision/schema'
 import type { Revision } from '@magpiejs/parser'
 import type { ExternalIds, MediaKind } from '@magpiejs/types'
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 export const rootFolders = sqliteTable('library_root_folders', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -50,11 +50,35 @@ export const alternateTitles = sqliteTable(
   (t) => [index('library_alternate_titles_normalized_idx').on(t.normalized)],
 )
 
+/**
+ * An extra version of an item (4K next to 1080p): its own quality profile and file. The
+ * item's own `profile_id` is the primary target and has no row here. All of an item's
+ * files live in the item's folder.
+ */
+export const targets = sqliteTable(
+  'library_targets',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    mediaId: integer('media_id')
+      .notNull()
+      .references(() => mediaItems.id, { onDelete: 'cascade' }),
+    /** Unique per item; used as the file-name suffix. */
+    name: text('name').notNull(),
+    profileId: integer('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'restrict' }),
+    monitored: integer('monitored', { mode: 'boolean' }).notNull().default(true),
+  },
+  (t) => [uniqueIndex('library_targets_media_name_idx').on(t.mediaId, t.name)],
+)
+
 export const mediaFiles = sqliteTable('library_media_files', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   mediaId: integer('media_id')
     .notNull()
     .references(() => mediaItems.id, { onDelete: 'cascade' }),
+  /** The target this file is for; null is the item's primary target. */
+  targetId: integer('target_id').references(() => targets.id, { onDelete: 'restrict' }),
   /** Relative to the item's folder. */
   path: text('path').notNull(),
   size: integer('size').notNull(),
@@ -74,5 +98,6 @@ export const settings = sqliteTable('library_settings', {
 
 export type MediaItem = typeof mediaItems.$inferSelect
 export type NewMediaItem = typeof mediaItems.$inferInsert
+export type Target = typeof targets.$inferSelect
 export type MediaFile = typeof mediaFiles.$inferSelect
 export type RootFolder = typeof rootFolders.$inferSelect

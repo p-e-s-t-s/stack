@@ -2,11 +2,13 @@
 // Searching and downloading are done by other plugins listening to `movies/*` events.
 
 import { rmSync } from 'node:fs'
+import { join } from 'node:path'
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@cordisjs/plugin-timer'
 import type {} from '@magpiejs/api'
 import type {} from '@magpiejs/calendar'
 import type {} from '@magpiejs/downloads'
+import { recycle } from '@magpiejs/import'
 import type {} from '@magpiejs/jobs'
 import { type MediaFile, type MediaItem, renderName } from '@magpiejs/library'
 import type {} from '@magpiejs/metadata'
@@ -31,12 +33,31 @@ declare module 'cordis' {
   }
   interface Events {
     'movies/added'(movie: Movie, options: { search: boolean }): void
+    'movies/target-added'(movie: Movie, target: MovieTarget): void
   }
+}
+
+/**
+ * One version of a movie: its own quality profile and file. The movie's own profile is the
+ * primary target (`id` null); other targets are rows of `library_targets`.
+ */
+export interface MovieTarget {
+  id: number | null
+  /** The file-name suffix; null for the primary target. */
+  name: string | null
+  profileId: number
+  monitored: boolean
+  file?: MediaFile
 }
 
 export interface Movie extends MediaItem {
   details: schema.MovieDetails
+  /** The primary target's file. */
   file?: MediaFile
+  /** Every file, all targets. */
+  files: MediaFile[]
+  /** The primary target first, then the extra versions. */
+  targets: MovieTarget[]
 }
 
 export interface AddMovieOptions {
@@ -96,9 +117,18 @@ export class MoviesService extends Service {
   /** Set while an indexers plugin is loaded. */
   searcher?: MovieSearch
   /** Set while indexers and downloads are loaded (automatic search and grab). */
-  searchAndGrab?: (movieId: number, manual?: boolean) => Promise<{ title: string } | undefined>
+  searchAndGrab?: (
+    movieId: number,
+    manual?: boolean,
+    targetId?: number | null,
+  ) => Promise<{ title: string } | undefined>
   /** Set while a downloads plugin is loaded. */
-  grabber?: (movieId: number, result: SearchResult, manual: boolean) => Promise<unknown>
+  grabber?: (
+    movieId: number,
+    result: SearchResult,
+    manual: boolean,
+    targetId?: number | null,
+  ) => Promise<unknown>
 
   constructor(ctx: Context) {
     super(ctx, 'movies')
@@ -119,11 +149,12 @@ export class MoviesService extends Service {
     this.ctx.inject(['indexers', 'downloads'], (ctx) => void ctx.plugin(automation, this))
     this.ctx.inject(['downloads'], (ctx) => {
       ctx.effect(() => {
-        this.grabber = (movieId, { release, decision }, manual) =>
+        this.grabber = (movieId, { release, decision }, manual, targetId) =>
           ctx.downloads.grab(movieId, release, {
             quality: decision.quality,
             formatScore: decision.formatScore,
             manual,
+            targetId: targetId ?? null,
           })
         return () => (this.grabber = undefined)
       }, 'movies.grabber')
@@ -141,17 +172,17 @@ export class MoviesService extends Service {
   }
 
   /** Grabs a release from the last search of a movie (interactive "Grab"). */
-  async grab(movieId: number, guid: string) {
-    const result = this.searcher?.cached(movieId, guid)
+  async grab(movieId: number, guid: string, targetId?: number | null) {
+    const result = this.searcher?.cached(movieId, guid, targetId)
     if (!result) throw new Error('search results expired; search again')
     if (!this.grabber) throw new Error('no download clients are enabled')
-    return this.grabber(movieId, result, true)
+    return this.grabber(movieId, result, true, targetId)
   }
 
   /** Searches the indexers for a movie; throws if no indexers plugin is loaded. */
-  search(id: number, kind: 'automatic' | 'interactive' = 'automatic') {
+  search(id: number, kind: 'automatic' | 'interactive' = 'automatic', targetId?: number | null) {
     if (!this.searcher) throw new Error('no indexers are enabled')
-    return this.searcher.search(id, kind)
+    return this.searcher.search(id, kind, targetId)
   }
 
   private provider() {
@@ -278,7 +309,92 @@ export class MoviesService extends Service {
       .where(eq(schema.details.mediaId, id))
       .get()
     if (!item || !details) return
-    return { ...item, details, file: this.ctx.library.files(id)[0] }
+    return this.build(item, details)
+  }
+
+  private build(item: MediaItem, details: schema.MovieDetails): Movie {
+    const files = this.ctx.library.files(item.id)
+    const primary = files.find((f) => !f.targetId)
+    return {
+      ...item,
+      details,
+      file: primary,
+      files,
+      targets: [
+        {
+          id: null,
+          name: null,
+          profileId: item.profileId,
+          monitored: item.monitored,
+          file: primary,
+        },
+        ...this.ctx.library.targets(item.id).map((t) => ({
+          id: t.id,
+          name: t.name,
+          profileId: t.profileId,
+          monitored: t.monitored,
+          file: files.find((f) => f.targetId === t.id),
+        })),
+      ],
+    }
+  }
+
+  /** A movie's target by id; `null` or absent is the primary target. */
+  targetOf(movie: Movie, targetId?: number | null) {
+    const target = movie.targets.find((t) => t.id === (targetId ?? null))
+    if (!target) throw new Error('this movie has no such version')
+    return target
+  }
+
+  /** Adds another version of a movie, searched for like the primary one. */
+  addTarget(movieId: number, values: { name: string; profileId: number; monitored?: boolean }) {
+    if (!this.get(movieId)) throw new Error(`movie ${movieId} not found`)
+    if (this.ctx.decision.profile(values.profileId)?.family !== 'video')
+      throw new Error('choose a video quality profile')
+    this.ctx.library.addTarget(movieId, values)
+    const movie = this.get(movieId)!
+    const target = movie.targets[movie.targets.length - 1]!
+    this.ctx.emit('movies/target-added', movie, target)
+    return movie
+  }
+
+  updateTarget(
+    movieId: number,
+    targetId: number,
+    patch: { name?: string; profileId?: number; monitored?: boolean },
+  ) {
+    const movie = this.get(movieId)
+    if (!movie || !this.targetOf(movie, targetId).id)
+      throw new Error('this movie has no such version')
+    if (
+      patch.profileId !== undefined &&
+      this.ctx.decision.profile(patch.profileId)?.family !== 'video'
+    )
+      throw new Error('choose a video quality profile')
+    this.ctx.library.updateTarget(targetId, patch)
+    return this.get(movieId)!
+  }
+
+  /**
+   * Removes a version. Its file is either kept on disk (the record goes, the file stays) or
+   * moved to the recycle bin, as the caller chooses; without a choice a version with a file
+   * is refused.
+   */
+  async removeTarget(movieId: number, targetId: number, files?: 'keep' | 'delete') {
+    const movie = this.get(movieId)
+    if (!movie) throw new Error(`movie ${movieId} not found`)
+    const target = this.targetOf(movie, targetId)
+    if (!target.id) throw new Error('the primary version cannot be removed')
+    const owned = movie.files.filter((f) => f.targetId === targetId)
+    if (owned.length && !files) throw new Error('choose what happens to the version’s files')
+    const folder = this.ctx.library.folderOf(movie)
+    for (const file of owned) {
+      if (files === 'delete')
+        await recycle(join(folder, file.path), this.ctx.library.fileHandling().recycleBin)
+      this.ctx.library.removeFile(file.id)
+    }
+    this.ctx.library.removeTarget(targetId)
+    return this.get(movieId)!
   }
 
   list(): Movie[] {
@@ -292,11 +408,7 @@ export class MoviesService extends Service {
     return this.ctx.library
       .list('movie')
       .filter((item) => details.has(item.id))
-      .map((item) => ({
-        ...item,
-        details: details.get(item.id)!,
-        file: this.ctx.library.files(item.id)[0],
-      }))
+      .map((item) => this.build(item, details.get(item.id)!))
   }
 
   update(

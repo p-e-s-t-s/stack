@@ -8,7 +8,7 @@ import type {} from '@magpiejs/decision'
 import { normalizeTitle } from '@magpiejs/parser'
 import type { MediaKind } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import console_ from './console'
 import * as schema from './schema'
 
@@ -269,7 +269,12 @@ export class LibraryService extends Service {
   remove(id: number) {
     const row = this.get(id)
     if (!row) return
-    this.db.delete(schema.mediaItems).where(eq(schema.mediaItems.id, id)).run()
+    this.db.transaction((tx) => {
+      // files reference targets with `restrict`: they go first
+      tx.delete(schema.mediaFiles).where(eq(schema.mediaFiles.mediaId, id)).run()
+      tx.delete(schema.targets).where(eq(schema.targets.mediaId, id)).run()
+      tx.delete(schema.mediaItems).where(eq(schema.mediaItems.id, id)).run()
+    })
     this.ctx.emit('library/deleted', row)
   }
 
@@ -334,18 +339,33 @@ export class LibraryService extends Service {
 
   // ---- files
 
-  files(mediaId: number) {
+  /**
+   * An item's files. Without `targetId` all of them; with it only that target's (`null` is
+   * the primary target).
+   */
+  files(mediaId: number, targetId?: number | null) {
     return this.db
       .select()
       .from(schema.mediaFiles)
-      .where(eq(schema.mediaFiles.mediaId, mediaId))
+      .where(
+        and(
+          eq(schema.mediaFiles.mediaId, mediaId),
+          targetId === undefined
+            ? undefined
+            : targetId === null
+              ? isNull(schema.mediaFiles.targetId)
+              : eq(schema.mediaFiles.targetId, targetId),
+        ),
+      )
       .all()
   }
 
-  addFile(file: Omit<schema.MediaFile, 'id' | 'addedAt'>) {
+  addFile(
+    file: Omit<schema.MediaFile, 'id' | 'addedAt' | 'targetId'> & { targetId?: number | null },
+  ) {
     const row = this.db
       .insert(schema.mediaFiles)
-      .values({ ...file, addedAt: Date.now() })
+      .values({ ...file, targetId: file.targetId ?? null, addedAt: Date.now() })
       .returning()
       .get()
     this.ctx.emit('library/file-added', this.get(file.mediaId)!, row)
@@ -372,6 +392,83 @@ export class LibraryService extends Service {
     if (!row) throw new Error('file record not found')
     this.ctx.emit('library/file-added', this.get(row.mediaId)!, row)
     return row
+  }
+
+  // ---- targets (extra versions of an item; the item's own profile is the primary target)
+
+  targets(mediaId: number) {
+    return this.db
+      .select()
+      .from(schema.targets)
+      .where(eq(schema.targets.mediaId, mediaId))
+      .orderBy(asc(schema.targets.id))
+      .all()
+  }
+
+  target(id: number) {
+    return this.db.select().from(schema.targets).where(eq(schema.targets.id, id)).get()
+  }
+
+  addTarget(mediaId: number, values: { name: string; profileId: number; monitored?: boolean }) {
+    const item = this.get(mediaId)
+    if (!item) throw new Error(`media item ${mediaId} not found`)
+    const name = cleanFileName(values.name)
+    if (!name) throw new Error('give the version a name')
+    if (this.targets(mediaId).some((t) => t.name.toLowerCase() === name.toLowerCase()))
+      throw new Error(`this item already has a version named "${name}"`)
+    if (!this.ctx.decision.profile(values.profileId)) throw new Error('quality profile not found')
+    const row = this.db
+      .insert(schema.targets)
+      .values({ mediaId, name, profileId: values.profileId, monitored: values.monitored ?? true })
+      .returning()
+      .get()
+    this.ctx.emit('library/updated', item)
+    return row
+  }
+
+  /** The name is used in file names, so it can only change while the target has no files. */
+  updateTarget(id: number, patch: { name?: string; profileId?: number; monitored?: boolean }) {
+    const target = this.target(id)
+    if (!target) throw new Error('version not found')
+    const values: Partial<Pick<schema.Target, 'name' | 'profileId' | 'monitored'>> = {}
+    if (patch.name !== undefined && patch.name !== target.name) {
+      const name = cleanFileName(patch.name)
+      if (!name) throw new Error('give the version a name')
+      if (this.files(target.mediaId, id).length)
+        throw new Error('a version with files cannot be renamed')
+      if (
+        this.targets(target.mediaId).some(
+          (t) => t.id !== id && t.name.toLowerCase() === name.toLowerCase(),
+        )
+      )
+        throw new Error(`this item already has a version named "${name}"`)
+      values.name = name
+    }
+    if (patch.profileId !== undefined) {
+      if (!this.ctx.decision.profile(patch.profileId)) throw new Error('quality profile not found')
+      values.profileId = patch.profileId
+    }
+    if (patch.monitored !== undefined) values.monitored = patch.monitored
+    const row = Object.keys(values).length
+      ? this.db
+          .update(schema.targets)
+          .set(values)
+          .where(eq(schema.targets.id, id))
+          .returning()
+          .get()!
+      : target
+    this.ctx.emit('library/updated', this.get(target.mediaId)!)
+    return row
+  }
+
+  /** Refused while the target still has files: the caller decides what happens to them. */
+  removeTarget(id: number) {
+    const target = this.target(id)
+    if (!target) return
+    if (this.files(target.mediaId, id).length)
+      throw new Error('remove or move the version’s files first')
+    this.db.delete(schema.targets).where(eq(schema.targets.id, id)).run()
+    this.ctx.emit('library/updated', this.get(target.mediaId)!)
   }
 
   // ---- settings

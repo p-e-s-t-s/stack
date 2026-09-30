@@ -6,7 +6,7 @@ import type {} from '@magpiejs/indexers'
 import { normalizeTitle, type ParsedRelease, parse } from '@magpiejs/parser'
 import type { ReleaseInfo } from '@magpiejs/types'
 import type { Context } from 'cordis'
-import type { Movie, MoviesService } from './index'
+import type { Movie, MovieTarget, MoviesService } from './index'
 
 export type FoundRelease = ReleaseInfo & {
   indexerName: string
@@ -20,12 +20,14 @@ export interface SearchResult {
 }
 
 export interface MovieSearch {
+  /** `targetId` picks the version searched for; absent or null is the primary one. */
   search(
     movieId: number,
     kind?: 'automatic' | 'interactive',
+    targetId?: number | null,
   ): Promise<{ results: SearchResult[]; errors: { indexer: string; message: string }[] }>
   /** Last interactive/automatic results, for grabbing by guid. */
-  cached(movieId: number, guid: string): SearchResult | undefined
+  cached(movieId: number, guid: string, targetId?: number | null): SearchResult | undefined
 }
 
 /** Whether a release is for this movie: indexer IDs if present, else title and year. */
@@ -41,28 +43,34 @@ export function matchesMovie(
   return !parsed.year || !movie.year || Math.abs(parsed.year - movie.year) <= 1
 }
 
-export function targetFor(movie: Movie): DecisionTarget {
+/** The decision target for one version of a movie (the primary one by default). */
+export function targetFor(movie: Movie, target?: MovieTarget): DecisionTarget {
+  const version = target ?? movie.targets[0]
+  const file = version ? version.file : movie.file
   return {
     kind: 'movie',
     mediaId: movie.id,
-    profileId: movie.profileId,
+    targetId: version?.id ?? undefined,
+    profileId: version?.profileId ?? movie.profileId,
     runtimeMinutes: movie.details.runtimeMinutes ?? undefined,
     originalLanguage: movie.details.originalLanguage ?? undefined,
-    current: movie.file && {
-      quality: movie.file.quality as never,
-      formatScore: movie.file.formatScore,
-      revision: movie.file.revision,
+    current: file && {
+      quality: file.quality as never,
+      formatScore: file.formatScore,
+      revision: file.revision,
     },
   }
 }
 
 export default function movieSearch(ctx: Context, movies: MoviesService) {
-  const cache = new Map<number, { at: number; results: Map<string, SearchResult> }>()
+  const cache = new Map<string, { at: number; results: Map<string, SearchResult> }>()
+  const key = (movieId: number, targetId?: number | null) => `${movieId}:${targetId ?? 'primary'}`
 
   const api: MovieSearch = {
-    async search(movieId, kind = 'automatic') {
+    async search(movieId, kind = 'automatic', targetId) {
       const movie = movies.get(movieId)
       if (!movie) throw new Error(`movie ${movieId} not found`)
+      const version = movies.targetOf(movie, targetId)
       const outcome = await ctx.indexers.search(
         {
           kind: 'movie',
@@ -72,7 +80,7 @@ export default function movieSearch(ctx: Context, movies: MoviesService) {
         kind,
       )
       const titles = new Set(ctx.library.alternateTitlesOf(movie.id).map(normalizeTitle))
-      const evaluate = ctx.decision.evaluator(targetFor(movie))
+      const evaluate = ctx.decision.evaluator(targetFor(movie, version))
       const seen = new Set<string>()
       const results: SearchResult[] = []
       for (const release of outcome.releases as FoundRelease[]) {
@@ -97,15 +105,15 @@ export default function movieSearch(ctx: Context, movies: MoviesService) {
           Number(b.decision.accepted) - Number(a.decision.accepted) ||
           compareDecisions(a.decision, b.decision),
       )
-      cache.set(movieId, {
+      cache.set(key(movieId, targetId), {
         at: Date.now(),
         results: new Map(results.map((r) => [r.release.guid, r])),
       })
       movies.markSearched(movieId)
       return { results, errors: outcome.errors }
     },
-    cached(movieId, guid) {
-      const entry = cache.get(movieId)
+    cached(movieId, guid, targetId) {
+      const entry = cache.get(key(movieId, targetId))
       if (!entry || Date.now() - entry.at > 60 * 60_000) return
       return entry.results.get(guid)
     },

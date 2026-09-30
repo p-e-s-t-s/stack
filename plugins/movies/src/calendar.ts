@@ -3,7 +3,11 @@
 import { entryState } from '@magpiejs/calendar'
 import type {} from '@magpiejs/decision'
 import type { Context } from 'cordis'
-import type { MoviesService } from './index'
+import type { Movie, MoviesService } from './index'
+
+/** The movie has a file, and so does every monitored extra version. */
+const downloaded = (movie: Movie) =>
+  !!movie.file && movie.targets.every((t) => t.id === null || !t.monitored || t.file)
 
 export default function movieCalendar(ctx: Context, movies: MoviesService) {
   ctx.calendar.source('movie', (from, to, now) =>
@@ -24,7 +28,7 @@ export default function movieCalendar(ctx: Context, movies: MoviesService) {
           link: `/movie/${movie.id}`,
           title: movie.year ? `${movie.title} (${movie.year})` : movie.title,
           subtitle: label,
-          state: entryState(date!, { hasFile: !!movie.file, monitored: movie.monitored }, now),
+          state: entryState(date!, { hasFile: downloaded(movie), monitored: movie.monitored }, now),
           quality: movie.file && ctx.decision.qualityName(movie.file.quality),
         }))
     }),

@@ -30,18 +30,26 @@ export default function movieImport(ctx: Context, movies: MoviesService) {
     },
     plan(item, row) {
       const parsed = parse(row.releaseName ?? basename(row.source, extname(row.source)))
-      const name = renderName(ctx.library.naming('movie').movieFile!, {
-        Title: item.title,
-        Year: item.year ?? undefined,
-        Quality: ctx.decision.qualityName(row.quality),
-        Edition: parsed.edition,
-        Group: parsed.group,
-        Resolution: parsed.resolution,
-        Source: parsed.source,
-      })
+      const targetId = row.targetId ?? null
+      const target = targetId ? ctx.library.target(targetId) : undefined
+      if (targetId && (!target || target.mediaId !== item.id))
+        throw new ImportError('this movie has no such version')
+      // Extra versions are `<folder name> - <version>`: Plex, Jellyfin and Emby all group
+      // files in one folder that start with the folder name and a dash.
+      const name = target
+        ? `${item.folder} - ${target.name}`
+        : renderName(ctx.library.naming('movie').movieFile!, {
+            Title: item.title,
+            Year: item.year ?? undefined,
+            Quality: ctx.decision.qualityName(row.quality),
+            Edition: parsed.edition,
+            Group: parsed.group,
+            Resolution: parsed.resolution,
+            Source: parsed.source,
+          })
       return {
         destination: join(ctx.library.folderOf(item), name + extname(row.source).toLowerCase()),
-        conflicts: ctx.library.files(item.id).map((f) => f.id),
+        conflicts: ctx.library.files(item.id, targetId).map((f) => f.id),
       }
     },
     record() {},
@@ -53,7 +61,11 @@ export default function movieImport(ctx: Context, movies: MoviesService) {
     const video = (await tools.files())[0]!
     const parsed = parse(grab.title)
     const quality = grab.quality
-    const existing = ctx.library.files(item.id)[0]
+    const targetId = grab.targetId ?? null
+    if (targetId && !ctx.library.target(targetId))
+      throw new ImportError('the version this was downloaded for no longer exists')
+    // only this version's file is replaced
+    const existing = ctx.library.files(item.id, targetId)[0]
 
     // it may no longer be an upgrade (another import won, or the profile changed)
     if (
@@ -69,7 +81,7 @@ export default function movieImport(ctx: Context, movies: MoviesService) {
     const folder = ctx.library.folderOf(item)
     const dest = ctx.import.review
       .adapter('movie')
-      .plan(item, { source: video.path, quality, releaseName: grab.title }).destination
+      .plan(item, { source: video.path, quality, releaseName: grab.title, targetId }).destination
 
     const oldPath = existing ? join(folder, existing.path) : undefined
     const method = await tools.place(video.path, dest)
@@ -78,6 +90,7 @@ export default function movieImport(ctx: Context, movies: MoviesService) {
     if (existing) ctx.library.removeFile(existing.id)
     ctx.library.addFile({
       mediaId: item.id,
+      targetId,
       path: relative(folder, dest),
       size: video.size,
       quality,

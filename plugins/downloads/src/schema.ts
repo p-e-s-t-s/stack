@@ -1,4 +1,4 @@
-import { mediaItems } from '@magpiejs/library/schema'
+import { mediaItems, targets } from '@magpiejs/library/schema'
 import type { Protocol, ReleaseInfo } from '@magpiejs/types'
 import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
@@ -32,6 +32,8 @@ export const grabs = sqliteTable(
     mediaId: integer('media_id')
       .notNull()
       .references(() => mediaItems.id, { onDelete: 'cascade' }),
+    /** The version of the item this download is for; null is the primary target. */
+    targetId: integer('target_id').references(() => targets.id, { onDelete: 'cascade' }),
     release: text('release', { mode: 'json' }).$type<ReleaseInfo>().notNull(),
     title: text('title').notNull(),
     quality: text('quality').notNull(),

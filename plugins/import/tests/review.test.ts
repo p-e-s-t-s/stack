@@ -295,3 +295,47 @@ it('queues concurrent imports of one item instead of failing the later one', asy
   // other items aren't held up
   expect(order.indexOf('c end')).toBeLessThan(order.indexOf('a end'))
 })
+it('assigns files in a multi-version folder to their versions and never replaces across them', async () => {
+  const item = await movie()
+  const uhd = ctx.decision.profiles('video').find((p) => p.name === 'Ultra HD')!.id
+  ctx.movies.addTarget(item.id, { name: '4K', profileId: uhd, monitored: false })
+  const target = ctx.library.targets(item.id)[0]!
+  const folder = ctx.library.folderOf(item)
+  file(join(folder, 'Test.Movie.2020.1080p.WEB-DL.mkv'), 'hd')
+  file(join(folder, `${item.folder} - 4K.mkv`), 'uhd')
+  const rescan = async () => {
+    const session = await ctx.import.review.scan({
+      kind: 'movie',
+      mode: 'rescan',
+      path: folder,
+      mediaId: item.id,
+    })
+    const previewed = await ctx.import.review.preview(session.id, session.rows, 'hardlink')
+    return ctx.import.review.commit(previewed.id)
+  }
+  let session = await rescan()
+  expect(session.rows.map((r) => r.error)).toEqual([undefined, undefined])
+  const byTarget = (id: number | null) => ctx.library.files(item.id, id).map((f) => f.path)
+  expect(byTarget(null)).toEqual(['Test.Movie.2020.1080p.WEB-DL.mkv'])
+  expect(byTarget(target.id)).toEqual([`${item.folder} - 4K.mkv`])
+  // scanning again finds both recorded, each in its own version, and keeps them
+  session = await rescan()
+  expect(session.rows.map((r) => r.error)).toEqual([undefined, undefined])
+  expect(ctx.library.files(item.id)).toHaveLength(2)
+  expect(existsSync(join(folder, `${item.folder} - 4K.mkv`))).toBe(true)
+})
+it('flags a file that fits several versions instead of guessing', async () => {
+  const item = await movie()
+  const uhd = ctx.decision.profiles('video').find((p) => p.name === 'Ultra HD')!.id
+  ctx.movies.addTarget(item.id, { name: '4K', profileId: uhd, monitored: false })
+  const folder = ctx.library.folderOf(item)
+  file(join(folder, 'Test.Movie.2020.2160p.WEB-DL.mkv'))
+  const session = await ctx.import.review.scan({
+    kind: 'movie',
+    mode: 'rescan',
+    path: folder,
+    mediaId: item.id,
+  })
+  expect(session.rows[0]).toMatchObject({ selected: false })
+  expect(session.rows[0]!.error).toMatch(/several versions/)
+})

@@ -7,7 +7,7 @@ import type {} from '@magpiejs/downloads'
 import type {} from '@magpiejs/indexers'
 import { normalizeTitle, parse } from '@magpiejs/parser'
 import type { Context } from 'cordis'
-import { isAvailable, type Movie, type MoviesService } from './index'
+import { isAvailable, type Movie, type MoviesService, type MovieTarget } from './index'
 import { type FoundRelease, matchesMovie, targetFor } from './search'
 
 const DAY = 86_400_000
@@ -22,40 +22,76 @@ export default function automation(
   movies: MoviesService,
   config: AutomationConfig = { sweepBatch: 20 },
 ) {
-  /** Missing or below the cutoff. */
-  const needed = (movie: Movie) => {
-    if (!movie.file) return true
-    const profile = ctx.decision.profile(movie.profileId)
-    return !!profile && !cutoffMet(profile, movie.file)
+  /** The version has no file yet or its file is below the profile's cutoff. */
+  const needs = (target: MovieTarget) => {
+    if (!target.file) return true
+    const profile = ctx.decision.profile(target.profileId)
+    return !!profile && !cutoffMet(profile, target.file)
   }
-  /** Monitored, available, and needed. */
-  const wanted = (movie: Movie) => movie.monitored && isAvailable(movie.details) && needed(movie)
+  /** Whether the version is monitored (the primary one follows the movie). */
+  const monitoredTarget = (movie: Movie, target: MovieTarget) =>
+    target.id === null ? movie.monitored : target.monitored
+  /** Monitored versions that are missing or below their cutoff. */
+  const neededTargets = (movie: Movie) =>
+    movie.targets.filter((t) => monitoredTarget(movie, t) && needs(t))
+  /** Monitored, available, and some version is needed. */
+  const wanted = (movie: Movie) =>
+    movie.monitored && isAvailable(movie.details) && neededTargets(movie).length > 0
 
   /**
-   * Searches a movie and grabs the best accepted release. Returns what was grabbed.
+   * Searches a movie and grabs the best accepted release for each version that needs one.
+   * Returns what was grabbed. `targetId` limits it to one version (`null` is the primary).
    * `manual` (the Search now button) also searches unmonitored and unreleased movies.
    */
-  async function searchAndGrab(movieId: number, manual = false) {
+  async function searchAndGrab(movieId: number, manual = false, targetId?: number | null) {
     const movie = movies.get(movieId)
-    if (!movie || !(manual ? needed(movie) : wanted(movie))) return
-    const { results } = await movies.search(movieId, 'automatic')
-    const best = results.find((r) => r.decision.accepted)
-    if (!best) {
-      ctx.logger.info('no acceptable release found for %s', movie.title)
-      return
+    if (!movie) return
+    if (!manual && !(movie.monitored && isAvailable(movie.details))) return
+    const candidates = (
+      targetId === undefined ? movie.targets : [movies.targetOf(movie, targetId)]
+    ).filter((t) => needs(t) && (manual || monitoredTarget(movie, t)))
+    const grabbed: string[] = []
+    // a release that is moved into place (usenet) can only serve one version
+    const moved = new Set<string>()
+    for (const target of candidates) {
+      const { results } = await movies.search(movieId, 'automatic', target.id)
+      const best = results.find(
+        (r) =>
+          r.decision.accepted && !(r.release.protocol !== 'torrent' && moved.has(r.release.guid)),
+      )
+      if (!best) {
+        ctx.logger.info(
+          'no acceptable release found for %s%s',
+          movie.title,
+          target.name ? ` (${target.name})` : '',
+        )
+        continue
+      }
+      await ctx.downloads.grab(movieId, best.release, {
+        quality: best.decision.quality,
+        formatScore: best.decision.formatScore,
+        targetId: target.id,
+      })
+      moved.add(best.release.guid)
+      grabbed.push(best.release.title)
     }
-    return ctx.downloads.grab(movieId, best.release, {
-      quality: best.decision.quality,
-      formatScore: best.decision.formatScore,
-    })
+    return grabbed.length ? { title: grabbed.join(', ') } : undefined
   }
 
-  const enqueue = (movieId: number) =>
-    ctx.jobs.enqueue('movies.search', { movieId }, { dedupeKey: `movies.search:${movieId}` })
+  /** `targetId` undefined searches every version that needs a release. */
+  const enqueue = (movieId: number, targetId?: number | null) =>
+    ctx.jobs.enqueue(
+      'movies.search',
+      targetId === undefined ? { movieId } : { movieId, targetId },
+      {
+        dedupeKey: `movies.search:${movieId}:${targetId === undefined ? 'all' : (targetId ?? 'primary')}`,
+      },
+    )
 
   ctx.jobs.define(
     'movies.search',
-    ({ movieId }: { movieId: number }) => searchAndGrab(movieId).then(() => {}),
+    ({ movieId, targetId }: { movieId: number; targetId?: number | null }) =>
+      searchAndGrab(movieId, false, targetId).then(() => {}),
     {
       maxAttempts: 3,
       retryDelayMs: 5 * 60_000,
@@ -66,9 +102,14 @@ export default function automation(
     if (options.search) enqueue(movie.id)
   })
 
-  // a failed download is blocklisted by the downloads plugin; look for the next best release
+  ctx.on('movies/target-added', (movie, target) => {
+    if (target.monitored) enqueue(movie.id, target.id)
+  })
+
+  // a failed download is blocklisted by the downloads plugin (for every version); look for
+  // the next best release for the version it was for
   ctx.on('downloads/failed', (grab) => {
-    if (movies.get(grab.mediaId)) enqueue(grab.mediaId)
+    if (movies.get(grab.mediaId)) enqueue(grab.mediaId, grab.targetId ?? null)
   })
 
   ctx.jobs.define('movies.wanted', () => {
@@ -83,10 +124,13 @@ export default function automation(
   })
   ctx.jobs.schedule('movies.wanted', 'movies.wanted', DAY)
 
-  // RSS: match each new release to wanted movies, grab the best one per movie
+  // RSS: match each new release to the wanted versions of each movie, grab the best per version
   ctx.on('indexers/rss', async (releases) => {
-    const best = new Map<number, { release: FoundRelease; decision: Decision }>()
-    const evaluators = new Map<number, ReturnType<typeof ctx.decision.evaluator>>()
+    const best = new Map<
+      string,
+      { movieId: number; targetId: number | null; release: FoundRelease; decision: Decision }
+    >()
+    const evaluators = new Map<string, ReturnType<typeof ctx.decision.evaluator>>()
     for (const release of releases as FoundRelease[]) {
       const parsed = parse(release.title)
       if (parsed.kind !== 'movie') continue
@@ -95,22 +139,29 @@ export default function automation(
         if (!wanted(movie)) continue
         const titles = new Set(ctx.library.alternateTitlesOf(movie.id).map(normalizeTitle))
         if (!matchesMovie(movie, release, parsed, titles)) continue
-        let evaluate = evaluators.get(movie.id)
-        if (!evaluate)
-          evaluators.set(movie.id, (evaluate = ctx.decision.evaluator(targetFor(movie))))
-        const decision = evaluate({ info: release, parsed })
-        if (!decision.accepted) continue
-        const current = best.get(movie.id)
-        if (!current || compareDecisions(decision, current.decision) < 0)
-          best.set(movie.id, { release, decision })
+        for (const target of neededTargets(movie)) {
+          const key = `${movie.id}:${target.id ?? 'primary'}`
+          let evaluate = evaluators.get(key)
+          if (!evaluate)
+            evaluators.set(key, (evaluate = ctx.decision.evaluator(targetFor(movie, target))))
+          const decision = evaluate({ info: release, parsed })
+          if (!decision.accepted) continue
+          const current = best.get(key)
+          if (!current || compareDecisions(decision, current.decision) < 0)
+            best.set(key, { movieId: movie.id, targetId: target.id, release, decision })
+        }
       }
     }
-    for (const [movieId, { release, decision }] of best) {
+    const moved = new Set<string>()
+    for (const { movieId, targetId, release, decision } of best.values()) {
+      if (release.protocol !== 'torrent' && moved.has(release.guid)) continue
       try {
         await ctx.downloads.grab(movieId, release, {
           quality: decision.quality,
           formatScore: decision.formatScore,
+          targetId,
         })
+        moved.add(release.guid)
       } catch (error) {
         ctx.logger.warn('could not grab %s from RSS: %s', release.title, error)
       }

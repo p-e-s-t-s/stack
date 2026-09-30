@@ -8,6 +8,28 @@ this for years ("one file per movie"); Magpie's schema already allows it.
 logic and season-pack handling; the schema below is designed so series need no further
 migration.
 
+## Status
+
+Built (movies): steps 1–7 of §5. Not built: step 8 (shared-release import, default targets)
+and the series phase (§7). Differences from the plan below:
+
+- **Naming:** no `{Target}` token. A non-primary file is always `<item.folder> - <name>`
+  (`movies/src/import.ts`), which is what all three servers group; the primary file keeps
+  the user's movie-file template. Emby documents `-` straight after the folder name, so
+  a default primary name such as `Movie (2020) [WEB-DL-1080p].mkv` may not group with the
+  extra versions there: check on a live Emby before relying on it.
+- **Step 1 guard** was not needed: step 6 landed with it, and rescan conflicts are now
+  per target, so a rescan cannot replace another version's file.
+- **Rescan assignment (§3.6):** by ` - <name>` suffix; otherwise the one version whose profile
+  allows the file's quality; several fitting versions is flagged (row unselected, with an
+  error) instead of guessed. The review screen has no version picker yet: a flagged file is
+  assigned to the primary version when the user selects it.
+- **Migrations** were written by hand (`library/0001_targets`, `downloads/0002_grab_targets`):
+  the installed drizzle-kit writes a newer snapshot format than the repo's.
+- **No per-version disk-space projection** yet (§8).
+- REST: `POST/PATCH/DELETE /movies/:id/targets[/:targetId]`, and `targetId` in the body of
+  `POST /movies/:id/search`.
+
 ## 1. What exists
 
 - `library_media_files` (`plugins/library/src/schema.ts`) has `media_id` with **no
@@ -31,13 +53,13 @@ versions found in one folder (§3.5), so targets cannot have their own root fold
   not a row. This avoids a second source of truth and needs no data migration.
 - New table owned by `library`, `library_targets`:
 
-| Column           | Meaning                                                          |
-| ---------------- | ---------------------------------------------------------------- |
-| `id`             |                                                                  |
-| `media_id`       | FK `library_media_items`, cascade                                |
-| `name`           | "4K", "Kids cut", "Mobile" (unique per item; used in file names) |
-| `profile_id`     | FK `decision` profiles, restrict                                 |
-| `monitored`      | can be paused independently                                      |
+| Column       | Meaning                                                          |
+| ------------ | ---------------------------------------------------------------- |
+| `id`         |                                                                  |
+| `media_id`   | FK `library_media_items`, cascade                                |
+| `name`       | "4K", "Kids cut", "Mobile" (unique per item; used in file names) |
+| `profile_id` | FK `decision` profiles, restrict                                 |
+| `monitored`  | can be paused independently                                      |
 
 - `library_media_files` gains `target_id` (FK `library_targets`, `restrict`).
   `null` means the primary target.
@@ -83,8 +105,7 @@ its release also passes another wanted target's decision, import places the file
 - Non-primary targets get a file-name suffix so media servers treat the files as versions:
   `Movie (2020)/Movie (2020) - 4K.mkv` (the suffix convention Plex, Jellyfin and Emby read;
   verified in §3.5).
-  Add a `{Target}` token to the naming template (`library/src/index.ts` `renderName`), with
-  the default template appending ` - {Target}` only for non-primary targets.
+  Extra versions are named `<item.folder> - <name>` (see Status: no `{Target}` token).
 - All targets land in the item's folder, so `library_media_files.path` stays relative to
   `library.folderOf(item)` and no per-target folder resolution is needed.
 - Hardlinks: the download may live on a different filesystem from the library; the
@@ -112,12 +133,12 @@ item's folder after import, which covers every version. Checked against the serv
 (2026-09-30):
 
 - **Jellyfin:** each version file name must begin exactly with the folder name (including
-  year and any provider ID such as `[imdbid-tt…]`), then a separator (` - `, `.`, `_` or
+  year and any provider ID such as `[imdbid-tt…]`), then a separator (`-`, `.`, `_` or
   brackets; spaces optional), then a label. A mismatch makes them separate items. Sorted
   alphabetically except resolutions, which sort descending.
   [Jellyfin docs](https://jellyfin.org/docs/general/server/media/movies/)
 - **Emby:** all versions in one movie folder, each beginning with the folder name followed
-  by ` - `; the text after the dash is shown in the client. At most 8 versions are listed.
+  by `-`; the text after the dash is shown in the client. At most 8 versions are listed.
   [Emby docs](https://emby.media/support/articles/Movie-Naming.html)
 - **Plex:** `MovieName (Release Year) - ArbitraryText.ext` in the movie's folder, e.g.
   `Pulp Fiction (1994)/Pulp Fiction (1994) - 1080p.mkv`. The text after the dash is for
@@ -132,7 +153,7 @@ Consequences for naming:
 - The default template must render `<folder name> - {Target}`: the prefix has to equal the
   folder name character for character, or Jellyfin splits the movie. If users customize
   the file-name template away from the folder name, warn when targets exist.
-- ` - ` is the one separator all three accept. Target names must not contain path
+- `-` is the one separator all three accept. Target names must not contain path
   separators or characters the naming code strips.
 - The primary file (no suffix) is the folder name alone, which all three accept as one
   of the versions.

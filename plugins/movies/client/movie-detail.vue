@@ -28,7 +28,7 @@
           >
             {{ busy === 'search-now' ? 'Searching…' : 'Search now' }}
           </button>
-          <button data-testid="interactive-search" :disabled="searching" @click="search">
+          <button data-testid="interactive-search" :disabled="searching" @click="search()">
             {{ searching ? 'Searching…' : 'Choose a release' }}
           </button>
           <button data-testid="edit-movie" @click="editing = !editing">Edit</button>
@@ -106,8 +106,54 @@
       <p class="mp-muted mp-small mp-folder">{{ folder }}</p>
     </div>
 
+    <!-- Versions: nothing here until a second version exists or is being added. -->
+    <div v-if="movie.versions.length" class="mp-card versions" data-testid="versions">
+      <div v-for="v in movie.versions" :key="v.id" class="mp-row version">
+        <strong>{{ v.name }}</strong>
+        <span class="mp-muted mp-small">{{ profileNameOf(v.profileId) }}</span>
+        <span v-if="v.download" class="mp-badge info">
+          {{ downloadLabel(v.download.state) }} {{ downloadPercent(v.download.progress) }}%
+        </span>
+        <template v-else-if="v.file">
+          <span class="mono">{{ v.file.path }}</span>
+          <span class="mp-badge">{{ v.file.quality }}</span>
+          <span class="mp-muted">{{ gb(v.file.size) }}</span>
+        </template>
+        <span v-else class="mp-badge bad">{{ v.monitored ? 'Missing' : 'Not monitored' }}</span>
+        <span class="grow" />
+        <button :disabled="busy === `v${v.id}`" @click="searchVersion(v.id)">Search</button>
+        <button :disabled="searching" @click="search(v.id)">Choose a release</button>
+        <button @click="updateVersion(v.id, { monitored: !v.monitored })">
+          {{ v.monitored ? 'Pause' : 'Monitor' }}
+        </button>
+        <button class="danger" @click="removeVersion(v)">Remove</button>
+      </div>
+    </div>
+    <div v-if="addingVersion" class="mp-card mp-edit" data-testid="add-version-form">
+      <div class="mp-field">
+        <label>Name</label>
+        <input v-model="versionName" placeholder="4K" data-testid="version-name" />
+        <span class="mp-help">Used in the file name, so media servers show it as a version.</span>
+      </div>
+      <div class="mp-field">
+        <label>Quality profile</label>
+        <select v-model="versionProfile" data-testid="version-profile">
+          <option v-for="p in data.profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
+        </select>
+      </div>
+      <div class="mp-row">
+        <button class="primary" :disabled="!versionName.trim()" @click="addVersion">Add</button>
+        <button @click="addingVersion = false">Cancel</button>
+      </div>
+    </div>
+    <button v-else class="link add-version" data-testid="add-version" @click="startAddVersion">
+      + Add version
+    </button>
+
     <template v-if="results || searchError">
-      <h2>Releases</h2>
+      <h2>
+        Releases<template v-if="searchedVersion"> for {{ searchedVersion.name }}</template>
+      </h2>
       <p v-if="searchError" class="mp-error">{{ searchError }}</p>
       <p v-for="e in indexerErrors" :key="e.indexer" class="mp-error mp-small">
         {{ e.indexer }}: {{ e.message }}
@@ -178,7 +224,7 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
-import type { MoviesData, ReleaseRow } from '../src/console'
+import type { MovieSummary, MoviesData, ReleaseRow } from '../src/console'
 import type { MinimumAvailability } from '../src/schema'
 import { downloadPercent } from '@magpiejs/console-kit'
 import DownloadProgress from '@magpiejs/console-kit/DownloadProgress.vue'
@@ -202,14 +248,26 @@ const searchError = ref('')
 const searching = ref(false)
 watch(
   () => route.params.id,
-  () => (results.value = undefined),
+  () => {
+    results.value = undefined
+    searchTargetId.value = undefined
+    addingVersion.value = false
+  },
 )
 
-async function search() {
+/** The version the shown releases are for; undefined is the movie's own. */
+const searchTargetId = ref<number>()
+const searchedVersion = computed(() =>
+  movie.value?.versions.find((v) => v.id === searchTargetId.value),
+)
+
+async function search(targetId?: number) {
   searching.value = true
   searchError.value = ''
+  searchTargetId.value = targetId
+  grabbed.value = new Set()
   try {
-    const outcome = await data.value.search(movie.value!.id)
+    const outcome = await data.value.search(movie.value!.id, targetId)
     results.value = outcome.results
     indexerErrors.value = outcome.errors
   } catch (e) {
@@ -225,7 +283,7 @@ async function grab(r: ReleaseRow) {
   grabbing.value = r.guid
   searchError.value = ''
   try {
-    await data.value.grab(movie.value!.id, r.guid)
+    await data.value.grab(movie.value!.id, r.guid, searchTargetId.value)
     grabbed.value.add(r.guid)
   } catch (e) {
     searchError.value = (e as Error).message
@@ -235,6 +293,7 @@ async function grab(r: ReleaseRow) {
 }
 
 const status = computed(() => movieStatus(movie.value!))
+const profileNameOf = (id: number) => data.value.profiles.find((p) => p.id === id)?.name ?? ''
 const profileName = computed(
   () => data.value.profiles.find((p) => p.id === movie.value?.profileId)?.name ?? '',
 )
@@ -267,6 +326,55 @@ async function searchNow() {
     say((e as Error).message, true)
   } finally {
     busy.value = undefined
+  }
+}
+
+const addingVersion = ref(false)
+const versionName = ref('')
+const versionProfile = ref<number>()
+function startAddVersion() {
+  versionName.value = ''
+  versionProfile.value ??= data.value.profiles[0]?.id
+  addingVersion.value = true
+}
+async function addVersion() {
+  try {
+    await data.value.addVersion(movie.value!.id, {
+      name: versionName.value.trim(),
+      profileId: versionProfile.value!,
+    })
+    addingVersion.value = false
+    say('Version added. Magpie will look for it.')
+  } catch (e) {
+    say((e as Error).message, true)
+  }
+}
+async function updateVersion(id: number, patch: { monitored?: boolean }) {
+  try {
+    await data.value.updateVersion(movie.value!.id, id, patch)
+  } catch (e) {
+    say((e as Error).message, true)
+  }
+}
+async function searchVersion(id: number) {
+  busy.value = `v${id}`
+  say('')
+  try {
+    say(await data.value.searchNow(movie.value!.id, id))
+  } catch (e) {
+    say((e as Error).message, true)
+  } finally {
+    busy.value = undefined
+  }
+}
+async function removeVersion(v: MovieSummary['versions'][number]) {
+  if (!confirm(`Remove the ${v.name} version?`)) return
+  let files: 'keep' | 'delete' | undefined
+  if (v.file) files = confirm(`Also move ${v.file.path} to the recycle bin?`) ? 'delete' : 'keep'
+  try {
+    await data.value.removeVersion(movie.value!.id, v.id, files)
+  } catch (e) {
+    say((e as Error).message, true)
   }
 }
 

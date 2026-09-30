@@ -4,7 +4,7 @@ import type { MovieSummary } from '../src/console'
 import { movieDownloads } from '../src/download-state'
 import { movieStatus } from '../client/status'
 const movie = (download?: MovieSummary['download']) =>
-  ({ monitored: true, available: true, download }) as MovieSummary
+  ({ monitored: true, available: true, download, versions: [] }) as unknown as MovieSummary
 describe('movie download presentation', () => {
   it.each(['grabbed', 'queued', 'downloading', 'paused', 'stalled', 'import_pending', 'importing'])(
     'shows %s rather than Missing without a file',

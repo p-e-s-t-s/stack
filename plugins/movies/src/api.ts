@@ -33,10 +33,44 @@ export default function api(ctx: Context, movies: MoviesService) {
     find(params.id!)
     movies.remove(Number(params.id), query.get('deleteFiles') === 'true')
   })
-  ctx.api.post('/movies/:id/search', async ({ params }) => {
+  ctx.api.post('/movies/:id/search', async ({ params, body }) => {
     find(params.id!)
     if (!movies.searchAndGrab) throw new ApiError(409, 'no indexer or download client is set up')
-    const grab = await movies.searchAndGrab(Number(params.id), true)
+    const targetId = body?.targetId === undefined ? undefined : (body.targetId as number | null)
+    const grab = await movies.searchAndGrab(Number(params.id), true, targetId)
     return { grabbed: grab ? grab.title : null }
+  })
+
+  // extra versions (4K next to 1080p): each has its own profile and file
+  const versionId = (movieId: string, targetId: string) => {
+    find(movieId)
+    return Number(targetId)
+  }
+  ctx.api.post('/movies/:id/targets', ({ params, body }) => {
+    find(params.id!)
+    if (!body?.name || !body.profileId) throw new ApiError(400, 'name and profileId are required')
+    return movies.addTarget(Number(params.id), {
+      name: body.name,
+      profileId: body.profileId,
+      monitored: body.monitored,
+    })
+  })
+  ctx.api.patch('/movies/:id/targets/:targetId', ({ params, body }) => {
+    const { name, profileId, monitored } = body ?? {}
+    return movies.updateTarget(Number(params.id), versionId(params.id!, params.targetId!), {
+      name,
+      profileId,
+      monitored,
+    })
+  })
+  ctx.api.delete('/movies/:id/targets/:targetId', async ({ params, query }) => {
+    const files = query.get('files')
+    if (files && files !== 'keep' && files !== 'delete')
+      throw new ApiError(400, 'files must be keep or delete')
+    await movies.removeTarget(
+      Number(params.id),
+      versionId(params.id!, params.targetId!),
+      (files as 'keep' | 'delete' | null) ?? undefined,
+    )
   })
 }

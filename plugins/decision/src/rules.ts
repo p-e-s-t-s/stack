@@ -12,6 +12,8 @@ export interface DecisionTarget {
   kind: string
   /** Library item being searched for (used by rules such as the blocklist). */
   mediaId?: number
+  /** The extra version of the item being searched for; absent is the primary target. */
+  targetId?: number
   profileId: number
   runtimeMinutes?: number
   originalLanguage?: string
