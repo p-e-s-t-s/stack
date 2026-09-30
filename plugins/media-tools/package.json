@@ -1,0 +1,31 @@
+{
+  "name": "@magpiejs/media-tools",
+  "version": "0.0.0",
+  "description": "Where ffprobe and ffmpeg are, and whether they work",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "magpie": {
+    "namespace": "mediatools"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@magpiejs/console-kit": "0.0.0",
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/probe": "0.0.0",
+    "drizzle-orm": "1.0.0-rc.4"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/webui": "0.0.0",
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "1.0.0-rc.4"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "66114eec-099e-415f-85e3-ebff0b90e8c1",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "mediainfo_files",
+      "entityType": "tables"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "file_id",
+      "entityType": "columns",
+      "table": "mediainfo_files"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fingerprint",
+      "entityType": "columns",
+      "table": "mediainfo_files"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "facts",
+      "entityType": "columns",
+      "table": "mediainfo_files"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "error",
+      "entityType": "columns",
+      "table": "mediainfo_files"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "probed_at",
+      "entityType": "columns",
+      "table": "mediainfo_files"
+    },
+    {
+      "columns": [
+        "file_id"
+      ],
+      "tableTo": "library_media_files",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_mediainfo_files_file_id_library_media_files_id_fk",
+      "entityType": "fks",
+      "table": "mediainfo_files"
+    },
+    {
+      "columns": [
+        "file_id"
+      ],
+      "nameExplicit": false,
+      "name": "mediainfo_files_pk",
+      "table": "mediainfo_files",
+      "entityType": "pks"
+    }
+  ],
+  "renames": []
+}
