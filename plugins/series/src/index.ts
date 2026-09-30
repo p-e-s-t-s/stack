@@ -10,7 +10,6 @@ import type {} from '@magpiejs/jobs'
 import { cutoffMet } from '@magpiejs/decision'
 import { type MediaFile, type MediaItem, renderName } from '@magpiejs/library'
 import type {} from '@magpiejs/metadata'
-import type { EpisodeMetadata, SeriesMetadata } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { and, between, eq, inArray } from 'drizzle-orm'
 import seriesCalendar from './calendar'
@@ -20,10 +19,19 @@ import { SERIES_NAMING } from './naming'
 import episodeImport from './import'
 import { grabResult, pickReleases } from '@magpiejs/units'
 import episodeSearch, { type EpisodeResult, type EpisodeSearch } from './search'
+import {
+  detailsFrom,
+  episodeValues,
+  hasAired,
+  initiallyMonitored,
+  today,
+  withAbsoluteNumbers,
+} from './helpers'
 import * as schema from './schema'
 
 export * from './schema'
 export { episodeFileName } from './import'
+export { hasAired, initiallyMonitored, today } from './helpers'
 export { pickReleases } from '@magpiejs/units'
 export {
   episodesFor,
@@ -77,58 +85,6 @@ export interface AddSeriesOptions {
 }
 
 const DAY = 86_400_000
-
-/** Today's date as `YYYY-MM-DD` (air dates have no time of day). */
-export const today = (now = Date.now()) => new Date(now).toISOString().slice(0, 10)
-
-export const hasAired = (episode: { airDate: string | null }, now = Date.now()) =>
-  !!episode.airDate && episode.airDate <= today(now)
-
-function detailsFrom(meta: SeriesMetadata) {
-  return {
-    tmdbId: Number(meta.ids.tmdb),
-    tvdbId: meta.ids.tvdb ? Number(meta.ids.tvdb) : null,
-    imdbId: meta.ids.imdb ?? null,
-    status: meta.status ?? null,
-    network: meta.network ?? null,
-    runtimeMinutes: meta.runtimeMinutes ?? null,
-    originalLanguage: meta.originalLanguage ?? null,
-    backdropUrl: meta.backdropUrl ?? null,
-    genres: meta.genres ?? null,
-    firstAired: meta.firstAired ?? null,
-  }
-}
-
-/** Absolute numbers across regular seasons, for providers that don't give them. */
-function withAbsoluteNumbers(episodes: EpisodeMetadata[]) {
-  const regular = episodes
-    .filter((e) => e.season > 0)
-    .sort((a, b) => a.season - b.season || a.number - b.number)
-  const absolute = new Map(regular.map((e, i) => [e, e.absoluteNumber ?? i + 1]))
-  return episodes.map((e) => ({ ...e, absoluteNumber: absolute.get(e) }))
-}
-
-/** Whether an episode starts monitored, for a monitoring choice made when adding. */
-export function initiallyMonitored(
-  episode: { season: number; airDate?: string | null },
-  option: schema.MonitorOption,
-  seasons: { first?: number; latest?: number },
-  now = Date.now(),
-) {
-  switch (option) {
-    case 'all':
-    case 'missing':
-      return true
-    case 'future':
-      return !episode.airDate || episode.airDate > today(now)
-    case 'first':
-      return episode.season === seasons.first
-    case 'latest':
-      return episode.season === seasons.latest
-    case 'none':
-      return false
-  }
-}
 
 export class SeriesService extends Service {
   static inject = ['database', 'library', 'metadata', 'jobs', 'decision', 'timer']
@@ -535,7 +491,12 @@ export class SeriesService extends Service {
         tx.insert(schema.episodeFiles).values({ fileId, episodeId }).run()
       }
     })
-    for (const id of new Set(episodeIds.map(id => this.episode(id)?.mediaId).filter((id): id is number => id !== undefined))) this.ctx.emit('series/episodes', id)
+    for (const id of new Set(
+      episodeIds
+        .map((id) => this.episode(id)?.mediaId)
+        .filter((id): id is number => id !== undefined),
+    ))
+      this.ctx.emit('series/episodes', id)
   }
 
   replaceFileLinks(fileId: number, episodeIds: number[]) {
@@ -544,7 +505,12 @@ export class SeriesService extends Service {
       this.db.delete(schema.episodeFiles).where(eq(schema.episodeFiles.episodeId, episodeId)).run()
       this.db.insert(schema.episodeFiles).values({ fileId, episodeId }).run()
     }
-    for (const id of new Set(episodeIds.map(id => this.episode(id)?.mediaId).filter((id): id is number => id !== undefined))) this.ctx.emit('series/episodes', id)
+    for (const id of new Set(
+      episodeIds
+        .map((id) => this.episode(id)?.mediaId)
+        .filter((id): id is number => id !== undefined),
+    ))
+      this.ctx.emit('series/episodes', id)
   }
 
   update(
@@ -621,18 +587,6 @@ export class SeriesService extends Service {
     if (!series) return
     if (deleteFiles) rmSync(this.ctx.library.folderOf(series), { recursive: true, force: true })
     this.ctx.library.remove(id)
-  }
-}
-
-function episodeValues(e: EpisodeMetadata & { absoluteNumber?: number }) {
-  return {
-    season: e.season,
-    number: e.number,
-    absoluteNumber: e.absoluteNumber ?? null,
-    title: e.title ?? null,
-    overview: e.overview ?? null,
-    airDate: e.airDate ?? null,
-    runtimeMinutes: e.runtimeMinutes ?? null,
   }
 }
 
