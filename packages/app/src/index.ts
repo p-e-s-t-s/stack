@@ -51,6 +51,8 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/history' },
     // messages to webhooks, Discord, …; destinations are added in Settings → Notifications
     { name: '@magpiejs/notifications' },
+    // tells Plex/Jellyfin/Emby about new files; servers are added in Settings → Media servers
+    { name: '@magpiejs/media-servers' },
     // ffprobe/ffmpeg location, and what is inside each library file
     { name: '@magpiejs/media-tools' },
     { name: '@magpiejs/mediainfo' },
