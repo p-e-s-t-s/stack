@@ -176,3 +176,10 @@ without any warn/reject tuning.
   seconds of media.
 - **Reporting back to indexer/group quality:** counting rejections per indexer or release
   group could feed decision scoring later; out of scope here.
+
+## 7. Related
+
+[Media info](media-info.md) stores the probe facts for library files, shows them on movie
+and episode pages, and optionally feeds them to subtitles and the decision engine. It
+reuses this plan's `@magpiejs/probe` and `media-tools`, and accepts `verify`'s facts for
+hardlinked imports instead of probing twice.
