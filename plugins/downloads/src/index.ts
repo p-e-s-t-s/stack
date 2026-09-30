@@ -419,14 +419,18 @@ export class DownloadsService extends Service {
   }
 
   /** Removes a grab from its client, optionally blocklisting the release. */
-  async remove(id: number, options: { deleteData?: boolean; blocklist?: boolean } = {}) {
+  async remove(
+    id: number,
+    options: { deleteData?: boolean; blocklist?: boolean; reason?: string } = {},
+  ) {
     const grab = this.get(id)
     if (!grab) return
     const entry = this.clients.get(grab.clientId)
     if (entry && !TERMINAL.includes(grab.state))
       await entry.client.remove(grab.downloadId, !!options.deleteData)
-    if (options.blocklist) this.block(grab.mediaId, grab.release, 'removed by you')
-    const removed = this.setState(id, 'removed')
+    if (options.blocklist)
+      this.block(grab.mediaId, grab.release, options.reason ?? 'removed by you')
+    const removed = this.setState(id, 'removed', options.reason)
     if (options.blocklist && removed) this.ctx.emit('downloads/failed', removed)
   }
 

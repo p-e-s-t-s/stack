@@ -52,8 +52,13 @@ export class HistoryService extends Service {
     this.ctx.on('import/failed', (item, g, reason) =>
       this.add(g.mediaId, 'import-failed', g.title, { reason }),
     )
-    this.ctx.inject(['subtitles'], ctx => {
-      ctx.on('subtitles/action', (mediaId, type, detail) => this.add(mediaId, type, String(detail.location ?? 'Subtitles'), detail))
+    this.ctx.on('import/rejected', (item, g, reason, detail) =>
+      this.add(item.id, 'import-rejected', g.title, { reason, detail }),
+    )
+    this.ctx.inject(['subtitles'], (ctx) => {
+      ctx.on('subtitles/action', (mediaId, type, detail) =>
+        this.add(mediaId, type, String(detail.location ?? 'Subtitles'), detail),
+      )
     })
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
   }

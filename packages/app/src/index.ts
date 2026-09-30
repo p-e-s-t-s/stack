@@ -52,6 +52,8 @@ export function defaultConfig(options: StartOptions) {
     // ffprobe/ffmpeg location, and what is inside each library file
     { name: '@magpiejs/media-tools' },
     { name: '@magpiejs/mediainfo' },
+    // rejects fake, corrupt and malicious downloads before they are imported
+    { name: '@magpiejs/verify' },
     { name: '@magpiejs/subtitles' },
     { name: '@magpiejs/calendar' },
     { name: '@magpiejs/browse' },

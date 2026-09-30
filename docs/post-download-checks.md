@@ -4,6 +4,14 @@ Not a phase; a plan for verifying a finished download before it enters the libra
 fake, corrupt, mislabelled or malicious releases are rejected and the next-best release is
 tried, instead of landing in the library and being noticed weeks later.
 
+## Status
+
+**Built:** `@magpiejs/media-tools`, `@magpiejs/probe` (1a, 1b), `@magpiejs/verify` with all
+nine checks except `decode` (2, 3, 5), the import guard and reject path (4). **Not built:**
+the console UI (6: queue badge, Settings → Import checks, test-a-file box; the policy is
+set with `ctx.verify.save()` for now) and the `decode` deep check (7). How it differs from
+the design below is in §8.
+
 ## 1. What exists
 
 - The download monitor moves a grab to `import_pending`; `ImportService.importGrab()`
@@ -148,10 +156,10 @@ the release name, and later a library health scan can reuse the same checks.
 | ----- | ----------------------------------------------------------------------------------------- | ---------------------------------------------- | ---- |
 | 1a ✅ | `media-tools` plugin: paths, detection, health, settings page, seed from subtitles        | `plugins/media-tools`, `subtitles`             | S    |
 | 1b ✅ | `@magpiejs/probe`: extract and extend; subtitles delegates                                | `packages/probe`, `subtitles/src/files.ts`     | M    |
-| 2     | `verify` plugin: registry, results table, settings                                        | `plugins/verify`                               | M    |
-| 3     | No-ffprobe checks: `executable`, `no-media`, `size`                                       | `plugins/verify`                               | S    |
-| 4     | Wrap `tools.files()` in `import`; reject path; `reason` option on `downloads.remove`      | `import`, `downloads`                          | M    |
-| 5     | Probe checks: `container`, `duration`, `resolution`, `codec`, `audio-language`, `bitrate` | `plugins/verify`                               | M    |
+| 2 ✅  | `verify` plugin: registry, results table, settings                                        | `plugins/verify`                               | M    |
+| 3 ✅  | No-ffprobe checks: `executable`, `no-media`, `size`                                       | `plugins/verify`                               | S    |
+| 4 ✅  | Wrap `tools.files()` in `import`; reject path; `reason` option on `downloads.remove`      | `import`, `downloads`                          | M    |
+| 5 ✅  | Probe checks: `container`, `duration`, `resolution`, `codec`, `audio-language`, `bitrate` | `plugins/verify`                               | M    |
 | 6     | UI: queue badge, settings, history                                                        | `downloads/client`, `verify/client`, `history` | M    |
 | 7     | `decode` deep check (opt-in)                                                              | `plugins/verify`                               | S    |
 
@@ -182,6 +190,30 @@ without any warn/reject tuning.
   seconds of media.
 - **Reporting back to indexer/group quality:** counting rejections per indexer or release
   group could feed decision scoring later; out of scope here.
+
+## 8. How it was built
+
+- **`import` stays unaware of `verify`.** It has a guard registry, `ctx.import.guard(fn)`,
+  and `tools.files()` runs the guards once on the first look at the files, before the
+  "no video file found" error so `no-media` can explain it. A guard throws `ImportRejected`,
+  which deletes the download, blocklists the release with the reason, emits
+  `import/rejected` (history records `import-rejected`) and lets the existing
+  `downloads/failed` handlers search again. If the client cannot delete the download, the
+  grab becomes `import_failed` instead of being left importing. `downloads.remove` takes
+  the new `reason` option.
+- **Checks return problems; the policy gives them a severity.** Each check is `off`, `warn` or
+  `reject`, defaults as in §2.4. A manual grab's rejections are recorded as warnings.
+  A check that throws is logged and skipped.
+- **Probe checks only look at video files** (the largest ten of a pack), so audio and book
+  kinds are never failed for having no video stream. A missing ffprobe or a probe timeout
+  skips them; ffprobe exiting with an error is the `container` finding.
+- **Claims come from the parser** (`parse(grab.title)`): `resolution` compares widths (a
+  letterboxed 1080p film is 1920 wide but short), `codec` maps `x265` to `hevc` and so on,
+  `audio-language` runs only when the name carries a language tag, `bitrate` uses a floor per
+  resolution rather than the decision plugin's size definitions.
+- **`duration` needs a runtime and nothing stores one yet.** Kind plugins can supply it with
+  `ctx.verify.runtime(item => minutes)`; until one does, the check does nothing.
+- `verify_results` has no foreign key to the grab, since a rejected grab's record is the point.
 
 ## 7. Related
 
