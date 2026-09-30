@@ -30,14 +30,14 @@ suffix.
   not a row. This avoids a second source of truth and needs no data migration.
 - New table owned by `library`, `library_targets`:
 
-| Column | Meaning |
-| ------ | ------- |
-| `id` | |
-| `media_id` | FK `library_media_items`, cascade |
-| `name` | "4K", "Kids cut", "Mobile" (unique per item; used in file names) |
-| `profile_id` | FK `decision` profiles, restrict |
-| `root_folder_id` | FK `library_root_folders`, nullable (null = the item's root) |
-| `monitored` | can be paused independently |
+| Column           | Meaning                                                          |
+| ---------------- | ---------------------------------------------------------------- |
+| `id`             |                                                                  |
+| `media_id`       | FK `library_media_items`, cascade                                |
+| `name`           | "4K", "Kids cut", "Mobile" (unique per item; used in file names) |
+| `profile_id`     | FK `decision` profiles, restrict                                 |
+| `root_folder_id` | FK `library_root_folders`, nullable (null = the item's root)     |
+| `monitored`      | can be paused independently                                      |
 
 - `library_media_files` gains `target_id` (FK `library_targets`, `restrict`).
   `null` means the primary target.
@@ -124,16 +124,16 @@ a guard.
 
 ## 5. Work breakdown
 
-| # | Step | Files | Size |
-| - | ---- | ----- | ---- |
-| 1 | Guard: rescan refuses folders with several files per item | `import/src/review.ts` | S |
-| 2 | `library_targets`, `media_files.target_id`, `grabs.target_id` migrations; service API (`files(mediaId, targetId)`, `folderOf(item, targetId)`, target CRUD) | `library`, `downloads` | M |
-| 3 | `DecisionTarget.targetId`; `in-queue` rule keyed per target | `decision`, `downloads` | S |
-| 4 | Movies: `neededTargets`, per-target search, RSS, sweep; `Movie.files` replaces `Movie.file` | `movies` | L |
-| 5 | Importer and naming (`{Target}`, per-target replace) | `movies/src/import.ts`, `library` naming | M |
-| 6 | Rescan/manual-import target assignment | `import/src/review.ts`, `movies/src/import.ts` | M |
-| 7 | UI: versions panel, target-aware interactive search | `movies/client`, `console-kit` | M |
-| 8 | Shared-release import (§3.2), default targets | `import`, `movies`, `library` | M |
+| #   | Step                                                                                                                                                        | Files                                          | Size |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---- |
+| 1   | Guard: rescan refuses folders with several files per item                                                                                                   | `import/src/review.ts`                         | S    |
+| 2   | `library_targets`, `media_files.target_id`, `grabs.target_id` migrations; service API (`files(mediaId, targetId)`, `folderOf(item, targetId)`, target CRUD) | `library`, `downloads`                         | M    |
+| 3   | `DecisionTarget.targetId`; `in-queue` rule keyed per target                                                                                                 | `decision`, `downloads`                        | S    |
+| 4   | Movies: `neededTargets`, per-target search, RSS, sweep; `Movie.files` replaces `Movie.file`                                                                 | `movies`                                       | L    |
+| 5   | Importer and naming (`{Target}`, per-target replace)                                                                                                        | `movies/src/import.ts`, `library` naming       | M    |
+| 6   | Rescan/manual-import target assignment                                                                                                                      | `import/src/review.ts`, `movies/src/import.ts` | M    |
+| 7   | UI: versions panel, target-aware interactive search                                                                                                         | `movies/client`, `console-kit`                 | M    |
+| 8   | Shared-release import (§3.2), default targets                                                                                                               | `import`, `movies`, `library`                  | M    |
 
 Steps 1–5 and 7 deliver a working feature. 6 is required before recommending it to anyone
 with an existing library.

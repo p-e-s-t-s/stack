@@ -5,6 +5,36 @@ episode pages, and then (optionally) let the rest of Magpie use it: subtitles re
 the same facts instead of keeping its own copy, and the decision engine scoring the
 **actual file** rather than only what the release name claimed.
 
+## Status
+
+**Built:** `@magpiejs/probe`, `@magpiejs/media-tools`, `@magpiejs/mediainfo` (steps A1, A3, A4)
+and subtitles reading from it (B1, B2). Not built: A2 (needs `verify`), A5 (list filters),
+B3 (drop `facts` in a later release), and all of Phase C.
+
+How it differs from the text below:
+
+- **Series page:** there is no `episode-row` slot. The panel sits in the existing
+  `series-detail` slot, one card per file, with badges for the episodes the file holds
+  (`S01E02`). That needed no change to the series client.
+- **Subtitles keeps its `probes` row** (`generation`, `error`, `scannedAt`): the scan logic
+  and its inventory rows are tied to `generation`, and "scan succeeded" is `row exists and
+no error`. Only the `facts` column is abandoned (no longer written, typed `unknown`); a
+  later migration drops it. Nothing else of subtitles' schema changed.
+- **ffprobe setting moved out of subtitles.** `media-tools` adopts a path that subtitles had
+  saved under its old `tools` setting on first start. The subtitles page now only has the sync
+  engine settings and links to Settings → Media tools.
+- **`@magpiejs/database` reads both drizzle-kit layouts** (`meta/_journal.json` + `<tag>.sql`,
+  and the newer `<timestamp>_<name>/migration.sql` folders). Without this the subtitles plugin,
+  whose migrations use the newer layout, could not start, and `npm run db:generate` produced
+  migrations the runner could not read. `check:ownership` now covers both layouts.
+- **Probing is throttled** to two files at a time inside the plugin, on top of the job queue's
+  own limit, and a file that fails to probe is retried after 7 days (or when it changes).
+
+Known issues found on the way, not fixed: `plugins/subtitles`, `subtitles-subdl` and
+`subtitles-opensubtitles` already had about 60 TypeScript errors before this work
+(`SubtitleCandidate` and `SubtitleProvider` in `@magpiejs/types` lack fields the plugins use),
+and subtitles had no tests before `plugins/subtitles/tests/scan.test.ts`.
+
 Builds on [post-download checks](post-download-checks.md), which introduces
 `@magpiejs/probe` (pure package) and `@magpiejs/media-tools` (binary paths and health).
 
@@ -30,13 +60,13 @@ Builds on [post-download checks](post-download-checks.md), which introduces
 
 New `@magpiejs/mediainfo`, injecting `library`, `jobs`, `mediaTools`. It owns one table:
 
-| Column | Meaning |
-| ------ | ------- |
-| `file_id` | PK, FK `library_media_files`, cascade |
-| `fingerprint` | size + mtime (+ short hash), same function as subtitles' "generation" |
-| `facts` | JSON `ProbeFacts` (video, audio tracks, subtitle tracks, container, duration) |
-| `error` | probe failure text, null on success |
-| `probed_at` | |
+| Column        | Meaning                                                                       |
+| ------------- | ----------------------------------------------------------------------------- |
+| `file_id`     | PK, FK `library_media_files`, cascade                                         |
+| `fingerprint` | size + mtime (+ short hash), same function as subtitles' "generation"         |
+| `facts`       | JSON `ProbeFacts` (video, audio tracks, subtitle tracks, container, duration) |
+| `error`       | probe failure text, null on success                                           |
+| `probed_at`   |                                                                               |
 
 - Probes in the background on `library/file-added`, and a daily reconcile job for files
   with no row or a changed fingerprint. Unchanged fingerprint means no re-probe.
@@ -65,13 +95,13 @@ New `@magpiejs/mediainfo`, injecting `library`, `jobs`, `mediaTools`. It owns on
 
 ### 2.3 Steps
 
-| # | Step | Files | Size |
-| - | ---- | ----- | ---- |
-| A1 | Plugin, table, probe-on-add, reconcile job | `plugins/mediainfo` | M |
-| A2 | Reuse verify's facts when the fingerprint matches | `mediainfo`, `verify` | S |
-| A3 | `MediaInfoPanel`, movie detail slot | `console-kit`, `mediainfo/client` | M |
-| A4 | `episode-row` slot, series panel | `series/client`, `mediainfo/client` | M |
-| A5 | List filters and columns | `movies/client`, `series/client` | M |
+| #   | Step                                              | Files                               | Size |
+| --- | ------------------------------------------------- | ----------------------------------- | ---- |
+| A1  | Plugin, table, probe-on-add, reconcile job        | `plugins/mediainfo`                 | M    |
+| A2  | Reuse verify's facts when the fingerprint matches | `mediainfo`, `verify`               | S    |
+| A3  | `MediaInfoPanel`, movie detail slot               | `console-kit`, `mediainfo/client`   | M    |
+| A4  | `episode-row` slot, series panel                  | `series/client`, `mediainfo/client` | M    |
+| A5  | List filters and columns                          | `movies/client`, `series/client`    | M    |
 
 ## 3. Phase B (optional cleanup): subtitles reads `mediainfo`
 
@@ -94,11 +124,11 @@ look.
 - The subtitle-specific parts of the facts (stream language, forced/HI flags) are already in
   `ProbeFacts.subtitles`, so nothing subtitles reads is lost.
 
-| # | Step | Size |
-| - | ---- | ---- |
-| B1 | Move the fingerprint helper into `@magpiejs/probe` | S |
-| B2 | Subtitles reads `mediainfo`; keep tests using an injectable source | M |
-| B3 | Drop `probes` in the following release | S |
+| #   | Step                                                               | Size |
+| --- | ------------------------------------------------------------------ | ---- |
+| B1  | Move the fingerprint helper into `@magpiejs/probe`                 | S    |
+| B2  | Subtitles reads `mediainfo`; keep tests using an injectable source | M    |
+| B3  | Drop `probes` in the following release                             | S    |
 
 ## 4. Phase C (optional): decision engine uses real facts
 
@@ -160,13 +190,13 @@ candidate-versus-file comparison. They do two things:
 
 ### 4.4 Steps
 
-| # | Step | Files | Size |
-| - | ---- | ----- | ---- |
-| C1 | `subject` on conditions; `not applicable` handling in `formatMatches`/`explainFormat` | `decision/src/formats.ts`, `families.ts` | M |
-| C2 | File-subject condition types for the video family | `decision/src/families.ts` | M |
-| C3 | `scoreFile`; `fileScore` column; rescore on probe and on profile/format edits | `decision`, `mediainfo` | M |
-| C4 | `library.effectiveScore`; movies and series cutoff logic use it | `library`, `movies`, `series` | M |
-| C5 | Formats UI: "file only" labelling; explainer support | `decision/client` | S |
+| #   | Step                                                                                  | Files                                    | Size |
+| --- | ------------------------------------------------------------------------------------- | ---------------------------------------- | ---- |
+| C1  | `subject` on conditions; `not applicable` handling in `formatMatches`/`explainFormat` | `decision/src/formats.ts`, `families.ts` | M    |
+| C2  | File-subject condition types for the video family                                     | `decision/src/families.ts`               | M    |
+| C3  | `scoreFile`; `fileScore` column; rescore on probe and on profile/format edits         | `decision`, `mediainfo`                  | M    |
+| C4  | `library.effectiveScore`; movies and series cutoff logic use it                       | `library`, `movies`, `series`            | M    |
+| C5  | Formats UI: "file only" labelling; explainer support                                  | `decision/client`                        | S    |
 
 C depends on the explainer's `explainFormat` for step C1/C5; do that plan first.
 

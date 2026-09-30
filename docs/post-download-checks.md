@@ -41,7 +41,13 @@ interface ProbeFacts {
   container?: string
   video?: { codec: string; width: number; height: number; bitrate?: number; hdr?: string[] }
   audio: { codec: string; channels?: number; language?: string }[]
-  subtitles: { index: number; codec: string; language?: string; forced: boolean | null; hi: boolean | null }[]
+  subtitles: {
+    index: number
+    codec: string
+    language?: string
+    forced: boolean | null
+    hi: boolean | null
+  }[]
 }
 ```
 
@@ -79,18 +85,18 @@ type Finding = { severity: 'warn' | 'reject'; reason: string; detail?: unknown }
 
 Built-in checks:
 
-| Check | What it catches | Needs ffprobe |
-| ----- | --------------- | ------------- |
-| `executable` | `.exe .scr .bat .cmd .msi .lnk .vbs .js .jar` in the download (the classic fake-release payload) | no |
-| `no-media` | only archives left (`.rar` parts, `.zip`), which means unextracted or password-protected; replaces today's bare "no video file found" message | no |
-| `size` | file much smaller than the grab's reported `sizeBytes`, or a sample-sized file | no |
-| `container` | ffprobe fails or finds no video stream (corrupt, truncated header) | yes |
-| `duration` | runtime differs from metadata by more than X% (movies: `runtimeMinutes`; episodes where known) | yes |
-| `resolution` | release claims 2160p/1080p but the stream is lower (fake upscale label) | yes |
-| `codec` | release claims x265/AV1 but the stream is x264 | yes |
-| `audio-language` | no audio track in a profile-wanted language when the release claimed one | yes |
-| `bitrate` | video bitrate implausibly low for the claimed quality (size/duration vs the quality-size definitions in `decision`) | yes |
-| `decode` (opt-in) | `ffmpeg -v error -t 10` over start and middle finds decode errors | ffmpeg |
+| Check             | What it catches                                                                                                                               | Needs ffprobe |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `executable`      | `.exe .scr .bat .cmd .msi .lnk .vbs .js .jar` in the download (the classic fake-release payload)                                              | no            |
+| `no-media`        | only archives left (`.rar` parts, `.zip`), which means unextracted or password-protected; replaces today's bare "no video file found" message | no            |
+| `size`            | file much smaller than the grab's reported `sizeBytes`, or a sample-sized file                                                                | no            |
+| `container`       | ffprobe fails or finds no video stream (corrupt, truncated header)                                                                            | yes           |
+| `duration`        | runtime differs from metadata by more than X% (movies: `runtimeMinutes`; episodes where known)                                                | yes           |
+| `resolution`      | release claims 2160p/1080p but the stream is lower (fake upscale label)                                                                       | yes           |
+| `codec`           | release claims x265/AV1 but the stream is x264                                                                                                | yes           |
+| `audio-language`  | no audio track in a profile-wanted language when the release claimed one                                                                      | yes           |
+| `bitrate`         | video bitrate implausibly low for the claimed quality (size/duration vs the quality-size definitions in `decision`)                           | yes           |
+| `decode` (opt-in) | `ffmpeg -v error -t 10` over start and middle finds decode errors                                                                             | ffmpeg        |
 
 ### 2.4 Policy: severity and false positives
 
@@ -138,16 +144,16 @@ the release name, and later a library health scan can reuse the same checks.
 
 ## 4. Work breakdown
 
-| # | Step | Files | Size |
-| - | ---- | ----- | ---- |
-| 1a | `media-tools` plugin: paths, detection, health, settings page, seed from subtitles | `plugins/media-tools`, `subtitles` | S |
-| 1b | `@magpiejs/probe`: extract and extend; subtitles delegates | `packages/probe`, `subtitles/src/files.ts` | M |
-| 2 | `verify` plugin: registry, results table, settings | `plugins/verify` | M |
-| 3 | No-ffprobe checks: `executable`, `no-media`, `size` | `plugins/verify` | S |
-| 4 | Wrap `tools.files()` in `import`; reject path; `reason` option on `downloads.remove` | `import`, `downloads` | M |
-| 5 | Probe checks: `container`, `duration`, `resolution`, `codec`, `audio-language`, `bitrate` | `plugins/verify` | M |
-| 6 | UI: queue badge, settings, history | `downloads/client`, `verify/client`, `history` | M |
-| 7 | `decode` deep check (opt-in) | `plugins/verify` | S |
+| #     | Step                                                                                      | Files                                          | Size |
+| ----- | ----------------------------------------------------------------------------------------- | ---------------------------------------------- | ---- |
+| 1a ✅ | `media-tools` plugin: paths, detection, health, settings page, seed from subtitles        | `plugins/media-tools`, `subtitles`             | S    |
+| 1b ✅ | `@magpiejs/probe`: extract and extend; subtitles delegates                                | `packages/probe`, `subtitles/src/files.ts`     | M    |
+| 2     | `verify` plugin: registry, results table, settings                                        | `plugins/verify`                               | M    |
+| 3     | No-ffprobe checks: `executable`, `no-media`, `size`                                       | `plugins/verify`                               | S    |
+| 4     | Wrap `tools.files()` in `import`; reject path; `reason` option on `downloads.remove`      | `import`, `downloads`                          | M    |
+| 5     | Probe checks: `container`, `duration`, `resolution`, `codec`, `audio-language`, `bitrate` | `plugins/verify`                               | M    |
+| 6     | UI: queue badge, settings, history                                                        | `downloads/client`, `verify/client`, `history` | M    |
+| 7     | `decode` deep check (opt-in)                                                              | `plugins/verify`                               | S    |
 
 Steps 1a–4 deliver the highest-value checks (`executable`, `no-media`, `container`)
 without any warn/reject tuning.

@@ -34,18 +34,18 @@ Two facts constrain the design:
 
 A new table owned by `import` (it performs the operations), `import_operations`:
 
-| Column | Meaning |
-| ------ | ------- |
-| `id`, `batchId` | one batch per import job, review commit or bulk action |
-| `mediaId` | item affected (FK `library_media_items`, cascade) |
-| `type` | `place`, `replace`, `rename`, `delete` |
-| `source`, `dest` | absolute paths; `source` null for deletes |
-| `method` | `hardlink`, `copy`, `move` |
-| `trashPath` | where a replaced or deleted file was parked |
-| `fingerprint` | size + mtime (+ short hash) of `dest` right after the operation |
-| `snapshot` | JSON: the DB rows the operation removed or changed, opaque to the journal |
-| `status` | `applied`, `undone`, `undo_failed`, `expired` |
-| `createdAt`, `undoneAt` | |
+| Column                  | Meaning                                                                   |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `id`, `batchId`         | one batch per import job, review commit or bulk action                    |
+| `mediaId`               | item affected (FK `library_media_items`, cascade)                         |
+| `type`                  | `place`, `replace`, `rename`, `delete`                                    |
+| `source`, `dest`        | absolute paths; `source` null for deletes                                 |
+| `method`                | `hardlink`, `copy`, `move`                                                |
+| `trashPath`             | where a replaced or deleted file was parked                               |
+| `fingerprint`           | size + mtime (+ short hash) of `dest` right after the operation           |
+| `snapshot`              | JSON: the DB rows the operation removed or changed, opaque to the journal |
+| `status`                | `applied`, `undone`, `undo_failed`, `expired`                             |
+| `createdAt`, `undoneAt` |                                                                           |
 
 Written in the **same code path** as the operation, before the DB update: journal row
 first (`applied`), then the filesystem change, so a crash leaves a row the undo can
@@ -53,13 +53,13 @@ reason about rather than an unexplained file.
 
 ### 2.2 Undo semantics per operation
 
-| Operation | Undo |
-| --------- | ---- |
-| `place` by hardlink/copy | unlink `dest`; source is untouched, so the download and its seeding are unaffected |
+| Operation                | Undo                                                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `place` by hardlink/copy | unlink `dest`; source is untouched, so the download and its seeding are unaffected                   |
 | `place` by move (usenet) | rename `dest` back to `source` if the download folder still exists; otherwise refuse with the reason |
-| `replace` | unlink the new file, move `trashPath` back to `dest` |
-| `rename` | rename back |
-| `delete` | move `trashPath` back |
+| `replace`                | unlink the new file, move `trashPath` back to `dest`                                                 |
+| `rename`                 | rename back                                                                                          |
+| `delete`                 | move `trashPath` back                                                                                |
 
 Then the kind plugin restores its DB rows from `snapshot` through a hook, like importers
 (`ctx.import.registerUndo(kind, fn)`), so `import` stays kind-agnostic. The hook calls
@@ -116,15 +116,15 @@ purged operations become `expired`).
 
 ## 4. Work breakdown
 
-| # | Step | Files | Size |
-| - | ---- | ----- | ---- |
-| 1 | `import_operations` table + journal service | `import/src`, migration | M |
-| 2 | Managed trash, retention job, settings | `import/src/files.ts`, `library` settings | M |
-| 3 | Journal writes in `placeSafely`, `recycle`, importers | `import`, `movies`, `series` | M |
-| 4 | Undo engine with fingerprint, stack and containment checks | `import/src` | M |
-| 5 | Kind undo hooks (movies, series) restoring DB rows | `movies`, `series` | M |
-| 6 | Review `commit()` batching and bulk rename with preview | `import/src/review.ts` | M |
-| 7 | History, operations UI | `history`, `import/client` | M |
+| #   | Step                                                       | Files                                     | Size |
+| --- | ---------------------------------------------------------- | ----------------------------------------- | ---- |
+| 1   | `import_operations` table + journal service                | `import/src`, migration                   | M    |
+| 2   | Managed trash, retention job, settings                     | `import/src/files.ts`, `library` settings | M    |
+| 3   | Journal writes in `placeSafely`, `recycle`, importers      | `import`, `movies`, `series`              | M    |
+| 4   | Undo engine with fingerprint, stack and containment checks | `import/src`                              | M    |
+| 5   | Kind undo hooks (movies, series) restoring DB rows         | `movies`, `series`                        | M    |
+| 6   | Review `commit()` batching and bulk rename with preview    | `import/src/review.ts`                    | M    |
+| 7   | History, operations UI                                     | `history`, `import/client`                | M    |
 
 Steps 1–5 give single-import undo; 6–7 add batches and UI. Music, books and podcasts
 adopt the hooks afterwards (they register importers the same way).

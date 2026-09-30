@@ -42,8 +42,14 @@ interface Explanation extends Decision {
     name: string
     score: number // the profile's score for it
     matched: boolean
-    conditions: { type: string; label: string; value: unknown; required: boolean
-                  negate: boolean; result: boolean | 'n/a' }[] // 'n/a' = other family
+    conditions: {
+      type: string
+      label: string
+      value: unknown
+      required: boolean
+      negate: boolean
+      result: boolean | 'n/a'
+    }[] // 'n/a' = other family
   }[]
   rules: { rule: string; status: 'pass' | 'reject' | 'skipped'; reason?: string }[]
   rank: { label: string; value: number }[] // quality, format score, version, real, seeders/age
@@ -96,15 +102,15 @@ one code path. Also usable from scripts and from `compat-api`-free tooling.
 
 ## 4. Work breakdown
 
-| # | Step | Files | Size |
-| - | ---- | ----- | ---- |
-| 1 | `explainFormat` + wrapper, corpus-agreement test | `decision/src/formats.ts`, tests | S |
-| 2 | `skipped` rule result; update builtin rules | `decision/src/rules.ts` | S |
-| 3 | `explainer()` + `Explanation`, rank labels | `decision/src/index.ts` | M |
-| 4 | Target registry; register in movies, series, music, books | `decision`, 4 kind plugins | M |
-| 5 | REST endpoint; make console `test()` delegate to it | `decision/src`, `api` | S |
-| 6 | Shared explain panel; tester and picker changes | `console-kit`, `decision/client`, `ReleasePicker.vue` | M |
-| 7 | Fix tester target bugs from §2.3 | `decision/src/console.ts` | S |
+| #   | Step                                                      | Files                                                 | Size |
+| --- | --------------------------------------------------------- | ----------------------------------------------------- | ---- |
+| 1   | `explainFormat` + wrapper, corpus-agreement test          | `decision/src/formats.ts`, tests                      | S    |
+| 2   | `skipped` rule result; update builtin rules               | `decision/src/rules.ts`                               | S    |
+| 3   | `explainer()` + `Explanation`, rank labels                | `decision/src/index.ts`                               | M    |
+| 4   | Target registry; register in movies, series, music, books | `decision`, 4 kind plugins                            | M    |
+| 5   | REST endpoint; make console `test()` delegate to it       | `decision/src`, `api`                                 | S    |
+| 6   | Shared explain panel; tester and picker changes           | `console-kit`, `decision/client`, `ReleasePicker.vue` | M    |
+| 7   | Fix tester target bugs from §2.3                          | `decision/src/console.ts`                             | S    |
 
 Steps 1–3 and 5 are backend-only and independently shippable; 6 depends on them.
 
