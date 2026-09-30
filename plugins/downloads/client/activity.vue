@@ -40,6 +40,7 @@
                 <div :style="{ width: g.progress * 100 + '%' }" />
               </div>
               <div v-if="g.error" class="mp-error mp-small">{{ g.error }}</div>
+              <k-slot name="activity-row" :data="{ grab: g }" />
               <div class="mp-muted mp-small">{{ g.client }}</div>
             </td>
             <td class="actions">

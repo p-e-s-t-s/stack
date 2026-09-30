@@ -6,11 +6,9 @@ tried, instead of landing in the library and being noticed weeks later.
 
 ## Status
 
-**Built:** `@magpiejs/media-tools`, `@magpiejs/probe` (1a, 1b), `@magpiejs/verify` with all
-nine checks except `decode` (2, 3, 5), the import guard and reject path (4). **Not built:**
-the console UI (6: queue badge, Settings → Import checks, test-a-file box; the policy is
-set with `ctx.verify.save()` for now) and the `decode` deep check (7). How it differs from
-the design below is in §8.
+**Built:** everything in the plan. `@magpiejs/media-tools` and `@magpiejs/probe` (1a, 1b),
+`@magpiejs/verify` with all ten checks (2, 3, 5, 7), the import guard and reject path (4),
+and the console (6). How it differs from the design below is in §8.
 
 ## 1. What exists
 
@@ -160,8 +158,8 @@ the release name, and later a library health scan can reuse the same checks.
 | 3 ✅  | No-ffprobe checks: `executable`, `no-media`, `size`                                       | `plugins/verify`                               | S    |
 | 4 ✅  | Wrap `tools.files()` in `import`; reject path; `reason` option on `downloads.remove`      | `import`, `downloads`                          | M    |
 | 5 ✅  | Probe checks: `container`, `duration`, `resolution`, `codec`, `audio-language`, `bitrate` | `plugins/verify`                               | M    |
-| 6     | UI: queue badge, settings, history                                                        | `downloads/client`, `verify/client`, `history` | M    |
-| 7     | `decode` deep check (opt-in)                                                              | `plugins/verify`                               | S    |
+| 6 ✅  | UI: queue badge, settings, history                                                        | `downloads/client`, `verify/client`, `history` | M    |
+| 7 ✅  | `decode` deep check (opt-in)                                                              | `plugins/verify`                               | S    |
 
 Steps 1a–4 deliver the highest-value checks (`executable`, `no-media`, `container`)
 without any warn/reject tuning.
@@ -213,6 +211,17 @@ without any warn/reject tuning.
   resolution rather than the decision plugin's size definitions.
 - **`duration` needs a runtime and nothing stores one yet.** Kind plugins can supply it with
   `ctx.verify.runtime(item => minutes)`; until one does, the check does nothing.
+- **The console** is one page, Settings → Import checks: a mode (off, warn, reject) per check
+  with its description, the runtime tolerance, a "Try a file" box and the latest results. The
+  box only accepts paths inside a library folder or a recent download, so the page cannot be
+  used to run ffprobe on arbitrary paths. Each Activity row has an `activity-row` slot where
+  `verify` shows its badge (passed, N warnings, rejected), the findings and what ffprobe found
+  (`1080p · H264 · EAC3 6ch · 1h30m`). A rejected download leaves the queue at once, so its
+  reason is in History (`import-rejected`), the blocklist and the recent results.
+- **`decode` is off by default** and runs ffmpeg with `-xerror` on 10 seconds at the start and
+  the middle of up to three files; a timeout counts as skipped, not failed.
+- **The `duration` check** gets movie runtimes from the `movies` plugin. Series have no
+  per-episode runtime on the download side yet, so episodes are not duration-checked.
 - `verify_results` has no foreign key to the grab, since a rejected grab's record is the point.
 
 ## 7. Related

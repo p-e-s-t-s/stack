@@ -1,10 +1,10 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { grabs } from '@magpiejs/downloads'
 import HistoryService from '@magpiejs/history'
 import MediaTools from '@magpiejs/media-tools'
-import MoviesService from '@magpiejs/movies'
+import MoviesService, { details } from '@magpiejs/movies'
 import { createTestContext } from '@magpiejs/testing'
 import type { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -39,14 +39,33 @@ cat '${join(dir, 'facts.json')}'
   chmodSync(path, 0o755)
 }
 
-async function boot(options: { ffprobe?: boolean; facts?: unknown } = {}) {
+/** A stand-in for ffmpeg: logs each call, and fails on `corrupt` files or past 100 s in. */
+function fakeFfmpeg(path: string) {
+  writeFileSync(
+    path,
+    `#!/bin/sh
+if [ "$1" = "-version" ]; then echo "ffmpeg version 7.1 Copyright"; exit 0; fi
+echo "$@" >> '${join(dir, 'ffmpeg.log')}'
+for arg; do case "$arg" in *corrupt*) exit 1;; esac; done
+exit 0
+`,
+  )
+  chmodSync(path, 0o755)
+}
+
+async function boot(options: { ffprobe?: boolean; facts?: unknown; ffmpeg?: boolean } = {}) {
   ctx = await createTestContext({ calendar: false })
   await ctx.plugin(HistoryService)
   await ctx.plugin(MoviesService)
   await ctx.plugin(MediaTools)
   const binary = join(dir, 'ffprobe')
   fakeFfprobe(binary, options.facts)
-  await ctx.mediaTools.save({ ffprobe: options.ffprobe === false ? join(dir, 'nope') : binary })
+  const ffmpeg = join(dir, 'ffmpeg')
+  fakeFfmpeg(ffmpeg)
+  await ctx.mediaTools.save({
+    ffprobe: options.ffprobe === false ? join(dir, 'nope') : binary,
+    ffmpeg: options.ffmpeg === false ? join(dir, 'nope') : ffmpeg,
+  })
   await ctx.plugin(Verify)
   // the test files are a few bytes, which is far too little for any real bitrate
   ctx.verify.save({ modes: { bitrate: 'off' } })
@@ -251,5 +270,78 @@ describe('verify: policy', () => {
     const grab = download(TITLE, { 'movie.mkv': 4000 })
     await ctx.import.importGrab(grab.id)
     expect(ctx.downloads.get(grab.id)!.state).toBe('imported')
+  })
+})
+
+describe('verify: decode check', () => {
+  const calls = () => {
+    try {
+      return readFileSync(join(dir, 'ffmpeg.log'), 'utf8').split('\n').filter(Boolean)
+    } catch {
+      return []
+    }
+  }
+
+  it('is off until switched on, and then never runs ffmpeg', async () => {
+    await boot()
+    await ctx.import.importGrab(download(TITLE, { 'corrupt.mkv': 4000 }).id)
+    expect(calls()).toEqual([])
+  })
+
+  it('decodes the start and the middle and rejects on errors when set to reject', async () => {
+    await boot()
+    ctx.verify.save({ modes: { bitrate: 'off', decode: 'reject' } })
+    const good = download(TITLE, { 'movie.mkv': 4000 })
+    await ctx.import.importGrab(good.id)
+    expect(ctx.downloads.get(good.id)!.state).toBe('imported')
+    expect(calls()).toHaveLength(2) // start and middle of a 90 minute file
+    expect(calls()[1]).toContain('-ss 2700')
+
+    const bad = download('Other.Movie.2000.1080p.BluRay.x264-GRP', { 'corrupt.mkv': 4000 })
+    await ctx.import.importGrab(bad.id)
+    expect(ctx.downloads.get(bad.id)!.state).toBe('removed')
+    expect(ctx.downloads.blocklisted(movieId)[0]!.reason).toContain('decode errors')
+  })
+
+  it('is skipped when ffmpeg is missing', async () => {
+    await boot({ ffmpeg: false })
+    ctx.verify.save({ modes: { bitrate: 'off', decode: 'reject' } })
+    const grab = download(TITLE, { 'corrupt.mkv': 4000 })
+    await ctx.import.importGrab(grab.id)
+    expect(ctx.downloads.get(grab.id)!.state).toBe('imported')
+  })
+})
+
+describe('verify: movie runtime', () => {
+  it('movies supply the runtime for the duration check', async () => {
+    await boot()
+    ctx.movies.db.insert(details).values({ mediaId: movieId, tmdbId: 1, runtimeMinutes: 150 }).run()
+    const grab = download(TITLE, { 'movie.mkv': 4000 })
+    await ctx.import.importGrab(grab.id)
+    expect(ctx.verify.forGrab(grab.id)!.findings[0]!.reason).toContain('runs 90 min')
+  })
+})
+
+describe('verify: trying a path', () => {
+  it('runs the checks on a file in the library without recording anything', async () => {
+    await boot()
+    mkdirSync(join(dir, 'movies', 'x'), { recursive: true })
+    writeFileSync(join(dir, 'movies', 'x', 'bad.mkv'), 'video')
+    const verdict = await ctx.verify.test(join(dir, 'movies', 'x'), TITLE)
+    expect(verdict.outcome).toBe('rejected')
+    expect(ctx.verify.recent()).toEqual([])
+  })
+
+  it('refuses paths outside the library and recent downloads', async () => {
+    await boot()
+    await expect(ctx.verify.test(dir)).rejects.toThrow('only files in a library folder')
+    await expect(ctx.verify.test(join(dir, 'missing'))).rejects.toThrow('does not exist')
+    await expect(ctx.verify.test(join(dir, 'movies', '..', '..'))).rejects.toThrow()
+  })
+
+  it('allows a recent download folder', async () => {
+    await boot()
+    const grab = download(TITLE, { 'movie.mkv': 4000 })
+    expect((await ctx.verify.test(grab.outputPath!)).outcome).toBe('passed')
   })
 })

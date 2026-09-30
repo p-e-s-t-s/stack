@@ -166,6 +166,14 @@ export class MoviesService extends Service {
     })
     this.ctx.library.registerNaming('movie', MOVIE_NAMING)
     this.ctx.inject(['import'], (ctx) => void ctx.plugin(movieImport, this))
+    // the post-download `duration` check compares a file's length with the movie's runtime
+    this.ctx.inject(['verify'], (ctx) => {
+      ctx.verify.runtime((item) =>
+        item.kind === 'movie'
+          ? (this.get(item.id)?.details.runtimeMinutes ?? undefined)
+          : undefined,
+      )
+    })
     this.ctx.inject(['calendar'], (ctx) => void ctx.plugin(movieCalendar, this))
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['api'], (ctx) => void ctx.plugin(api, this))

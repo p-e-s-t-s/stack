@@ -32,6 +32,11 @@ export interface CheckContext {
   probed: { path: string; size: number; result: ProbeOutcome }[]
   /** The metadata's runtime in minutes, when known. */
   runtimeMinutes?: number
+  /**
+   * Decodes `seconds` of a file from `from` seconds in, with ffmpeg; nothing when ffmpeg is
+   * missing. A timeout reads as `ok` (skipped, not failed).
+   */
+  decode?: (path: string, from: number, seconds: number) => Promise<{ ok: boolean }>
 }
 
 export type CheckFn = (context: CheckContext) => Problem[] | Promise<Problem[]>
@@ -42,6 +47,8 @@ export interface CheckOptions {
   /** The check reads ffprobe results, so it is skipped when ffprobe is unavailable. */
   needsProbe?: boolean
   label?: string
+  /** One sentence for the settings page. */
+  description?: string
 }
 
 const name = (path: string) => path.split(/[\\/]/).pop() ?? path
@@ -200,6 +207,29 @@ export const bitrate: CheckFn = ({ parsed, probed }) => {
   return problems
 }
 
+/** Seconds decoded at each spot. */
+const DECODE_SECONDS = 10
+
+/** Decodes a few seconds at the start and the middle; corruption shows up as decode errors. */
+export const decode: CheckFn = async ({ probed, decode }) => {
+  if (!decode) return []
+  const problems: Problem[] = []
+  for (const { path, result } of probed.slice(0, 3)) {
+    if (!('facts' in result) || !result.facts.video) continue
+    const length = result.facts.duration ?? 0
+    const spots = [0, ...(length > DECODE_SECONDS * 4 ? [Math.floor(length / 2)] : [])]
+    for (const from of spots) {
+      if ((await decode(path, from, DECODE_SECONDS)).ok) continue
+      problems.push({
+        reason: `${name(path)} has decode errors ${from ? `around ${Math.round(from / 60)} min` : 'at the start'}`,
+        detail: { from },
+      })
+      break
+    }
+  }
+  return problems
+}
+
 /** Whether a file is one the probe-based checks understand. */
 export const probeable = (path: string) => VIDEO_EXTENSIONS.has(extname(path).toLowerCase())
 
@@ -207,22 +237,94 @@ export const BUILT_IN: { name: string; fn: CheckFn; options: CheckOptions }[] = 
   {
     name: 'executable',
     fn: executable,
-    options: { mode: 'reject', label: 'Programs and scripts' },
+    options: {
+      description:
+        'Programs or scripts (.exe, .bat, .js…) in the download, the classic fake-release payload.',
+      mode: 'reject',
+      label: 'Programs and scripts',
+    },
   },
-  { name: 'no-media', fn: noMedia, options: { mode: 'reject', label: 'Only archives' } },
-  { name: 'size', fn: size, options: { label: 'Size' } },
+  {
+    name: 'no-media',
+    fn: noMedia,
+    options: {
+      description: 'Only archives were downloaded: not extracted, or protected by a password.',
+      mode: 'reject',
+      label: 'Only archives',
+    },
+  },
+  {
+    name: 'size',
+    fn: size,
+    options: {
+      description: 'An empty file, or far smaller than the release said it would be.',
+      label: 'Size',
+    },
+  },
   {
     name: 'container',
     fn: container,
-    options: { mode: 'reject', needsProbe: true, label: 'Unreadable video' },
+    options: {
+      description: 'ffprobe cannot read the video, or finds no video stream: corrupt or truncated.',
+      mode: 'reject',
+      needsProbe: true,
+      label: 'Unreadable video',
+    },
   },
-  { name: 'duration', fn: duration, options: { needsProbe: true, label: 'Runtime' } },
-  { name: 'resolution', fn: resolution, options: { needsProbe: true, label: 'Resolution' } },
-  { name: 'codec', fn: codec, options: { needsProbe: true, label: 'Video codec' } },
+  {
+    name: 'duration',
+    fn: duration,
+    options: {
+      description: 'The runtime is far from the movie’s. Longer cuts pass for named editions.',
+      needsProbe: true,
+      label: 'Runtime',
+    },
+  },
+  {
+    name: 'resolution',
+    fn: resolution,
+    options: {
+      description: 'The name says 1080p or 2160p but the picture is smaller.',
+      needsProbe: true,
+      label: 'Resolution',
+    },
+  },
+  {
+    name: 'codec',
+    fn: codec,
+    options: {
+      description: 'The name says x265 (or x264, AV1…) but the stream is something else.',
+      needsProbe: true,
+      label: 'Video codec',
+    },
+  },
   {
     name: 'audio-language',
     fn: audioLanguage,
-    options: { needsProbe: true, label: 'Audio language' },
+    options: {
+      description: 'The name gives a language but no audio track is in it.',
+      needsProbe: true,
+      label: 'Audio language',
+    },
   },
-  { name: 'bitrate', fn: bitrate, options: { needsProbe: true, label: 'Bitrate' } },
+  {
+    name: 'bitrate',
+    fn: bitrate,
+    options: {
+      description: 'Bitrate far too low for the resolution in the name.',
+      needsProbe: true,
+      label: 'Bitrate',
+    },
+  },
+  {
+    name: 'decode',
+    fn: decode,
+    options: {
+      description:
+        'Decodes a few seconds at the start and middle with ffmpeg and fails on errors. Slow on big files.',
+      mode: 'off',
+      needsProbe: true,
+      label: 'Decode errors (slow, needs ffmpeg)',
+    },
+  },
 ]

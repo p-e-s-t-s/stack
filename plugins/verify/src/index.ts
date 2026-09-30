@@ -4,12 +4,16 @@
 // best one searched for.
 
 import type { Drizzle } from '@magpiejs/database'
-import { type GuardInput, ImportRejected } from '@magpiejs/import'
+import type { Grab } from '@magpiejs/downloads'
+import { findFiles, type GuardInput, ImportRejected, VIDEO_EXTENSIONS } from '@magpiejs/import'
 import type { MediaItem } from '@magpiejs/library'
 import type {} from '@magpiejs/media-tools'
 import { parse } from '@magpiejs/parser'
-import { probe } from '@magpiejs/probe'
+import { probe, run as runTool } from '@magpiejs/probe'
 import { type Context, Service } from 'cordis'
+import { realpath } from 'node:fs/promises'
+import { isAbsolute, relative, resolve, sep } from 'node:path'
+import console_ from './console'
 import { desc, eq } from 'drizzle-orm'
 import {
   BUILT_IN,
@@ -46,6 +50,7 @@ export interface Config {
 export interface CheckInfo {
   name: string
   label: string
+  description: string
   mode: schema.Mode
   needsProbe: boolean
 }
@@ -65,6 +70,33 @@ export class VerifyService extends Service {
   db!: Drizzle<typeof schema>
   /** Replaceable in tests. */
   probeFile: typeof probe = probe
+  /** Decodes part of a file with ffmpeg; rejects when it finds errors. Replaceable in tests. */
+  decodeFile = (
+    binary: string,
+    path: string,
+    from: number,
+    seconds: number,
+    signal?: AbortSignal,
+  ) =>
+    runTool(
+      binary,
+      [
+        '-v',
+        'error',
+        '-xerror',
+        '-ss',
+        String(from),
+        '-t',
+        String(seconds),
+        '-i',
+        path,
+        '-f',
+        'null',
+        '-',
+      ],
+      signal,
+      60_000,
+    )
   now = () => Date.now()
   private checks = new Map<string, { fn: CheckFn; options: CheckOptions }>()
   private runtimes = new Set<(item: MediaItem) => number | undefined>()
@@ -83,6 +115,7 @@ export class VerifyService extends Service {
     const saved = this.db.select().from(schema.settings).where(eq(schema.settings.key, KEY)).get()
     this.policy_ = normalize(saved?.value)
     for (const { name, fn, options } of BUILT_IN) this.check(name, fn, options)
+    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.import.guard(async (input) => {
       const verdict = await this.run(input)
       if (verdict.outcome !== 'rejected') return
@@ -117,6 +150,7 @@ export class VerifyService extends Service {
     return [...this.checks].map(([name, { options }]) => ({
       name,
       label: options.label ?? name,
+      description: options.description ?? '',
       mode: this.modeOf(name),
       needsProbe: !!options.needsProbe,
     }))
@@ -161,6 +195,34 @@ export class VerifyService extends Service {
    */
   async run(input: GuardInput, signal?: AbortSignal): Promise<Verdict> {
     const { grab } = input
+    const verdict = await this.evaluate(input, signal)
+    const { outcome, findings, files } = verdict
+    const row = this.db
+      .insert(schema.results)
+      .values({
+        grabId: grab.id,
+        title: grab.title,
+        files,
+        findings,
+        outcome,
+        createdAt: this.now(),
+      })
+      .returning()
+      .get()
+    if (outcome !== 'passed')
+      this.ctx.logger.info(
+        '%s: %s (%s)',
+        grab.title,
+        outcome,
+        findings.map((f) => f.reason).join('; '),
+      )
+    this.ctx.emit('verify/checked', row)
+    return verdict
+  }
+
+  /** Runs the checks without recording anything. */
+  async evaluate(input: GuardInput, signal?: AbortSignal): Promise<Verdict> {
+    const { grab } = input
     const context = await this.context(input, signal)
     const findings: schema.Finding[] = []
     for (const [name, { fn, options }] of this.checks) {
@@ -192,26 +254,6 @@ export class VerifyService extends Service {
       size,
       facts: 'facts' in result ? result.facts : null,
     }))
-    const row = this.db
-      .insert(schema.results)
-      .values({
-        grabId: grab.id,
-        title: grab.title,
-        files,
-        findings,
-        outcome,
-        createdAt: this.now(),
-      })
-      .returning()
-      .get()
-    if (outcome !== 'passed')
-      this.ctx.logger.info(
-        '%s: %s (%s)',
-        grab.title,
-        outcome,
-        findings.map((f) => f.reason).join('; '),
-      )
-    this.ctx.emit('verify/checked', row)
     return { outcome, findings, files }
   }
 
@@ -227,7 +269,92 @@ export class VerifyService extends Service {
     }
     let runtimeMinutes: number | undefined
     for (const fn of this.runtimes) runtimeMinutes ??= fn(item)
-    return { item, grab, parsed, policy: this.policy_, outputPath, files, probed, runtimeMinutes }
+    const decode =
+      probed.length &&
+      this.modeOf('decode') !== 'off' &&
+      (await this.ctx.mediaTools.available('ffmpeg'))
+        ? async (path: string, from: number, seconds: number) => {
+            try {
+              await this.decodeFile(this.ctx.mediaTools.path('ffmpeg'), path, from, seconds, signal)
+              return { ok: true }
+            } catch (error) {
+              if (signal?.aborted) throw error
+              // a timeout or a missing tool says nothing about the file
+              return {
+                ok: UNAVAILABLE.test(error instanceof Error ? error.message : String(error)),
+              }
+            }
+          }
+        : undefined
+    return {
+      item,
+      grab,
+      parsed,
+      policy: this.policy_,
+      outputPath,
+      files,
+      probed,
+      runtimeMinutes,
+      decode,
+    }
+  }
+
+  /**
+   * Where a file can be tried from the settings page: the library's folders and the folders
+   * of recent downloads, so the page cannot be used to probe arbitrary paths on the server.
+   */
+  private allowedRoots() {
+    const roots = this.ctx.library.rootFolders().map((r) => r.path)
+    for (const grab of this.ctx.downloads.recent(100))
+      if (grab.outputPath) roots.push(grab.outputPath)
+    return roots
+  }
+
+  /** Runs the checks on a file or folder, as a download of `releaseName` would be. Not recorded. */
+  async test(path: string, releaseName = '', signal?: AbortSignal): Promise<Verdict> {
+    if (typeof path !== 'string' || !path.trim() || path.includes('\0'))
+      throw new Error('enter a path')
+    const target = await realpath(resolve(path)).catch(() => {
+      throw new Error('that path does not exist')
+    })
+    const inside = await Promise.all(
+      this.allowedRoots().map(async (root) => {
+        const real = await realpath(root).catch(() => undefined)
+        if (!real) return false
+        const rel = relative(real, target)
+        return rel === '' || !(rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel))
+      }),
+    )
+    if (!inside.some(Boolean))
+      throw new Error('only files in a library folder or a recent download can be tested')
+    const files = await findFiles(target, VIDEO_EXTENSIONS, { skipExtras: true })
+    const title = releaseName.trim() || target.split(sep).pop() || 'test'
+    // a stand-in download and item: the checks read only what they need of them
+    const now = this.now()
+    const grab = {
+      id: 0,
+      mediaId: 0,
+      targetId: null,
+      release: { guid: title, title, protocol: 'torrent', indexerId: '', downloadUrl: '' },
+      title,
+      quality: '',
+      formatScore: 0,
+      protocol: 'torrent',
+      clientId: '',
+      downloadId: '',
+      state: 'import_pending',
+      progress: 1,
+      sizeBytes: null,
+      etaSeconds: null,
+      outputPath: target,
+      error: null,
+      manual: false,
+      grabbedAt: now,
+      updatedAt: now,
+      lastProgressAt: now,
+    } satisfies Grab
+    const item = { id: 0, kind: 'movie', title } as MediaItem
+    return this.evaluate({ item, grab, outputPath: target, files }, signal)
   }
 
   private async probeOne(path: string, signal?: AbortSignal): Promise<ProbeOutcome | undefined> {
