@@ -45,9 +45,26 @@ interface ProbeFacts {
 }
 ```
 
-The subtitles plugin keeps its current API by delegating to the package. The ffprobe path
-comes from the existing media-tool setting (`config.ffprobe`), so there's one place to
-configure it. Probes run with a timeout and the existing abort-signal plumbing.
+The package is pure: every function takes the binary path as an argument. The subtitles
+plugin keeps its current API by delegating to it. Probes run with a timeout and the
+existing abort-signal plumbing.
+
+### 2.2.1 Media tools plugin
+
+The binary location is its own setting, not part of subtitles (today `ffprobe` lives in
+subtitles' `Config` and its `tools` settings row, next to the subtitle-sync binary). New
+small plugin `@magpiejs/media-tools` (`plugins/media-tools`):
+
+- Provides `ctx.mediaTools`: `ffprobe` and `ffmpeg` paths, `PATH` auto-detection, a
+  version test, and a health status ("ffprobe 7.1 found" / "not found").
+- Owns its settings in its own table and a Settings → Media tools page with a "Test"
+  button.
+- `verify` and `subtitles` both `inject: ['mediaTools']`. When a binary is missing,
+  probe-based checks are skipped and the health notice says why.
+- The subtitle-sync binary (`ffsubsync`/`alass`) stays in subtitles; it is subtitle-specific.
+- Migration: on first start it seeds its path from any `ffprobe` value saved under
+  subtitles' `tools` setting, then the subtitles page drops its ffprobe field, so existing
+  installs keep working.
 
 ### 2.3 Check registry
 
@@ -123,7 +140,8 @@ the release name, and later a library health scan can reuse the same checks.
 
 | # | Step | Files | Size |
 | - | ---- | ----- | ---- |
-| 1 | `@magpiejs/probe`: extract and extend; subtitles delegates | `packages/probe`, `subtitles/src/files.ts` | M |
+| 1a | `media-tools` plugin: paths, detection, health, settings page, seed from subtitles | `plugins/media-tools`, `subtitles` | S |
+| 1b | `@magpiejs/probe`: extract and extend; subtitles delegates | `packages/probe`, `subtitles/src/files.ts` | M |
 | 2 | `verify` plugin: registry, results table, settings | `plugins/verify` | M |
 | 3 | No-ffprobe checks: `executable`, `no-media`, `size` | `plugins/verify` | S |
 | 4 | Wrap `tools.files()` in `import`; reject path; `reason` option on `downloads.remove` | `import`, `downloads` | M |
@@ -131,7 +149,7 @@ the release name, and later a library health scan can reuse the same checks.
 | 6 | UI: queue badge, settings, history | `downloads/client`, `verify/client`, `history` | M |
 | 7 | `decode` deep check (opt-in) | `plugins/verify` | S |
 
-Steps 1–4 deliver the highest-value checks (`executable`, `no-media`, `container`)
+Steps 1a–4 deliver the highest-value checks (`executable`, `no-media`, `container`)
 without any warn/reject tuning.
 
 ## 5. Tests
