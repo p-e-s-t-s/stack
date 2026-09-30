@@ -1,0 +1,13 @@
+{
+  "name": "@magpiejs/sidecars",
+  "version": "0.0.0",
+  "description": "Which files belong to a video: subtitle sidecars, their naming and discovery",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/probe": "0.0.0"
+  }
+}

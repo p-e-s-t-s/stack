@@ -45,19 +45,6 @@ export async function movieHash(path: string) {
     return BigInt.asUintN(64, hash).toString(16).padStart(16, '0')
   } finally { await handle.close() }
 }
-export function sidecar(video: string, name: string) {
-  const base = basename(video, extname(video))
-  const ext = extname(name).slice(1).toLowerCase()
-  if (!['srt', 'ass', 'ssa', 'vtt', 'idx'].includes(ext)) return null
-  const stem = name.slice(0, -(ext.length + 1))
-  if (stem.toLowerCase() !== base.toLowerCase() && !stem.toLowerCase().startsWith(base.toLowerCase() + '.')) return null
-  const tokens = stem.slice(base.length).replace(/^\./, '').split('.').filter(Boolean)
-  const flags = new Set(tokens.map(t => t.toLowerCase()))
-  const langTokens = tokens.filter(t => !['forced', 'hi', 'sdh', 'cc'].includes(t.toLowerCase()))
-  // Accept one language suffix only: avoid associating Movie.part2.en.srt with Movie.mkv.
-  if (langTokens.length > 1 || (langTokens.length && !language(langTokens[0]))) return null
-  return { language: language(langTokens[0]), forced: flags.has('forced'), hi: flags.has('hi') || flags.has('sdh') || flags.has('cc'), format: ext }
-}
 export function decode(bytes: Uint8Array) {
   if (!bytes.length || bytes.length > MAX_SUBTITLE) throw new Error('empty or oversized subtitle')
   const encoding = bytes[0] === 0xff && bytes[1] === 0xfe ? 'utf-16le' : bytes[0] === 0xfe && bytes[1] === 0xff ? 'utf-16be' : 'utf-8'

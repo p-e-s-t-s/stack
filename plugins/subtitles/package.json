@@ -8,7 +8,7 @@
   "magpie": { "namespace": "subtitles" },
   "scripts": { "db:generate": "drizzle-kit generate" },
   "dependencies": {
-    "@magpiejs/database": "0.0.0", "@magpiejs/library": "0.0.0", "@magpiejs/jobs": "0.0.0", "@magpiejs/media-tools": "0.0.0", "@magpiejs/mediainfo": "0.0.0", "@magpiejs/probe": "0.0.0", "@magpiejs/types": "0.0.0", "@magpiejs/http-utils": "0.0.0", "@magpiejs/console-kit": "0.0.0",
+    "@magpiejs/database": "0.0.0", "@magpiejs/library": "0.0.0", "@magpiejs/jobs": "0.0.0", "@magpiejs/media-tools": "0.0.0", "@magpiejs/mediainfo": "0.0.0", "@magpiejs/probe": "0.0.0", "@magpiejs/sidecars": "0.0.0", "@magpiejs/types": "0.0.0", "@magpiejs/http-utils": "0.0.0", "@magpiejs/console-kit": "0.0.0",
     "drizzle-orm": "1.0.0-rc.4", "schemastery": "3.18.0", "fflate": "^0.8.3"
   },
   "peerDependencies": { "cordis": "4.0.0-rc.10" },
