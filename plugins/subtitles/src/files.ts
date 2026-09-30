@@ -1,10 +1,9 @@
 import { createHash } from 'node:crypto'
 import { open, readFile, realpath, stat } from 'node:fs/promises'
-import { basename, extname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { basename, isAbsolute, relative, resolve, sep } from 'node:path'
 import { unzipSync } from 'fflate'
 import { fingerprint, run } from '@magpiejs/probe'
 import type { SubtitleFormat } from '@magpiejs/types'
-import { language } from './policy'
 
 export const MAX_SUBTITLE = 8 * 1024 * 1024
 export const hashBytes = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex')
