@@ -1,7 +1,37 @@
 # Notifications and media-server refresh
 
 Implementation plan for the Phase 8 integrations in [PLAN.md](PLAN.md).
-Status: proposed; this document does not implement the integrations.
+Status: **built in a simplified form** (see below). The rest of this document is the
+original, stricter design; where it disagrees with "What was built", the latter wins.
+
+## What was built
+
+The original design (durable journal, cursors, delivery tables, dedupe tombstones, sweeps)
+was judged too heavy. Delivery is best effort instead: events are turned into retrying
+jobs, and a crash can drop or repeat a message. Nothing here is exactly-once.
+
+| Package                                           | What it does                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@magpiejs/import`                                | `ImportResult.added` / `removed` hold every file an import changed; new `media/changed` event (`MediaChange`) after an automatic import or a manual-import row. It is emitted outside the import error boundary, so a listener can never fail an imported grab. Adopt, rescan and repair only record files and emit nothing.             |
+| `@magpiejs/notifications`                         | `ctx.notifications.register(notifier, { name })`. Listens to `media/changed`, `import/failed`, `downloads/failed`, `downloads/grabbed`; queues a `notifications.send` job per destination that wants the event (jobs' default retries); `notifications_log` for the activity list (30 days); Settings → Notifications.                   |
+| `@magpiejs/notifier-{webhook,discord,ntfy,email}` | Provider plugins (`kind: notifier`). Each destination picks events with four checkboxes (imported, upgraded, failed, grabbed). Webhook body and signature format are documented in its source.                                                                                                                                           |
+| `@magpiejs/media-servers`                         | `ctx.mediaServers.register(provider, options)`. Maps paths (`paths.ts`, whole folders, Windows and POSIX), filters by kind, batches in memory (debounce, 60s maximum wait), sends one `mediaservers.refresh` job per batch, one request at a time per server. Settings → Media servers with Test connection (never scans) and Test scan. |
+| `@magpiejs/media-server-{plex,jellyfin,emby}`     | Provider plugins (`kind: media-server`).                                                                                                                                                                                                                                                                                                 |
+
+Differences from the design below:
+
+- No `@magpiejs/events` journal and no `ctx.database.transaction`; no delivery rows, unique
+  event/destination pairs, resend or replay. The log is for display only.
+- Event filters are the four checkboxes, not kinds/root folders/origin. Media servers do
+  have a kind filter and a path mapping.
+- Refresh batches wait in memory; a restart loses a batch that has not been queued yet. Once
+  queued it is a job and survives.
+- Telegram, broad-scan fallback and "retry"/"cancel" buttons are not built.
+- Authorization is the existing model: the console is session-gated and there are no roles.
+
+**Not verified against live servers.** Plex (`GET /library/sections/{key}/refresh?path=`),
+Jellyfin and Emby (`POST /Library/Media/Updated`) are written from the documentation and
+tested only against fake servers. Try each against a real server before relying on it.
 
 ## Outcome and scope
 
@@ -32,13 +62,13 @@ library updates, not installing or upgrading media-server software.
 
 ## Plugin boundaries
 
-| Package | Responsibility |
-| --- | --- |
-| `@magpiejs/events` | Durable domain-event journal, append and cursor-based reads |
-| `@magpiejs/notifications` | Notifier registry, routing, delivery rows, jobs and console |
-| `@magpiejs/notifier-{discord,email,webhook,ntfy,telegram}` | Configuration, test and transport |
-| `@magpiejs/media-servers` | Server registry, path mapping, refresh batches, jobs and console |
-| `@magpiejs/media-server-{plex,jellyfin,emby}` | Connection discovery and server-specific requests |
+| Package                                                    | Responsibility                                                   |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| `@magpiejs/events`                                         | Durable domain-event journal, append and cursor-based reads      |
+| `@magpiejs/notifications`                                  | Notifier registry, routing, delivery rows, jobs and console      |
+| `@magpiejs/notifier-{discord,email,webhook,ntfy,telegram}` | Configuration, test and transport                                |
+| `@magpiejs/media-servers`                                  | Server registry, path mapping, refresh batches, jobs and console |
+| `@magpiejs/media-server-{plex,jellyfin,emby}`              | Connection discovery and server-specific requests                |
 
 Each plugin owns prefixed tables and migrations. Providers register through a
 `ctx.effect` lifetime and disappear cleanly when disabled. Media-kind plugins supply
@@ -80,14 +110,14 @@ without subscribing to both history and import events for the same operation.
 
 Initial event catalog:
 
-| Event | Default |
-| --- | --- |
-| `media.imported` | Enabled; one summary per import operation |
-| `media.upgraded` | Enabled; distinguish replacement from first import |
-| `download.failed`, `import.failed` | Enabled; suppress repeated identical failure state |
-| `download.grabbed` | Opt-in |
-| `media.deleted` | Opt-in; physical deletion and catalog removal remain distinct |
-| `health.changed`, `subtitles.completed` | Reserved until their owning features land |
+| Event                                   | Default                                                       |
+| --------------------------------------- | ------------------------------------------------------------- |
+| `media.imported`                        | Enabled; one summary per import operation                     |
+| `media.upgraded`                        | Enabled; distinguish replacement from first import            |
+| `download.failed`, `import.failed`      | Enabled; suppress repeated identical failure state            |
+| `download.grabbed`                      | Opt-in                                                        |
+| `media.deleted`                         | Opt-in; physical deletion and catalog removal remain distinct |
+| `health.changed`, `subtitles.completed` | Reserved until their owning features land                     |
 
 Extend `Notifier.send` with delivery context containing delivery ID and abort signal;
 add a separate `test()` capability. Configured event subscriptions and filters belong
@@ -144,11 +174,11 @@ rules and target-platform separators. For example, `D:\\Media\\Movies` can map t
 configuration and unmapped paths. No mapping is needed when both systems use identical
 paths. Show translated paths in the connection test.
 
-| Server | Intended strategy | Implementation verification |
-| --- | --- | --- |
-| Plex | Discover sections, scan selected section with a changed-directory path where supported | Confirm HTTP method and scoped path behavior per supported version; current developer reference and older support examples differ |
-| Jellyfin | Report changed paths using `POST /Library/Media/Updated` | Verify request DTO, authentication and update types against a pinned release OpenAPI and live server |
-| Emby | Report changed paths using `POST /Library/Media/Updated` | Verify accepted update types and authorization against supported versions |
+| Server   | Intended strategy                                                                      | Implementation verification                                                                                                       |
+| -------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Plex     | Discover sections, scan selected section with a changed-directory path where supported | Confirm HTTP method and scoped path behavior per supported version; current developer reference and older support examples differ |
+| Jellyfin | Report changed paths using `POST /Library/Media/Updated`                               | Verify request DTO, authentication and update types against a pinned release OpenAPI and live server                              |
+| Emby     | Report changed paths using `POST /Library/Media/Updated`                               | Verify accepted update types and authorization against supported versions                                                         |
 
 Primary references: [Plex developer API](https://developer.plex.tv/pms/),
 [Plex scan commands](https://support.plex.tv/articles/201638786-plex-media-server-url-commands/),

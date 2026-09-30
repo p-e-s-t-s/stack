@@ -49,6 +49,8 @@
     "@magpiejs/settings": "0.0.0",
     "@magpiejs/system": "0.0.0",
     "@magpiejs/media-tools": "0.0.0",
+    "@magpiejs/media-server-emby": "0.0.0",
+    "@magpiejs/media-server-jellyfin": "0.0.0",
     "@magpiejs/media-server-plex": "0.0.0",
     "@magpiejs/media-servers": "0.0.0",
     "@magpiejs/mediainfo": "0.0.0",

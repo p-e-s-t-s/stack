@@ -93,7 +93,15 @@ describe('plex server', () => {
     ctx.mediaServers.flush()
     await ctx.jobs.tick()
     expect(requests.some((r) => r.url.includes('/refresh'))).toBe(false)
-    expect(ctx.mediaServers.list()[0]!.lastError).toContain('no selected Plex library')
+    expect(ctx.mediaServers.list()[0]!.lastError).toBeUndefined()
+  })
+
+  it('names a path that no library contains when it is not limited to some', async () => {
+    await ctx.plugin(Plex, config())
+    change(['/elsewhere/a.mkv'])
+    ctx.mediaServers.flush()
+    await ctx.jobs.tick()
+    expect(ctx.mediaServers.list()[0]!.lastError).toContain('check the path mapping')
   })
 
   it('reports a rejected token without the address', async () => {

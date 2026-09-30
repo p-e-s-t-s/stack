@@ -68,3 +68,10 @@ export function mapPath(path: string, mappings: Mapping[]): string | undefined {
   }
   return `/${rest.join('/')}`
 }
+
+/** True when `path` is `root` or inside it: whole folders, either separator, any case. */
+export function isInside(path: string, root: string) {
+  const split = (p: string) => p.split(/[\\/]+/).filter(Boolean)
+  const a = split(path.toLowerCase())
+  return split(root.toLowerCase()).every((part, i) => a[i] === part)
+}

@@ -13,7 +13,12 @@ import {
   type MediaServerConfig,
   optionsOf,
 } from '@magpiejs/media-servers/config'
-import type { ChangedPath, MediaServerProvider, ServerLibrary } from '@magpiejs/media-servers'
+import {
+  type ChangedPath,
+  isInside,
+  type MediaServerProvider,
+  type ServerLibrary,
+} from '@magpiejs/media-servers'
 import type { Context } from 'cordis'
 import z from 'schemastery'
 
@@ -53,14 +58,6 @@ const parent = (path: string) => {
   return cut > 0 ? path.slice(0, cut) : path
 }
 
-/** True when `folder` is `root` or inside it (whole folders, either separator, any case). */
-function within(folder: string, root: string) {
-  const split = (p: string) => p.split(/[\\/]+/).filter(Boolean)
-  const a = split(folder.toLowerCase())
-  const b = split(root.toLowerCase())
-  return b.every((part, i) => a[i] === part)
-}
-
 /**
  * The folders to scan and the library each belongs to: the longest library folder that
  * contains it. A path no selected library contains is left out and returned as `unmatched`.
@@ -73,7 +70,7 @@ export function plan(paths: ChangedPath[], sections: Section[]) {
     let best: { section: Section; length: number } | undefined
     for (const section of sections)
       for (const { path: root } of section.Location ?? [])
-        if (within(folder, root) && (!best || root.length > best.length))
+        if (isInside(folder, root) && (!best || root.length > best.length))
           best = { section, length: root.length }
     if (best) scans.set(`${best.section.key}\n${folder}`, { section: best.section, folder })
     else unmatched.push(path)
@@ -132,9 +129,10 @@ export function apply(ctx: Context, config: Config) {
           `/library/sections/${encodeURIComponent(section.key)}/refresh?path=${encodeURIComponent(folder)}`,
           options?.signal,
         )
-      // a path no selected library covers will not be retried into existence, so name it
-      if (unmatched.length && !scans.length)
-        throw new Error(`no selected Plex library contains ${unmatched[0]}`)
+      // with a library limit, other libraries are left alone on purpose; without one, a path
+      // no library contains means the path mapping is wrong, so say so
+      if (unmatched.length && !scans.length && !wanted.length)
+        throw new Error(`no Plex library contains ${unmatched[0]}; check the path mapping`)
     },
   }
   ctx.mediaServers.register(provider, { name: config.name, ...optionsOf(config) })
