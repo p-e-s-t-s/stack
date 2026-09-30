@@ -1,7 +1,19 @@
 import type {} from '@magpiejs/webui'
 import type {} from '@magpiejs/history'
 import type { Context } from 'cordis'
+import { basename } from 'node:path'
 import type { ReviewKind, ReviewRow, ReviewService, ReviewSession } from './review'
+import type { UndoState, UndoTarget } from './undo'
+
+/** The imports of one batch (a download, a season pack, a review commit), for the undo list. */
+export interface OperationBatch {
+  batchId: string
+  createdAt: number
+  /** What was imported: the library items, or the file name for one file. */
+  title: string
+  count: number
+  state: UndoState
+}
 
 export interface ImportData {
   kinds: ReviewKind[]
@@ -29,6 +41,12 @@ export interface ImportData {
     id: number,
   ): Promise<{ id: number; season: number; number: number; title: string | null }[]>
   repairGrab(id: number): Promise<ReviewSession>
+  /** Recent batches of file operations, newest first. */
+  operations: OperationBatch[]
+  /** The files an undo would move, and what stands in the way. */
+  undoPlan(target: UndoTarget): Promise<{ lines: string[]; problems: string[] }>
+  /** Undoes a batch or one import; refusals come back as `reasons`, not exceptions. */
+  undo(target: UndoTarget): Promise<{ ok: boolean; reasons: string[]; warnings: string[] }>
 }
 
 export default function console_(ctx: Context, review: ReviewService) {
@@ -49,9 +67,43 @@ export default function console_(ctx: Context, review: ReviewService) {
       .filter((g) => g.state === 'import_failed')
       .map((g) => ({ id: g.id, title: g.title, mediaId: g.mediaId, error: g.error })),
   })
-  const refresh = () => entry.mutate((d) => Object.assign(d, snapshot()))
+  const batches = (): OperationBatch[] => {
+    const seen = new Map<string, ReturnType<typeof ctx.import.journal.list>>()
+    for (const op of ctx.import.journal.list({ limit: 300 })) {
+      if (op.status === 'abandoned') continue
+      seen.set(op.batchId, [...(seen.get(op.batchId) ?? []), op])
+    }
+    return [...seen.entries()].slice(0, 50).map(([batchId, ops]) => {
+      const titles = [
+        ...new Set(ops.map((o) => ctx.library.get(o.mediaId)?.title ?? `#${o.mediaId}`)),
+      ]
+      return {
+        batchId,
+        createdAt: Math.max(...ops.map((o) => o.createdAt)),
+        title:
+          ops.length === 1 ? basename(ops[0]!.dest) : `${ops.length} files · ${titles.join(', ')}`,
+        count: ops.length,
+        state: ctx.import.undo.state({ batchId }),
+      }
+    })
+  }
+  const refresh = () => entry.mutate((d) => Object.assign(d, snapshot(), { operations: batches() }))
   const data: ImportData = {
     ...snapshot(),
+    operations: batches(),
+    undoPlan: (target) => ctx.import.undo.plan(target),
+    async undo(target) {
+      try {
+        const outcomes = await ctx.import.undo.run(target)
+        return {
+          ok: outcomes.every((o) => o.ok),
+          reasons: outcomes.flatMap((o) => (o.reason ? [o.reason] : [])),
+          warnings: outcomes.flatMap((o) => o.warnings),
+        }
+      } finally {
+        refresh()
+      }
+    },
     async scan(options) {
       const s = await review.scan(options)
       refresh()
@@ -112,4 +164,6 @@ export default function console_(ctx: Context, review: ReviewService) {
   ctx.on('import/adapters', refresh)
   ctx.on('import/review', refresh)
   ctx.on('library/deleted', refresh)
+  ctx.on('import/completed', refresh)
+  ctx.on('media/changed', refresh)
 }

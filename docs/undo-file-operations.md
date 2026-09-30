@@ -1,5 +1,8 @@
 # Undoable file operations
 
+> **Status:** steps 1–5 and most of 6–7 are built. Where this plan disagrees with
+> "What was built" at the end, the latter wins.
+
 Not a phase; a plan for a journal that records every file change Magpie makes to a library
 and lets you roll back a single import, a replacement, or a whole batch ("the rescan
 renamed 400 files wrong").
@@ -188,3 +191,54 @@ adopt the hooks afterwards (they register importers the same way).
   operations Magpie performed.
 - **Should undo also exist for metadata changes** (title match, monitor flags)? Different
   mechanism; out of scope here.
+
+## 7. What was built
+
+Single-import undo (steps 1–5), batches for download imports and manual-import commits, and
+the UI (step 7). Differences from the plan above:
+
+- **Shared sidecar matcher:** `@magpiejs/sidecars` (`packages/sidecars`) holds `sidecar()`,
+  `findSidecars()` and `sidecarTarget()`; subtitles and import both use it.
+- **Journal** (`import_operations`, migration `0001_operations`): two extra statuses,
+  `pending` (journaled, the file change is not confirmed) and `abandoned` (it never
+  happened). `Journal.recover()` settles `pending` rows at start-up and, for ones older than an
+  hour, from the hourly job. The operation's own `parentId` marks replaced files and sidecars.
+  The migration was added by hand in the plugin's existing layout (renaming `0000_sessions`
+  would make the runner see drift), so it has no drizzle-kit snapshot; the next
+  `db:generate` needs the plugin converted with `drizzle-kit up` and its migration tags kept.
+- **Settings** (Media management): `undoRetentionDays` (default 7; **0 turns undo off**, and
+  then nothing is journaled and replaced files are deleted as before) and `undoMaxGb`
+  (default 20, 0 for no cap). With no recycle bin set, replaced files go to `<config>/trash`;
+  a recycle bin the user set is used as before, and is never emptied by Magpie (operations
+  that used it still expire, the files stay). The hourly `import.purge` job expires by age and
+  size, and removes trash files nothing refers to once they have been untouched for a day.
+  The trash is not on the library's filesystem in most installs, so a replacement there is a
+  copy, not a rename.
+- **Recorder:** `ctx.import.recorder(item, { batchId, targetId })` journals a file placement
+  (`place`/`replace`), and replaced files and their sidecars (`delete`, as parts of it).
+  Importers did not change: `tools.place()` and `tools.recycle()` record, and capture the
+  library file record that is replaced or removed. `tools.annotate(note)` lets an importer
+  keep something the journal cannot see; series uses it for episode links a kept
+  multi-episode file lost.
+- **Sidecars** are trashed with a replaced video only when the old video's path goes away.
+  A same-name replacement leaves them where they are, since they still belong to the new
+  file. Subtitles found in the trash that were recreated since undo are left alone with a
+  warning, the video still comes back; a replaced video that is missing from the trash
+  blocks the undo.
+- **Kind hooks:** `ctx.import.registerUndo(kind, { capture, restore, rollback, changed })`.
+  Series registers them (episode links). Movies needs none: file records carry everything.
+  Hooks run after the library transaction, since kinds open their own.
+- **Undo checks:** the fingerprint is size, mtime and a hash of the first and last 64 KiB. A
+  newer applied operation elsewhere on the same path blocks an undo; a batch undoes its
+  own operations newest-first and carries on past the ones that fail. A usenet import
+  (move) goes back only while its download folder exists.
+- **UI:** the History page has an Undo button on imported events (with a list of what
+  moves), the Import page lists recent imports with Undo and offers "Undo all" after a
+  commit. `import-undone` history events record it. The grab stays `imported`; "Undo and
+  blocklist" / "Undo and search again" (§2.5) are not built.
+
+Not built: **bulk rename with preview** (step 6, second half) and with it any producer of
+`rename` operations (the engine can undo them); undo for music, books and podcasts; the
+manual-import row flow does not journal `delete` of files it removed for a `rescan` with
+"remove missing" (that only deletes records). Deletes made elsewhere in Magpie (removing a
+movie version, podcast retention) are not journaled either.

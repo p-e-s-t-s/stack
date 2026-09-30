@@ -1,7 +1,16 @@
 import { mediaItems } from '@magpiejs/library/schema'
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-export type HistoryType = 'grabbed' | 'download-failed' | 'imported' | 'import-failed' | 'import-undone' | 'subtitle-downloaded' | 'subtitle-upgraded' | 'subtitle-synced' | 'subtitle-failed'
+export type HistoryType =
+  | 'grabbed'
+  | 'download-failed'
+  | 'imported'
+  | 'import-failed'
+  | 'import-undone'
+  | 'subtitle-downloaded'
+  | 'subtitle-upgraded'
+  | 'subtitle-synced'
+  | 'subtitle-failed'
 
 export const events = sqliteTable(
   'history_events',

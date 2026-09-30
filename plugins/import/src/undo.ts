@@ -34,6 +34,21 @@ export interface UndoOutcome {
   warnings: string[]
 }
 
+/** What to undo: one import, or every import of a batch (a season pack, a review commit). */
+export interface UndoTarget {
+  operationId?: number
+  batchId?: string
+}
+
+/** How the undo button for a target should look. */
+export interface UndoState {
+  state: 'available' | 'undone' | 'unavailable'
+  /** Why it is unavailable. */
+  reason?: string
+  /** How many imports it would undo. */
+  count: number
+}
+
 const exists = (fs: FileSystem, path: string) =>
   fs.stat(path).then(
     () => true,
@@ -263,6 +278,78 @@ export class UndoService {
     const outcomes: UndoOutcome[] = []
     for (const op of roots) outcomes.push(await this.undo(op.id, options))
     return outcomes
+  }
+
+  private roots(target: UndoTarget) {
+    if (target.operationId !== undefined) {
+      const op = this.journal.get(target.operationId)
+      return op && !op.parentId ? [op] : []
+    }
+    return target.batchId ? this.journal.batch(target.batchId) : []
+  }
+
+  /**
+   * Whether a target can be undone, from the journal alone (nothing on disk is read, so this is
+   * cheap enough for a list); `undo` still checks the files.
+   */
+  state(target: UndoTarget): UndoState {
+    const roots = this.roots(target)
+    if (!roots.length) return { state: 'unavailable', reason: 'not recorded', count: 0 }
+    const live = roots.filter((op) => op.status === 'applied' || op.status === 'undo_failed')
+    if (!live.length) {
+      if (roots.every((op) => op.status === 'undone')) return { state: 'undone', count: 0 }
+      const expired = roots.some((op) => op.status === 'expired')
+      return {
+        state: 'unavailable',
+        reason: expired ? 'too old to undo' : 'nothing to undo',
+        count: 0,
+      }
+    }
+    const open = live.filter(
+      (op) =>
+        !this.group(op).some(
+          (part) => this.journal.newerTouching(op.id, part.dest, op.batchId).length,
+        ),
+    )
+    if (!open.length) return { state: 'unavailable', reason: 'changed again afterwards', count: 0 }
+    return { state: 'available', count: open.length }
+  }
+
+  /** The files an undo would move, in words, and what stands in the way. */
+  async plan(target: UndoTarget) {
+    const lines: string[] = []
+    const problems: string[] = []
+    for (const root of this.roots(target)) {
+      if (root.status !== 'applied' && root.status !== 'undo_failed') continue
+      const check = await this.check(root.id)
+      if (!check.ok) problems.push(`${basename(root.dest)}: ${check.reason}`)
+      for (const op of this.group(root)) lines.push(this.describe(op))
+    }
+    return { lines, problems }
+  }
+
+  private describe(op: Operation) {
+    const name = basename(op.dest)
+    switch (op.type) {
+      case 'place':
+        return op.method === 'move'
+          ? `Move ${name} back to ${op.source}`
+          : `Remove ${op.dest} (the download is not touched)`
+      case 'replace':
+        return `Put the previous ${name} back (the new one is ${
+          op.method === 'move' ? `moved to ${op.source}` : 'removed'
+        })`
+      case 'rename':
+        return `Rename ${name} back to ${basename(op.source ?? '')}`
+      case 'delete':
+        return `Put ${op.dest} back`
+    }
+  }
+
+  /** Undoes a target: one import, or every import of a batch. */
+  async run(target: UndoTarget, options: { force?: boolean } = {}) {
+    if (target.operationId !== undefined) return [await this.undo(target.operationId, options)]
+    return this.undoBatch(target.batchId ?? '', options)
   }
 
   /** What undoing a batch would do: how many imports, how many can be undone, and why not. */

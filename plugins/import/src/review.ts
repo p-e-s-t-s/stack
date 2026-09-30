@@ -57,6 +57,8 @@ export interface ReviewSession {
   missing: number[]
   removeMissing: boolean
   complete: boolean
+  /** The journal batches of this session's commits, for undoing them. */
+  batches?: string[]
 }
 export interface FilePlan {
   destination: string
@@ -724,6 +726,8 @@ export class ReviewService {
           if (absent) this.ctx.library.removeFile(fid)
         }
       }
+      if (this.ctx.import.journal.batch(batchId).length)
+        session.batches = [...(session.batches ?? []), batchId]
       session.complete = session.rows.filter((r) => r.selected).every((r) => r.status === 'done')
       if (session.mode === 'adopt') {
         const groups = new Set(session.rows.filter((r) => r.adopted).map((r) => r.folder))

@@ -45,6 +45,44 @@
         ><button :disabled="busy" @click="repairGrab(g.id)">Review files</button>
       </div>
     </div>
+    <div v-if="data.operations.length" class="mp-card" data-testid="operations">
+      <h2>Recent imports</h2>
+      <p class="mp-muted mp-small">
+        Undo puts files back as they were. Replaced files are kept for the undo period set in Media
+        management.
+      </p>
+      <div v-for="o in data.operations.slice(0, 10)" :key="o.batchId" class="mp-row op">
+        <span>{{ o.title }}</span>
+        <span class="mp-muted mp-small">{{ new Date(o.createdAt).toLocaleString() }}</span>
+        <button
+          v-if="o.state.state === 'available'"
+          :disabled="busy"
+          @click="reviewUndo({ batchId: o.batchId })"
+        >
+          Undo{{ o.count > 1 ? ` (${o.state.count})` : '' }}
+        </button>
+        <span v-else-if="o.state.state === 'undone'" class="mp-badge">Undone</span>
+        <span v-else class="mp-muted mp-small">{{ o.state.reason }}</span>
+      </div>
+    </div>
+    <div v-if="undoPlan" class="mp-card" data-testid="undo-plan">
+      <h2>Undo</h2>
+      <p v-if="undoPlan.problems.length" class="mp-error">
+        Some of this can’t be undone right now:
+        <span v-for="p in undoPlan.problems" :key="p" style="display: block">{{ p }}</span>
+      </p>
+      <p>This will:</p>
+      <ul>
+        <li v-for="line in undoPlan.lines" :key="line">{{ line }}</li>
+      </ul>
+      <div class="mp-row">
+        <button class="primary" :disabled="busy" @click="confirmUndo">
+          {{ busy ? 'Working…' : 'Undo' }}
+        </button>
+        <button :disabled="busy" @click="undoPlan = undefined">Cancel</button>
+      </div>
+    </div>
+    <p v-if="undoMessage" class="mp-muted" role="status">{{ undoMessage }}</p>
     <div class="mp-row" v-if="data.sessions.length">
       <label
         >Resume scan
@@ -208,6 +246,12 @@
         <span v-if="dirty" class="mp-muted">Review changes before importing.</span>
         <span v-if="session.complete" class="mp-badge">Import complete</span>
       </div>
+      <div v-if="sessionUndo.length" class="mp-card mp-row" data-testid="session-undo">
+        <span>{{ sessionUndo.reduce((n, o) => n + o.count, 0) }} files changed.</span>
+        <button :disabled="busy" @click="reviewUndo({ batchId: sessionUndo[0]!.batchId })">
+          Undo all
+        </button>
+      </div>
     </template>
   </section>
 </template>
@@ -215,6 +259,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRpc } from '@cordisjs/client'
 import type { ImportData } from '../src/console'
+import type { UndoTarget } from '../src/undo'
 import type { ReviewKind, ReviewRow, ReviewSession } from '../src/review'
 const data = useRpc<ImportData>()
 const route = useRoute()
@@ -239,6 +284,31 @@ const ready = computed(
     ) ||
       session.value.removeMissing),
 )
+// undoing: review what would move, then confirm
+const undoPlan = ref<{ target: UndoTarget; lines: string[]; problems: string[] }>()
+const undoMessage = ref('')
+const sessionUndo = computed(() =>
+  data.value.operations.filter(
+    (o) => session.value?.batches?.includes(o.batchId) && o.state.state === 'available',
+  ),
+)
+async function reviewUndo(target: UndoTarget) {
+  await run(async () => {
+    undoMessage.value = ''
+    undoPlan.value = { target, ...(await data.value.undoPlan(target)) }
+  })
+}
+async function confirmUndo() {
+  const target = undoPlan.value?.target
+  if (!target) return
+  await run(async () => {
+    const outcome = await data.value.undo(target)
+    undoPlan.value = undefined
+    undoMessage.value = outcome.ok
+      ? ['Undone.', ...outcome.warnings].join(' ')
+      : `Not undone: ${outcome.reasons.join('; ')}`
+  })
+}
 async function run(action: () => Promise<void>) {
   busy.value = true
   error.value = ''
