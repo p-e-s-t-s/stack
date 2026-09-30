@@ -1,15 +1,8 @@
 /* Layout specific to the movie pages; the grid, hero, results and edit form come from the
    shell (.mp-grid, .mp-hero, .mp-result, .mp-edit…). */
 
-.mv .filter {
-  width: 220px;
-}
 .mv .poster {
   aspect-ratio: 2 / 3;
-}
-.mv .folder {
-  margin: 10px 0 0;
-  word-break: break-all;
 }
 
 .mv .movie-download-progress {

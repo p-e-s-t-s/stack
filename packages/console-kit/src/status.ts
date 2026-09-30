@@ -50,3 +50,13 @@ export function downloadStatus(state: string, progress: number) {
       : (DOWNLOAD_LABELS[state] ?? state)
   return { text, class: 'info' }
 }
+
+/** A status badge: its text and the shell's badge class (`ok`, `bad`, `info`, or none). */
+export interface Badge {
+  text: string
+  class: '' | 'ok' | 'bad' | 'info'
+}
+
+export const notMonitored = (): Badge => ({ text: 'Not monitored', class: '' })
+export const missing = (): Badge => ({ text: 'Missing', class: 'bad' })
+export const missingCount = (n: number): Badge => ({ text: `${n} missing`, class: 'bad' })

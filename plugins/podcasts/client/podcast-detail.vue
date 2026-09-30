@@ -80,12 +80,12 @@
         </select>
         <span class="mp-help">Older files go to the recycle bin (or are deleted).</span>
       </div>
-      <p class="folder mp-muted mp-small mono">{{ podcast.feedUrl }}</p>
+      <p class="mp-folder mp-muted mp-small mono">{{ podcast.feedUrl }}</p>
     </div>
 
     <div class="mp-head">
       <h2>Episodes</h2>
-      <input v-if="episodes?.length" v-model="filter" placeholder="Filter" class="filter" />
+      <input v-if="episodes?.length" v-model="filter" placeholder="Filter" class="mp-filter" />
     </div>
     <p v-if="!episodes" class="mp-muted">Loading…</p>
     <p v-else-if="!episodes.length" class="mp-empty">This feed has no episodes.</p>

@@ -97,7 +97,7 @@
 
     <div class="mp-head">
       <h2>Books</h2>
-      <input v-if="bookRows?.length" v-model="filter" placeholder="Filter" class="filter" />
+      <input v-if="bookRows?.length" v-model="filter" placeholder="Filter" class="mp-filter" />
     </div>
     <p v-if="!bookRows" class="mp-muted">Loading…</p>
     <p v-else-if="!bookRows.length" class="mp-empty">No books found for this author.</p>

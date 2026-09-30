@@ -2,15 +2,8 @@
    episode table come from the shell (.mp-grid, .mp-hero, .mp-result, .mp-edit, .mp-tabs,
    .mp-table.episodes…). */
 
-.pc .filter {
-  width: 220px;
-}
 .pc .poster {
   aspect-ratio: 1;
-}
-.pc .folder {
-  margin: 10px 0 0;
-  word-break: break-all;
 }
 
 /* OPML feed-url preview, before it's added */

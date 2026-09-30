@@ -2,7 +2,7 @@
   <section class="mu">
     <div class="mp-head">
       <h1>Music</h1>
-      <input v-if="data.artists.length" v-model="filter" placeholder="Filter" class="filter" />
+      <input v-if="data.artists.length" v-model="filter" placeholder="Filter" class="mp-filter" />
       <button class="primary" data-testid="add-artist" @click="router.push('/music/add')">
         Add artist
       </button>

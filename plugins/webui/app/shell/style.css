@@ -412,6 +412,15 @@ h3 {
   background: var(--mp-accent);
 }
 
+/* the "Filter" input above a media list, and a path/url line on a detail page */
+.mp-filter {
+  width: 220px;
+}
+.mp-folder {
+  margin: 10px 0 0;
+  word-break: break-all;
+}
+
 /* poster grid: the "Movies"/"Series"/etc. list and the results of an add/search page */
 .mp-grid {
   display: grid;

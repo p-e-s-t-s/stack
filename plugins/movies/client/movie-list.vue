@@ -3,7 +3,7 @@
     <div class="mp-head">
       <h1>Movies</h1>
       <button @click="router.push('/import?kind=movie')">Import existing library</button>
-      <input v-if="data.movies.length" v-model="filter" placeholder="Filter" class="filter" />
+      <input v-if="data.movies.length" v-model="filter" placeholder="Filter" class="mp-filter" />
       <button class="primary" data-testid="add-movie" @click="router.push('/movies/add')">
         Add movie
       </button>

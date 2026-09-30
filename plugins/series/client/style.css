@@ -2,15 +2,8 @@
    table come from the shell (.mp-grid, .mp-hero, .mp-result, .mp-edit, .mp-section,
    .mp-table.episodes…). */
 
-.sr .filter {
-  width: 220px;
-}
 .sr .poster {
   aspect-ratio: 2 / 3;
-}
-.sr .folder {
-  margin: 10px 0 0;
-  word-break: break-all;
 }
 
 /* episode number column, alongside the shared mon/date/actions columns */

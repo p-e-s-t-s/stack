@@ -2,7 +2,7 @@
   <section class="bk">
     <div class="mp-head">
       <h1>Books</h1>
-      <input v-if="data.authors.length" v-model="filter" placeholder="Filter" class="filter" />
+      <input v-if="data.authors.length" v-model="filter" placeholder="Filter" class="mp-filter" />
       <button class="primary" data-testid="add-author" @click="router.push('/books/add')">
         Add author
       </button>

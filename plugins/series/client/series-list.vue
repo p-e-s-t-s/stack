@@ -3,7 +3,7 @@
     <div class="mp-head">
       <h1>Series</h1>
       <button @click="router.push('/import?kind=series')">Import existing library</button>
-      <input v-if="data.series.length" v-model="filter" placeholder="Filter" class="filter" />
+      <input v-if="data.series.length" v-model="filter" placeholder="Filter" class="mp-filter" />
       <button class="primary" data-testid="add-series" @click="router.push('/series/add')">
         Add series
       </button>

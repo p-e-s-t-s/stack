@@ -1,9 +1,6 @@
 /* Layout specific to the music pages; the grid, hero, results, edit form and sections come from
    the shell (.mp-grid, .mp-hero, .mp-result, .mp-edit, .mp-section…). */
 
-.mu .filter {
-  width: 220px;
-}
 .mu .poster {
   aspect-ratio: 1;
 }

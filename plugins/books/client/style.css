@@ -1,9 +1,6 @@
 /* Layout specific to the book pages; the grid, hero, results and edit form come from the shell
    (.mp-grid, .mp-hero, .mp-result, .mp-edit…). */
 
-.bk .filter {
-  width: 220px;
-}
 .bk .poster {
   aspect-ratio: 2 / 3;
 }

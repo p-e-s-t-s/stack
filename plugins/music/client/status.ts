@@ -1,10 +1,10 @@
-import { downloadStatus } from '@magpiejs/console-kit'
+import { downloadStatus, missing, missingCount, notMonitored } from '@magpiejs/console-kit'
 import type { AlbumRow, ArtistSummary } from '../src/console'
 
 export function artistStatus(a: ArtistSummary) {
-  if (!a.monitored) return { text: 'Not monitored', class: '' }
-  const missing = a.stats.wanted - a.stats.complete
-  if (missing) return { text: `${missing} missing`, class: 'bad' }
+  if (!a.monitored) return notMonitored()
+  const count = a.stats.wanted - a.stats.complete
+  if (count) return missingCount(count)
   return {
     text: a.stats.wanted ? 'Complete' : 'Nothing released',
     class: a.stats.wanted ? 'ok' : '',
@@ -18,8 +18,8 @@ export function albumStatus(a: AlbumRow) {
   if (a.files)
     return { text: `${a.files}${a.tracks ? ` of ${a.tracks}` : ''} tracks`, class: 'bad' }
   if (!a.released) return { text: a.releaseDate ? 'Upcoming' : 'Unreleased', class: '' }
-  if (!a.monitored) return { text: 'Not monitored', class: '' }
-  return { text: 'Missing', class: 'bad' }
+  if (!a.monitored) return notMonitored()
+  return missing()
 }
 
 /** Section an album is listed under on the artist page. */

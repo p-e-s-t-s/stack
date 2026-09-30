@@ -100,7 +100,7 @@
         </div>
       </template>
       <p v-else class="mp-muted" style="margin: 0">No file yet.</p>
-      <p class="mp-muted mp-small folder">{{ folder }}</p>
+      <p class="mp-muted mp-small mp-folder">{{ folder }}</p>
     </div>
 
     <template v-if="results || searchError">

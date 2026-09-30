@@ -2,7 +2,7 @@
   <section class="pc">
     <div class="mp-head">
       <h1>Podcasts</h1>
-      <input v-if="data.podcasts.length" v-model="filter" placeholder="Filter" class="filter" />
+      <input v-if="data.podcasts.length" v-model="filter" placeholder="Filter" class="mp-filter" />
       <button :disabled="!data.podcasts.length" @click="exportOpml">Export OPML</button>
       <button class="primary" data-testid="add-podcast" @click="router.push('/podcasts/add')">
         Add podcast
