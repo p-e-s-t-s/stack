@@ -40,12 +40,11 @@
     </form>
     <h2>Providers</h2>
     <k-slot name="provider-settings" :data="{kind:'subtitle',status:providerStatus,test:testProvider}" />
-    <h2>Media tools</h2>
+    <h2>Subtitle sync</h2>
     <form class="mp-card" @submit.prevent="run(()=>data.saveTools(tools))">
-      <div class="mp-field"><label>ffprobe executable <input v-model="tools.ffprobe" required /></label></div>
       <div class="mp-field"><label>Sync engine <select v-model="tools.syncEngine"><option value="ffsubsync">ffsubsync</option><option value="alass">alass</option></select></label></div>
       <div class="mp-field"><label>Sync executable <input v-model="tools.syncBinary" placeholder="Optional executable path" /></label></div>
-      <p class="mp-help">Install the executable on the server. External sync supports SRT; offset adjustment also supports ASS, SSA and VTT.</p>
+      <p class="mp-help">ffprobe is set up in <router-link to="/settings/media-tools">Settings → Media tools</router-link>. Install the sync executable on the server. External sync supports SRT; offset adjustment also supports ASS, SSA and VTT.</p>
       <div class="mp-row"><button :disabled="busy">Save tools</button><button type="button" @click="checkTools">Test tools</button></div>
       <p v-if="health">ffprobe: {{ health.ffprobe }} · Sync: {{ health.sync }}</p>
     </form>

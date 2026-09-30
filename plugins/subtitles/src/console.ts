@@ -3,7 +3,7 @@ import type { Context } from 'cordis'
 import type { SubtitlesService } from './index'
 
 export default function console_(ctx: Context, s: SubtitlesService) {
-  const snapshot = () => ({files:s.files(),media:s.media(),profiles:s.profiles(),defaults:s.kindDefaults(),providers:s.health(),operations:s.operationList(),blocklist:s.blocked(),tools:{ffprobe:s.config.ffprobe,syncBinary:s.config.syncBinary,syncEngine:s.config.syncEngine}})
+  const snapshot = () => ({files:s.files(),media:s.media(),profiles:s.profiles(),defaults:s.kindDefaults(),providers:s.health(),operations:s.operationList(),blocklist:s.blocked(),tools:{syncBinary:s.config.syncBinary,syncEngine:s.config.syncEngine}})
   const data = {
     ...snapshot(),
     saveProfile:(input:unknown,id?:number)=>s.saveProfile(input,id),
@@ -49,6 +49,6 @@ export interface SubtitlesData {
   unblock(id:number):Promise<void>
   testProvider:SubtitlesService['testProvider']
   toolHealth:SubtitlesService['toolHealth']
-  tools: Pick<SubtitlesService['config'],'ffprobe'|'syncBinary'|'syncEngine'>
+  tools: Pick<SubtitlesService['config'],'syncBinary'|'syncEngine'>
   saveTools(input:unknown):Promise<void>
 }
