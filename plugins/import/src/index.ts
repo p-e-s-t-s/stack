@@ -34,6 +34,8 @@ declare module 'cordis' {
     'import/review'(): void
     'import/completed'(item: MediaItem, grab: Grab, details: ImportResult): void
     'import/failed'(item: MediaItem | undefined, grab: Grab, reason: string): void
+    /** A guard rejected the download before anything was placed; it was removed and blocklisted. */
+    'import/rejected'(item: MediaItem, grab: Grab, reason: string, detail?: unknown): void
   }
 }
 
@@ -87,12 +89,40 @@ export interface ImporterOptions {
 /** A reason to stop importing that is shown to the user as-is. */
 export class ImportError extends Error {}
 
+/**
+ * Thrown by a guard when the download must not enter the library (fake, corrupt, malicious).
+ * The download is deleted and blocklisted and the next-best release is searched for, instead
+ * of the grab being left as `import_failed`.
+ */
+export class ImportRejected extends ImportError {
+  constructor(
+    message: string,
+    readonly detail?: unknown,
+  ) {
+    super(message)
+  }
+}
+
+/** What a guard sees: the download as found on disk, before any importer logic has run. */
+export interface GuardInput {
+  item: MediaItem
+  grab: Grab
+  /** The download's folder or file, as the client reported it. */
+  outputPath: string
+  /** The files the kind would import, largest first; empty when there are none. */
+  files: { path: string; size: number }[]
+}
+
+/** Inspects a finished download before it is imported; throws {@link ImportRejected} to refuse it. */
+export type ImportGuard = (input: GuardInput) => Promise<void>
+
 export class ImportService extends Service {
   static inject = ['database', 'downloads', 'library', 'decision', 'jobs']
 
   fs = fileSystem
   review!: ReviewService
   private importers = new Map<MediaKind, { importer: Importer; options: ImporterOptions }>()
+  private guards = new Set<ImportGuard>()
 
   constructor(ctx: Context) {
     super(ctx, 'import')
@@ -145,6 +175,14 @@ export class ImportService extends Service {
     }, `import.register(${kind})`)
   }
 
+  /** Adds a check that runs on each download before it is imported, for the caller's lifetime. */
+  guard(guard: ImportGuard) {
+    return this.ctx.effect(() => {
+      this.guards.add(guard)
+      return () => this.guards.delete(guard)
+    }, 'import.guard')
+  }
+
   enqueue(grabId: number) {
     return this.ctx.jobs.enqueue('import.download', { grabId }, { dedupeKey: `import:${grabId}` })
   }
@@ -171,6 +209,7 @@ export class ImportService extends Service {
       this.ctx.logger.info('imported %s to %s (%s)', grab.title, result.path, result.method)
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
+      if (error instanceof ImportRejected && item) return this.reject(item, grab, error)
       this.ctx.downloads.setState(grab.id, 'import_failed', reason)
       this.ctx.logger.warn('import of %s failed: %s', grab.title, reason)
       this.ctx.emit('import/failed', item, grab, reason)
@@ -191,6 +230,25 @@ export class ImportService extends Service {
     })
   }
 
+  /** Deletes a rejected download, blocklists the release and lets the kind search again. */
+  private async reject(item: MediaItem, grab: Grab, error: ImportRejected) {
+    this.ctx.logger.warn('rejected %s: %s', grab.title, error.message)
+    try {
+      await this.ctx.downloads.remove(grab.id, {
+        deleteData: true,
+        blocklist: true,
+        reason: error.message,
+      })
+    } catch (removeError) {
+      // the client is unreachable: don't leave the grab importing, and don't import it either
+      const reason = `${error.message} (could not remove it: ${(removeError as Error).message})`
+      this.ctx.downloads.setState(grab.id, 'import_failed', reason)
+      this.ctx.emit('import/failed', item, grab, reason)
+      return
+    }
+    this.ctx.emit('import/rejected', item, grab, error.message, error.detail)
+  }
+
   private tools(item: MediaItem, grab: Grab, options: ImporterOptions): ImportTools {
     const files = this.ctx.library.fileHandling()
     // an extra version is judged by its own profile
@@ -198,11 +256,14 @@ export class ImportService extends Service {
     const profile = this.ctx.decision.profile(target?.profileId ?? item.profileId)
     const extensions = new Set(options.extensions ?? VIDEO_EXTENSIONS)
     const video = !options.extensions
+    // guards run once, on the first look at the files, before anything is placed
+    let guarded: Promise<void> | undefined
     return {
       fs: this.fs,
       files: async () => {
         if (!grab.outputPath)
           throw new ImportError('the download client did not report where the download is')
+        const outputPath = grab.outputPath
         let found: { path: string; size: number }[]
         try {
           found = await findFiles(grab.outputPath, extensions, { skipExtras: video }, this.fs)
@@ -214,6 +275,10 @@ export class ImportService extends Service {
           }
           throw error
         }
+        guarded ??= (async () => {
+          for (const guard of this.guards) await guard({ item, grab, outputPath, files: found })
+        })()
+        await guarded
         if (!found.length)
           throw new ImportError(
             `${video ? 'no video file' : 'no file to import'} found in ${grab.outputPath}`,

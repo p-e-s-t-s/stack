@@ -1,0 +1,37 @@
+{
+  "name": "@magpiejs/verify",
+  "version": "0.0.0",
+  "description": "Sanity checks on finished downloads: fake, corrupt and malicious releases are rejected before they reach the library",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "magpie": {
+    "namespace": "verify"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/downloads": "0.0.0",
+    "@magpiejs/import": "0.0.0",
+    "@magpiejs/library": "0.0.0",
+    "@magpiejs/media-tools": "0.0.0",
+    "@magpiejs/parser": "0.0.0",
+    "@magpiejs/probe": "0.0.0",
+    "drizzle-orm": "1.0.0-rc.4"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/history": "0.0.0",
+    "@magpiejs/movies": "0.0.0",
+    "@magpiejs/testing": "0.0.0",
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "1.0.0-rc.4"
+  }
+}

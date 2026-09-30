@@ -36,6 +36,7 @@ const BADGES = {
   'download-failed': 'bad',
   imported: 'ok',
   'import-failed': 'bad',
+  'import-rejected': 'bad',
 }
 
 const LABELS = {
@@ -43,6 +44,7 @@ const LABELS = {
   'download-failed': 'Download failed',
   imported: 'Imported',
   'import-failed': 'Import failed',
+  'import-rejected': 'Rejected',
 }
 
 function details(e: HistoryRow) {
