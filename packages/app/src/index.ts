@@ -49,6 +49,8 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/downloader-http' },
     { name: '@magpiejs/import' },
     { name: '@magpiejs/history' },
+    // messages to webhooks, Discord, …; destinations are added in Settings → Notifications
+    { name: '@magpiejs/notifications' },
     // ffprobe/ffmpeg location, and what is inside each library file
     { name: '@magpiejs/media-tools' },
     { name: '@magpiejs/mediainfo' },

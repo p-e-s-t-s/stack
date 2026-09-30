@@ -24,7 +24,7 @@ declare module 'cordis' {
   }
 }
 
-export type ProviderKind = 'indexer' | 'download-client' | 'metadata' | 'subtitle'
+export type ProviderKind = 'indexer' | 'download-client' | 'metadata' | 'subtitle' | 'notifier'
 
 export interface Provider {
   /** Package name, used as the loader entry's `name`. */

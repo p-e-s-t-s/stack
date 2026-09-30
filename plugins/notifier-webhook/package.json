@@ -1,0 +1,37 @@
+{
+  "name": "@magpiejs/notifier-webhook",
+  "version": "0.0.0",
+  "description": "Generic webhook notifications for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "magpie": {
+    "provider": {
+      "kind": "notifier",
+      "label": "Webhook",
+      "basic": [
+        "name",
+        "url",
+        "onImported",
+        "onUpgraded",
+        "onFailed",
+        "onGrabbed"
+      ]
+    }
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/notifications": "0.0.0",
+    "@magpiejs/types": "0.0.0",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "@cordisjs/plugin-http": "^1.5.2",
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/testing": "0.0.0",
+    "cordis": "4.0.0-rc.10"
+  }
+}
