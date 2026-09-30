@@ -65,7 +65,26 @@
       <div class="mp-field">
         <label for="recycle">Recycle bin</label>
         <input id="recycle" v-model="files.recycleBin" placeholder="Leave empty to delete" />
-        <span class="mp-help">Replaced files are moved here instead of deleted.</span>
+        <span class="mp-help">
+          Replaced files are moved here instead of deleted. Leave empty and Magpie keeps them in its
+          own trash for the undo period below.
+        </span>
+      </div>
+      <div class="mp-field">
+        <label for="undo-days">Keep imports undoable for (days)</label>
+        <input id="undo-days" v-model.number="files.undoRetentionDays" type="number" min="0" />
+        <span class="mp-help">
+          Imports, replacements and renames can be undone until then. 0 turns undo off, and replaced
+          files are deleted straight away.
+        </span>
+      </div>
+      <div class="mp-field">
+        <label for="undo-gb">Trash size limit (GB)</label>
+        <input id="undo-gb" v-model.number="files.undoMaxGb" type="number" min="0" />
+        <span class="mp-help">
+          Replaced files kept in Magpie's trash use disk space. The oldest are purged first, and
+          their imports can no longer be undone. 0 for no limit.
+        </span>
       </div>
       <div class="mp-row save">
         <button class="primary" @click="saveFiles">Save</button>

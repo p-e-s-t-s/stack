@@ -2,6 +2,9 @@
 // no knowledge of any kind of media: each kind registers how its downloads are imported
 // (movies and series from their plugins; docs/phase-4.5.md §3.5).
 
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { isBetter, profileRanks } from '@magpiejs/decision'
 import type { Grab } from '@magpiejs/downloads'
 import type {} from '@magpiejs/jobs'
@@ -9,21 +12,22 @@ import type { MediaItem } from '@magpiejs/library'
 import type { Revision } from '@magpiejs/parser'
 import type { MediaKind } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
-import {
-  type FileSystem,
-  fileSystem,
-  findFiles,
-  recycle,
-  placeSafely,
-  VIDEO_EXTENSIONS,
-} from './files'
+import { type FileSystem, fileSystem, findFiles, VIDEO_EXTENSIONS } from './files'
 import { announceChange } from './changes'
+import { Journal } from './journal'
+import { Recorder, type RecorderOptions } from './recorder'
 import { ReviewService } from './review'
+import { purge } from './trash'
+import { type UndoHooks, UndoService } from './undo'
 import reviewConsole from './console'
 
 export * from './changes'
 export * from './files'
+export * from './journal'
+export * from './recorder'
 export * from './review'
+export * from './trash'
+export * from './undo'
 
 declare module 'cordis' {
   interface Context {
@@ -51,6 +55,8 @@ export interface ImportResult {
   removed?: string[]
   /** Files that were left out, with the reason. */
   skipped?: string[]
+  /** The batch of journaled file operations, when the import can be undone. */
+  batchId?: string
 }
 
 /** Imports one finished download for a library item of one kind. */
@@ -59,6 +65,8 @@ export type Importer = (item: MediaItem, grab: Grab, tools: ImportTools) => Prom
 /** Shared helpers for importers. */
 export interface ImportTools {
   fs: FileSystem
+  /** The batch this import's file operations are journaled under. */
+  batchId: string
   /**
    * The download's files with the kind's extensions, largest first; throws an ImportError
    * when there is none.
@@ -66,8 +74,16 @@ export interface ImportTools {
   files(): Promise<{ path: string; size: number }[]>
   /** Hardlink/copy (torrents) or move (usenet) a file into place, as the settings say. */
   place(source: string, dest: string): Promise<string>
-  /** Moves a replaced file to the recycle bin, or deletes it. */
+  /**
+   * Takes a replaced file (and its subtitles) out of the way: the recycle bin, Magpie's trash
+   * while imports can be undone, or deleted.
+   */
   recycle(path: string): Promise<void>
+  /**
+   * Notes something about the file just placed that the kind's undo hook needs to put
+   * records back (series: episodes whose link to a kept file this import took over).
+   */
+  annotate(note: unknown): void
   /** Whether a release of this quality beats an existing file, per the item's profile. */
   isUpgrade(
     candidate: {
@@ -92,6 +108,13 @@ export class ImportService extends Service {
 
   fs = fileSystem
   review!: ReviewService
+  journal!: Journal
+  undo!: UndoService
+  /** Where replaced files wait while their import can still be undone. */
+  trashDir = join(
+    this.ctx.root.baseUrl ? fileURLToPath(this.ctx.root.baseUrl) : join(tmpdir(), 'magpie'),
+    'trash',
+  )
   private importers = new Map<MediaKind, { importer: Importer; options: ImporterOptions }>()
 
   constructor(ctx: Context) {
@@ -100,6 +123,17 @@ export class ImportService extends Service {
 
   [Service.init]() {
     this.review = new ReviewService(this.ctx)
+    this.journal = new Journal(this.review.db, this.ctx, () => this.fs)
+    this.undo = new UndoService(this.ctx, this.journal, (id, action) =>
+      this.review.withItemLock(id, action),
+    )
+    // operations a crash left half recorded
+    this.journal.recover().catch((error) => this.ctx.logger.warn('recovery failed: %s', error))
+    this.ctx.jobs.define('import.purge', async () => {
+      await this.journal.recover(60 * 60_000)
+      await purge(this.ctx, this.journal, this.trashDir)
+    })
+    this.ctx.jobs.schedule('import.purge', 'import.purge', 60 * 60_000)
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(reviewConsole, this.review))
     this.ctx.jobs.define(
       'import.download',
@@ -145,6 +179,23 @@ export class ImportService extends Service {
     }, `import.register(${kind})`)
   }
 
+  /** Sets how a kind of media gets its records back when an import is undone. */
+  registerUndo(kind: MediaKind, hooks: UndoHooks) {
+    return this.undo.register(kind, hooks)
+  }
+
+  /** Journals the file changes made for one item (an import job or a review commit). */
+  recorder(item: MediaItem, options: { batchId?: string; targetId?: number | null } = {}) {
+    const files = this.ctx.library.fileHandling()
+    const journaling = files.undoRetentionDays > 0
+    const settings: RecorderOptions = {
+      ...options,
+      journaling,
+      bin: files.recycleBin || (journaling ? this.trashDir : ''),
+    }
+    return new Recorder(this.ctx, this.journal, this.undo, this.fs, item, settings)
+  }
+
   enqueue(grabId: number) {
     return this.ctx.jobs.enqueue('import.download', { grabId }, { dedupeKey: `import:${grabId}` })
   }
@@ -166,7 +217,9 @@ export class ImportService extends Service {
       if (!item) throw new ImportError('the item is no longer in the library')
       const registered = this.importers.get(item.kind)
       if (!registered) throw new ImportError(`nothing can import ${item.kind} downloads right now`)
-      result = await registered.importer(item, grab, this.tools(item, grab, registered.options))
+      const { tools, recorder } = this.tools(item, grab, registered.options)
+      result = await registered.importer(item, grab, tools)
+      if (recorder.used) result.batchId = recorder.batchId
       this.ctx.downloads.setState(grab.id, 'imported')
       this.ctx.logger.info('imported %s to %s (%s)', grab.title, result.path, result.method)
     } catch (error) {
@@ -190,15 +243,17 @@ export class ImportService extends Service {
     })
   }
 
-  private tools(item: MediaItem, grab: Grab, options: ImporterOptions): ImportTools {
+  private tools(item: MediaItem, grab: Grab, options: ImporterOptions) {
     const files = this.ctx.library.fileHandling()
     // an extra version is judged by its own profile
     const target = grab.targetId ? this.ctx.library.target(grab.targetId) : undefined
     const profile = this.ctx.decision.profile(target?.profileId ?? item.profileId)
     const extensions = new Set(options.extensions ?? VIDEO_EXTENSIONS)
     const video = !options.extensions
-    return {
+    const recorder = this.recorder(item, { targetId: grab.targetId ?? null })
+    const tools: ImportTools = {
       fs: this.fs,
+      batchId: recorder.batchId,
       files: async () => {
         if (!grab.outputPath)
           throw new ImportError('the download client did not report where the download is')
@@ -222,9 +277,10 @@ export class ImportService extends Service {
       place: (source, dest) => {
         // usenet and direct downloads aren't seeded: move them
         const mode = grab.protocol !== 'torrent' ? 'move' : files.useHardlinks ? 'hardlink' : 'copy'
-        return placeSafely(source, dest, mode, files.recycleBin, this.fs)
+        return recorder.place(source, dest, mode)
       },
-      recycle: (path) => recycle(path, files.recycleBin, this.fs),
+      recycle: (path) => recorder.recycle(path),
+      annotate: (note) => recorder.annotate(note),
       isUpgrade: (candidate, existing) => {
         if (!profile) return true
         const { rankOf } = profileRanks(profile)
@@ -234,6 +290,7 @@ export class ImportService extends Service {
         )
       },
     }
+    return { tools, recorder }
   }
 }
 

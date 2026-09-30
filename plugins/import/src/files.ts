@@ -1,7 +1,7 @@
 // File operations for importing: finding the video, hardlink/copy/move, recycle bin.
 
 import { constants } from 'node:fs'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import * as fs from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 
@@ -118,14 +118,24 @@ export async function transfer(
   return method
 }
 
+/** What `placeSafely` did: how the file was transferred, and what became of an existing file. */
+export interface Placement {
+  method: 'hardlink' | 'copy' | 'move'
+  /**
+   * `undefined` when nothing was at the destination; otherwise where the replaced file went
+   * (`null` when it was deleted).
+   */
+  previous?: string | null
+}
+
 /** Stage an incoming file before moving an existing destination out of the way. */
-export async function placeSafely(
+export async function placeSafelyDetailed(
   source: string,
   dest: string,
   mode: 'hardlink' | 'copy' | 'move',
   recycleBin: string,
   fsx: FileSystem = fileSystem,
-) {
+): Promise<Placement> {
   const exists = await fsx.stat(dest).then(
     () => true,
     (e) => {
@@ -133,8 +143,8 @@ export async function placeSafely(
       throw e
     },
   )
-  if (!exists) return transfer(source, dest, mode, fsx)
-  if (source === dest) return mode
+  if (!exists) return { method: await transfer(source, dest, mode, fsx) }
+  if (source === dest) return { method: mode, previous: undefined }
   const staged = `${dest}.magpie-incoming-${randomUUID()}`
   const backup = `${staged}.previous`
   const method = await transfer(source, staged, mode === 'move' ? 'copy' : mode, fsx)
@@ -146,23 +156,49 @@ export async function placeSafely(
     await fsx.unlink(staged).catch(() => {})
     throw error
   }
-  await recycle(backup, recycleBin, fsx, dest)
+  const previous = await recycle(backup, recycleBin, fsx, dest)
   if (mode === 'move') await fsx.unlink(source)
-  return mode === 'move' ? 'move' : method
+  return { method: mode === 'move' ? 'move' : method, previous }
 }
 
-/** Moves a file into the recycle bin (keeping its folder name), or deletes it. */
+/** Like `placeSafelyDetailed`, for callers that only need to know how the file was transferred. */
+export async function placeSafely(
+  source: string,
+  dest: string,
+  mode: 'hardlink' | 'copy' | 'move',
+  recycleBin: string,
+  fsx: FileSystem = fileSystem,
+) {
+  return (await placeSafelyDetailed(source, dest, mode, recycleBin, fsx)).method
+}
+
+/** Renames a file, copying across devices; the destination's folder is created. */
+export async function moveFile(from: string, to: string, fsx: FileSystem = fileSystem) {
+  await fsx.mkdir(dirname(to), { recursive: true })
+  try {
+    await fsx.rename(from, to)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error
+    await fsx.copyFile(from, to, constants.COPYFILE_EXCL)
+    await fsx.unlink(from)
+  }
+}
+
+/**
+ * Moves a file into the recycle bin (keeping its folder name), or deletes it. Returns where it
+ * went: `null` when it was deleted or was already gone.
+ */
 export async function recycle(
   path: string,
   recycleBin: string,
   fsx: FileSystem = fileSystem,
   originalPath = path,
-) {
+): Promise<string | null> {
   if (!recycleBin) {
     await fsx.unlink(path).catch((e) => {
       if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
     })
-    return
+    return null
   }
   let target = join(recycleBin, basename(dirname(originalPath)), basename(originalPath))
   const exists = await fsx.stat(target).then(
@@ -173,14 +209,31 @@ export async function recycle(
     },
   )
   if (exists) target += `.${randomUUID()}`
-  await fsx.mkdir(dirname(target), { recursive: true })
   try {
-    await fsx.rename(path, target)
+    await moveFile(path, target, fsx)
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code
-    if (code === 'ENOENT') return
-    if (code !== 'EXDEV') throw error
-    await fsx.copyFile(path, target)
-    await fsx.unlink(path)
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+  return target
+}
+
+/**
+ * Size, modification time and a short hash (the first and last 64 KiB) of a file: enough to
+ * tell whether it is still the file an operation produced without reading all of it.
+ */
+export async function fingerprintFile(path: string): Promise<string> {
+  const handle = await fs.open(path, 'r')
+  try {
+    const { size, mtimeMs } = await handle.stat()
+    const hash = createHash('sha1')
+    const chunk = Buffer.alloc(65536)
+    for (const position of size > 131072 ? [0, size - 65536] : [0]) {
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, position)
+      hash.update(chunk.subarray(0, bytesRead))
+    }
+    return `${size}:${mtimeMs}:${hash.digest('hex').slice(0, 16)}`
+  } finally {
+    await handle.close()
   }
 }

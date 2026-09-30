@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { eq, desc } from 'drizzle-orm'
 import type { Context } from 'cordis'
@@ -41,6 +42,8 @@ export interface ReviewRow {
   status: 'pending' | 'staged' | 'placed' | 'done' | 'failed'
   method?: string
   placedMtime?: number
+  /** The journaled operation that placed this file (see `import_operations`). */
+  operationId?: number
 }
 export interface ReviewSession {
   id: number
@@ -485,6 +488,8 @@ export class ReviewService {
     const session = this.get(id)
     if (session.complete) return session
     this.running.add(id)
+    // everything this commit changes can be undone together
+    const batchId = randomUUID()
     try {
       // Verify the scan root before touching missing records, including on resumed runs.
       await this.fs.stat(session.path)
@@ -513,6 +518,8 @@ export class ReviewService {
           this.items.add(item.id)
           locked = item.id
           const folder = this.ctx.library.folderOf(item)
+          const recorder = this.ctx.import.recorder(item, { batchId, targetId: row.targetId })
+          recorder.current = row.operationId
           const plan = adapter.plan(item, row)
           const dest = session.mode === 'manual' ? plan.destination : row.source
           if (row.destination !== dest) throw new Error('destination changed; preview again')
@@ -555,6 +562,14 @@ export class ReviewService {
                 )
                 if (exists && !row.replace)
                   throw new Error('destination exists; select replacement')
+                // recorded before the first byte moves, and before the records change
+                row.operationId = recorder.begin({
+                  source: row.source,
+                  dest,
+                  method: session.transfer,
+                  replacing: exists,
+                })
+                recorder.current = row.operationId
                 // Stage with copy/hardlink first; preserve move sources until records are committed.
                 row.method = await transfer(
                   row.source,
@@ -612,6 +627,13 @@ export class ReviewService {
           const existing = this.ctx.library
             .files(item.id)
             .find((f) => resolve(join(folder, f.path)) === resolve(dest))
+          // kept files lose the episode links this one takes over; undo gives them back
+          const kept = (plan.preserve ?? []).flatMap((fid) =>
+            (adapter.fileEpisodes?.(fid) ?? [])
+              .filter((eid) => plan.episodeIds?.includes(eid))
+              .map((eid) => [eid, fid]),
+          )
+          if (kept.length) recorder.annotate({ links: kept })
           let recorded!: MediaFile
           this.ctx.library.db.transaction(() => {
             const values = {
@@ -633,17 +655,12 @@ export class ReviewService {
           })
           if (session.mode !== 'repair')
             for (const f of old) {
-              if (session.mode === 'manual')
-                await recycle(
-                  join(folder, f.path),
-                  this.ctx.library.fileHandling().recycleBin,
-                  this.fs,
-                )
+              if (session.mode === 'manual') await recorder.recycle(join(folder, f.path), f)
               this.ctx.library.removeFile(f.id)
             }
           if (session.mode === 'manual' && resolve(row.source) !== resolve(dest)) {
             const backup = `${dest}.magpie-review-${session.id}-${session.rows.indexOf(row)}.previous`
-            await recycle(backup, this.ctx.library.fileHandling().recycleBin, this.fs, dest)
+            const trashPath = await recycle(backup, recorder.bin, this.fs, dest)
             if (session.transfer === 'move') {
               const source = await this.fs.stat(row.source).catch((e) => {
                 if (e.code === 'ENOENT') return undefined
@@ -653,12 +670,14 @@ export class ReviewService {
                 throw new Error('move source changed after staging; source preserved for repair')
               if (source) await this.fs.unlink(row.source)
             }
+            await recorder.finish(row.operationId, { trashPath, method: session.transfer })
           }
           row.status = 'done'
           this.ctx.get('history')?.add(item.id, 'imported', basename(row.source), {
             source: row.source,
             path: dest,
             mode: session.mode,
+            ...(row.operationId ? { batchId, operationId: row.operationId } : {}),
           })
           // only the manual flow changes files on disk; adopt, rescan and repair just record
           if (session.mode === 'manual')
@@ -674,7 +693,14 @@ export class ReviewService {
             })
         } catch (e) {
           row.error = (e as Error).message
-          if (row.status !== 'placed' && row.status !== 'staged') row.status = 'failed'
+          if (row.status !== 'placed' && row.status !== 'staged') {
+            row.status = 'failed'
+            // nothing was placed, so there is nothing to undo
+            if (row.operationId) {
+              this.ctx.import.journal.abandon(row.operationId, row.error)
+              row.operationId = undefined
+            }
+          }
         } finally {
           if (locked) this.unlock(locked)
           this.save(session)

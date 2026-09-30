@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
   },
   "dependencies": {
     "@magpiejs/decision": "0.0.0",
@@ -16,7 +17,8 @@
     "drizzle-orm": "1.0.0-rc.4",
     "@magpiejs/database": "0.0.0",
     "@magpiejs/console-kit": "0.0.0",
-    "@magpiejs/types": "0.0.0"
+    "@magpiejs/types": "0.0.0",
+    "@magpiejs/sidecars": "0.0.0"
   },
   "peerDependencies": {
     "cordis": "4.0.0-rc.10"

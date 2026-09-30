@@ -225,6 +225,12 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
         [...files].every(([episodeId, f]) => f.id !== file.id || coveredIds.has(episodeId)),
       )
       const method = await tools.place(video.path, dest)
+      // a kept multi-episode file loses the links this file takes over; undo gives them back
+      const kept = covered.flatMap((e) => {
+        const file = files.get(e.id)
+        return file && !replaced.some((f) => f.id === file.id) ? [[e.id, file.id]] : []
+      })
+      if (kept.length) tools.annotate({ links: kept })
 
       const removed: string[] = []
       for (const file of replaced) {
@@ -275,4 +281,20 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
   }
 
   ctx.import.register('series', (item, grab, tools) => importEpisodes(item.id, grab, tools))
+  // undoing an import puts a replaced file back with the episodes it covered
+  ctx.import.registerUndo('series', {
+    capture: (item, file) =>
+      [...series.episodeFiles(item.id)].filter(([, f]) => f.id === file.id).map(([id]) => id),
+    restore(_item, file, episodeIds) {
+      if (Array.isArray(episodeIds) && episodeIds.length)
+        series.linkFile(file.id, episodeIds as number[])
+    },
+    rollback(_item, note) {
+      const links = (note as { links?: [number, number][] } | undefined)?.links ?? []
+      const files = new Set(ctx.library.files(_item.id).map((f) => f.id))
+      for (const [episodeId, fileId] of links)
+        if (files.has(fileId)) series.linkFile(fileId, [episodeId])
+    },
+    changed: (item) => void ctx.emit('series/episodes', item.id),
+  })
 }

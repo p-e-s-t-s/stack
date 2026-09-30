@@ -49,9 +49,21 @@ export interface FileHandling {
   useHardlinks: boolean
   /** Replaced and deleted files go here instead of being deleted; empty to delete. */
   recycleBin: string
+  /**
+   * How long imports stay undoable, and how long replaced files are kept for it. Replaced
+   * files go to Magpie's own trash when no recycle bin is set. 0 turns undo off.
+   */
+  undoRetentionDays: number
+  /** Cap for Magpie's own trash; the oldest entries are purged first. 0 for no cap. */
+  undoMaxGb: number
 }
 
-export const DEFAULT_FILE_HANDLING: FileHandling = { useHardlinks: true, recycleBin: '' }
+export const DEFAULT_FILE_HANDLING: FileHandling = {
+  useHardlinks: true,
+  recycleBin: '',
+  undoRetentionDays: 7,
+  undoMaxGb: 20,
+}
 
 /** Characters not allowed in file names on common filesystems. */
 export function cleanFileName(name: string) {
@@ -515,10 +527,17 @@ export class LibraryService extends Service {
     return {
       useHardlinks: saved.useHardlinks ?? legacy.useHardlinks ?? DEFAULT_FILE_HANDLING.useHardlinks,
       recycleBin: saved.recycleBin ?? legacy.recycleBin ?? DEFAULT_FILE_HANDLING.recycleBin,
+      undoRetentionDays: saved.undoRetentionDays ?? DEFAULT_FILE_HANDLING.undoRetentionDays,
+      undoMaxGb: saved.undoMaxGb ?? DEFAULT_FILE_HANDLING.undoMaxGb,
     }
   }
 
   saveFileHandling(patch: Partial<FileHandling>) {
+    for (const key of ['undoRetentionDays', 'undoMaxGb'] as const) {
+      const n = patch[key]
+      if (n !== undefined && (!Number.isFinite(n) || n < 0))
+        throw new Error(`${key} must be 0 or more`)
+    }
     const value = { ...this.fileHandling(), ...patch }
     this.saveSetting('files', value)
     return value
