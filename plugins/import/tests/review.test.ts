@@ -275,3 +275,23 @@ it('rejects overlapping episode selections and keeps unmatched files available f
   const preview = await ctx.import.review.preview(session.id, session.rows, 'hardlink')
   expect(preview.rows.some((r) => r.error?.includes('same episode'))).toBe(true)
 })
+
+it('queues concurrent imports of one item instead of failing the later one', async () => {
+  const review = new ReviewService(ctx)
+  const order: string[] = []
+  const run = (name: string, id: number, ms: number) =>
+    review.withItemLock(id, async () => {
+      order.push(`${name} start`)
+      await new Promise((r) => setTimeout(r, ms))
+      order.push(`${name} end`)
+    })
+  await Promise.all([run('a', 1, 20), run('b', 1, 0), run('c', 2, 0)])
+  expect(order.filter((e) => e.startsWith('a') || e.startsWith('b'))).toEqual([
+    'a start',
+    'a end',
+    'b start',
+    'b end',
+  ])
+  // other items aren't held up
+  expect(order.indexOf('c end')).toBeLessThan(order.indexOf('a end'))
+})

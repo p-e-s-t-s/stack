@@ -88,6 +88,7 @@ export class ReviewService {
   private adapters = new Map<ReviewKind, ReviewAdapter>()
   private running = new Set<number>()
   private items = new Set<number>()
+  private waiters = new Map<number, (() => void)[]>()
   constructor(private ctx: Context) {
     this.db = ctx.database.register({
       namespace: 'import',
@@ -108,14 +109,26 @@ export class ReviewService {
   kinds() {
     return [...this.adapters.keys()]
   }
+  /** Runs `action` once no other import is updating the item, queuing behind one that is. */
   async withItemLock<T>(id: number, action: () => Promise<T>) {
-    if (this.items.has(id)) throw new Error('another import is updating this item; retry later')
+    while (this.items.has(id))
+      await new Promise<void>((resolve) => {
+        const queue = this.waiters.get(id) ?? []
+        queue.push(resolve)
+        this.waiters.set(id, queue)
+      })
     this.items.add(id)
     try {
       return await action()
     } finally {
-      this.items.delete(id)
+      this.unlock(id)
     }
+  }
+  private unlock(id: number) {
+    this.items.delete(id)
+    const queue = this.waiters.get(id)
+    this.waiters.delete(id)
+    for (const wake of queue ?? []) wake()
   }
   adapter(kind: ReviewKind) {
     const adapter = this.adapters.get(kind)
@@ -528,8 +541,12 @@ export class ReviewService {
                   await this.fs.rename(dest, backup).catch((e) => {
                     if (e.code !== 'ENOENT') throw e
                   })
-                try { await this.fs.rename(stage, dest) } catch (error) {
-                  await this.fs.rename(backup, dest).catch(e => { if (e.code !== 'ENOENT') throw e })
+                try {
+                  await this.fs.rename(stage, dest)
+                } catch (error) {
+                  await this.fs.rename(backup, dest).catch((e) => {
+                    if (e.code !== 'ENOENT') throw e
+                  })
                   throw error
                 }
               } else if ((await this.fs.stat(dest)).mtimeMs !== row.placedMtime) {
@@ -602,7 +619,7 @@ export class ReviewService {
           row.error = (e as Error).message
           if (row.status !== 'placed' && row.status !== 'staged') row.status = 'failed'
         } finally {
-          if (locked) this.items.delete(locked)
+          if (locked) this.unlock(locked)
           this.save(session)
         }
       }
