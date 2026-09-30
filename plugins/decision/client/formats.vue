@@ -10,17 +10,14 @@
       profiles give each format a score.
     </p>
     <p v-if="!data.formats.length && !draft" class="mp-empty">No custom formats yet.</p>
-    <div v-if="data.formats.length || draft" class="mp-tabs">
-      <button
-        v-for="f in data.formats"
-        :key="f.id"
-        :class="{ active: draft?.id === f.id }"
-        @click="edit(f)"
-      >
-        {{ f.name }}
-      </button>
+    <TabBar
+      v-if="data.formats.length || draft"
+      :tabs="data.formats.map((f) => ({ key: f.id, label: f.name }))"
+      :model-value="draft?.id ?? null"
+      @select="(id) => edit(data.formats.find((f) => f.id === id)!)"
+    >
       <button v-if="draft && !draft.id" class="active">New format</button>
-    </div>
+    </TabBar>
     <div>
       <div v-if="draft" class="mp-card">
         <div class="dc-row">
@@ -116,6 +113,7 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { useRpc } from '@cordisjs/client'
+import TabBar from '@magpiejs/console-kit/TabBar.vue'
 import type { DecisionData } from '../src/console'
 import type { Condition, CustomFormat } from '../src/schema'
 

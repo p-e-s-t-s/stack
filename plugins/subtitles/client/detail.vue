@@ -12,9 +12,9 @@ import {computed,ref} from 'vue'
 import {useRpc} from '@cordisjs/client'
 import type {SubtitlesData} from '../src/console'
 import File from './file.vue'
-const props=defineProps<{data:{movie?:{id:number};series?:{id:number}}}>()
+const props=defineProps<{movie?:{id:number};series?:{id:number}}>()
 const data=useRpc<SubtitlesData>(),rpc=computed(()=>data.value),message=ref('')
-const mediaId=computed(()=>props.data.movie?.id ?? props.data.series?.id)
+const mediaId=computed(()=>props.movie?.id ?? props.series?.id)
 const files=computed(()=>rpc.value.files.filter(f=>f.file.mediaId===mediaId.value))
 const item=computed(()=>rpc.value.media.find(m=>m.id===mediaId.value))
 const assignment=computed(()=>item.value?.inherited !== false ? 'inherit' : item.value?.profile?.id ?? 'disabled')

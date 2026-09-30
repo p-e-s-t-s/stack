@@ -1,23 +1,9 @@
 <template>
   <section class="pc">
     <div class="mp-head"><h1>Add podcast</h1></div>
-    <div class="mp-tabs">
-      <button
-        v-for="(label, key) in TABS"
-        :key="key"
-        :class="{ primary: tab === key }"
-        :data-testid="`tab-${key}`"
-        @click="tab = key"
-      >
-        {{ label }}
-      </button>
-    </div>
+    <TabBar v-model="tab" :tabs="TAB_LIST" />
 
-    <div v-if="!data.rootFolders.length" class="mp-card">
-      Choose a library location in
-      <a href="/settings/media" @click.prevent="router.push('/settings/media')">Media management</a>
-      first.
-    </div>
+    <LocationNotice v-if="!data.rootFolders.length" />
     <div v-else class="mp-card mp-options">
       <label v-if="data.rootFolders.length > 1">
         <span>Folder</span>
@@ -48,37 +34,34 @@
     </div>
 
     <template v-if="tab === 'search'">
-      <form class="mp-row mp-search" @submit.prevent="search">
-        <input v-model="term" placeholder="Search for a podcast" data-testid="lookup" autofocus />
-        <button class="primary" type="submit" :disabled="!term.trim() || busy">
-          {{ busy === 'search' ? 'Searching…' : 'Search' }}
-        </button>
-      </form>
+      <SearchBox
+        v-model="term"
+        placeholder="Search for a podcast"
+        :searching="busy === 'search'"
+        @search="search"
+      />
       <p v-if="error" class="mp-error">{{ error }}</p>
-      <div v-for="r in results" :key="r.ids.itunes" class="mp-result" data-testid="lookup-result">
-        <img v-if="r.posterUrl" class="poster" :src="r.posterUrl" alt="" />
-        <div v-else class="poster placeholder" />
-        <div class="body">
-          <div class="title">
-            <strong>{{ r.title }}</strong> <span class="mp-muted">{{ r.author }}</span>
-          </div>
-          <p class="mp-muted overview">{{ r.overview }}</p>
-        </div>
-        <div class="action">
-          <button v-if="r.libraryId" @click="router.push(`/podcasts/${r.libraryId}`)">
-            Following
-          </button>
-          <button
-            v-else
-            class="primary"
-            :disabled="!form.rootFolderId || !r.feedUrl || !!busy"
-            data-testid="add"
-            @click="add(r.feedUrl!, r.ids.itunes)"
-          >
-            {{ busy === r.feedUrl ? 'Adding…' : 'Follow' }}
-          </button>
-        </div>
-      </div>
+      <LookupResult
+        v-for="r in results"
+        :key="r.ids.itunes"
+        :title="r.title"
+        :subtitle="r.author"
+        :overview="r.overview"
+        :image="r.posterUrl"
+      >
+        <button v-if="r.libraryId" @click="router.push(`/podcasts/${r.libraryId}`)">
+          Following
+        </button>
+        <button
+          v-else
+          class="primary"
+          :disabled="!form.rootFolderId || !r.feedUrl || !!busy"
+          data-testid="add"
+          @click="add(r.feedUrl!, r.ids.itunes)"
+        >
+          {{ busy === r.feedUrl ? 'Adding…' : 'Follow' }}
+        </button>
+      </LookupResult>
     </template>
 
     <template v-else-if="tab === 'url'">
@@ -151,11 +134,20 @@
 <script lang="ts" setup>
 import { reactive, ref, watch } from 'vue'
 import { useRouter, useRpc } from '@cordisjs/client'
+import LocationNotice from '@magpiejs/console-kit/LocationNotice.vue'
+import LookupResult from '@magpiejs/console-kit/LookupResult.vue'
+import SearchBox from '@magpiejs/console-kit/SearchBox.vue'
+import TabBar from '@magpiejs/console-kit/TabBar.vue'
 import type { FeedPreview, PodcastsData } from '../src/console'
 import type { MonitorOption } from '../src/schema'
 import { day } from './status'
 
 const TABS = { search: 'Search', url: 'Feed URL', opml: 'Import OPML' } as const
+const TAB_LIST = (Object.keys(TABS) as (keyof typeof TABS)[]).map((key) => ({
+  key,
+  label: TABS[key],
+  testId: `tab-${key}`,
+}))
 
 const data = useRpc<PodcastsData>()
 const router = useRouter()

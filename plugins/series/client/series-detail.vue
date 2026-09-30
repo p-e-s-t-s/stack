@@ -1,54 +1,47 @@
 <template>
-  <section v-if="series" class="sr">
-    <a class="mp-back" href="/series" @click.prevent="router.push('/series')">← Series</a>
-    <div class="mp-hero">
-      <img v-if="series.posterUrl" class="poster" :src="series.posterUrl" alt="" />
-      <div v-else class="poster placeholder">{{ series.title }}</div>
-      <div class="info">
-        <h1>
-          {{ series.title }} <span class="mp-muted year">{{ series.year }}</span>
-        </h1>
-        <div class="facts mp-muted">
-          <span v-if="series.network">{{ series.network }}</span>
-          <span v-if="series.status">{{ STATUS[series.status] ?? series.status }}</span>
-          <span v-if="series.genres.length">{{ series.genres.join(', ') }}</span>
-          <span>{{ profileName }}</span>
-          <span v-if="series.seriesType !== 'standard'">{{ TYPES[series.seriesType] }}</span>
-        </div>
-        <div class="status">
-          <span class="mp-badge" :class="status.class">{{ status.text }}</span>
-          <span class="mp-muted mp-small mp-count">
-            {{ series.stats.downloaded }} of {{ series.stats.wanted }} aired episodes
-            <template v-if="series.stats.nextAiring">
-              · next on {{ series.stats.nextAiring }}</template
-            >
-          </span>
-        </div>
-        <p class="overview">{{ series.overview }}</p>
-        <div class="mp-row">
-          <button
-            class="primary"
-            data-testid="search-now"
-            :disabled="busy === 'search'"
-            @click="searchNow()"
-          >
-            {{ busy === 'search' ? 'Searching…' : 'Search monitored' }}
-          </button>
-          <button data-testid="edit-series" @click="editing = !editing">Edit</button>
-          <button @click="router.push(`/import?mediaId=${series.id}`)">Rescan files</button>
-          <button @click="router.push(`/import?mediaId=${series.id}&mode=repair`)">
-            Repair files
-          </button>
-          <button :disabled="busy === 'refresh'" @click="refresh">
-            {{ busy === 'refresh' ? 'Refreshing…' : 'Refresh' }}
-          </button>
-          <button class="danger" @click="remove">Remove</button>
-        </div>
-        <p v-if="message" class="mp-small" :class="messageBad ? 'mp-error' : 'mp-muted'">
-          {{ message }}
-        </p>
-      </div>
-    </div>
+  <MediaDetailShell
+    v-if="series"
+    class="sr"
+    back-to="/series"
+    back-label="Series"
+    :title="series.title"
+    :year="series.year"
+    :image="series.posterUrl"
+    :overview="series.overview"
+    :message="message"
+    :message-bad="messageBad"
+  >
+    <template #facts>
+      <span v-if="series.network">{{ series.network }}</span>
+      <span v-if="series.status">{{ STATUS[series.status] ?? series.status }}</span>
+      <span v-if="series.genres.length">{{ series.genres.join(', ') }}</span>
+      <span>{{ profileName }}</span>
+      <span v-if="series.seriesType !== 'standard'">{{ TYPES[series.seriesType] }}</span>
+    </template>
+    <template #status>
+      <span class="mp-badge" :class="status.class">{{ status.text }}</span>
+      <span class="mp-muted mp-small mp-count">
+        {{ series.stats.downloaded }} of {{ series.stats.wanted }} aired episodes
+        <template v-if="series.stats.nextAiring"> · next on {{ series.stats.nextAiring }}</template>
+      </span>
+    </template>
+    <template #actions>
+      <button
+        class="primary"
+        data-testid="search-now"
+        :disabled="busy === 'search'"
+        @click="searchNow()"
+      >
+        {{ busy === 'search' ? 'Searching…' : 'Search monitored' }}
+      </button>
+      <button data-testid="edit-series" @click="editing = !editing">Edit</button>
+      <button @click="router.push(`/import?mediaId=${series.id}`)">Rescan files</button>
+      <button @click="router.push(`/import?mediaId=${series.id}&mode=repair`)">Repair files</button>
+      <button :disabled="busy === 'refresh'" @click="refresh">
+        {{ busy === 'refresh' ? 'Refreshing…' : 'Refresh' }}
+      </button>
+      <button class="danger" @click="remove">Remove</button>
+    </template>
 
     <div v-if="editing" class="mp-card mp-edit">
       <div class="mp-field">
@@ -111,14 +104,13 @@
 
     <h2>Episodes</h2>
     <p v-if="!episodes" class="mp-muted">Loading…</p>
-    <details
+    <CollapsibleSection
       v-for="season in seasons"
       :key="season.number"
-      class="mp-section"
       :open="season.number === openSeason"
       :data-testid="`season-${season.number}`"
     >
-      <summary>
+      <template #summary>
         <input
           type="checkbox"
           :checked="season.monitored"
@@ -157,7 +149,7 @@
         >
           Choose
         </button>
-      </summary>
+      </template>
       <table class="mp-table episodes">
         <tbody>
           <tr
@@ -201,15 +193,17 @@
           </tr>
         </tbody>
       </table>
-    </details>
+    </CollapsibleSection>
 
     <!-- other plugins add sections here (history…) -->
     <k-slot name="series-detail" :data="{ series }" />
-  </section>
+  </MediaDetailShell>
   <section v-else class="sr"><p class="mp-empty">Series not found.</p></section>
 </template>
 
 <script lang="ts" setup>
+import CollapsibleSection from '@magpiejs/console-kit/CollapsibleSection.vue'
+import MediaDetailShell from '@magpiejs/console-kit/MediaDetailShell.vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'

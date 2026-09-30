@@ -4,8 +4,8 @@
       <summary>Media info</summary>
       <p v-if="!data.ffprobe.ok" class="mp-muted mp-small" data-testid="no-ffprobe">
         ffprobe is {{ data.ffprobe.detail }}. Set it up in
-        <router-link to="/settings/media-tools">Settings → Media tools</router-link> to see what is
-        inside your files.
+        <NavLink to="/settings/media-tools">Settings → Media tools</NavLink> to see what is inside
+        your files.
       </p>
       <div v-for="f in files" :key="f.fileId" class="mp-card" data-testid="media-info-file">
         <div class="mp-row">
@@ -61,6 +61,7 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
 import { useRpc } from '@cordisjs/client'
+import NavLink from '@magpiejs/console-kit/NavLink.vue'
 import type { MediaInfoData, MediaInfoView } from '../src/console'
 import { audioSummary, duration, labelMismatch, subtitleSummary, videoSummary } from './describe'
 

@@ -1,49 +1,47 @@
 <template>
-  <section v-if="podcast" class="pc">
-    <a class="mp-back" href="/podcasts" @click.prevent="router.push('/podcasts')">← Podcasts</a>
-    <div class="mp-hero">
-      <img v-if="podcast.posterUrl" class="poster" :src="podcast.posterUrl" alt="" />
-      <div v-else class="poster placeholder">{{ podcast.title }}</div>
-      <div class="info">
-        <h1>{{ podcast.title }}</h1>
-        <div class="facts mp-muted">
-          <span v-if="podcast.author">{{ podcast.author }}</span>
-          <a v-if="podcast.link" :href="podcast.link" target="_blank" rel="noreferrer">Website</a>
-          <span v-if="podcast.stats.latest">Latest {{ day(podcast.stats.latest) }}</span>
-          <span v-if="podcast.refreshedAt"
-            >Checked {{ new Date(podcast.refreshedAt).toLocaleString() }}</span
-          >
-        </div>
-        <div class="status">
-          <span class="mp-badge" :class="status.class">{{ status.text }}</span>
-          <span class="mp-muted mp-small mp-count">
-            {{ podcast.stats.downloaded }} of {{ podcast.stats.episodes }} episodes downloaded
-          </span>
-        </div>
-        <p v-if="podcast.refreshError" class="mp-error mp-small">
-          The feed could not be read: {{ podcast.refreshError }}
-        </p>
-        <p class="overview">{{ podcast.overview }}</p>
-        <div class="mp-row">
-          <button
-            class="primary"
-            data-testid="download-wanted"
-            :disabled="busy === 'download' || !podcast.stats.wanted"
-            @click="download()"
-          >
-            Download wanted
-          </button>
-          <button data-testid="edit-podcast" @click="editing = !editing">Settings</button>
-          <button :disabled="busy === 'refresh'" data-testid="refresh" @click="refresh">
-            {{ busy === 'refresh' ? 'Checking…' : 'Check feed' }}
-          </button>
-          <button class="danger" @click="remove">Remove</button>
-        </div>
-        <p v-if="message" class="mp-small" :class="messageBad ? 'mp-error' : 'mp-muted'">
-          {{ message }}
-        </p>
-      </div>
-    </div>
+  <MediaDetailShell
+    v-if="podcast"
+    class="pc"
+    back-to="/podcasts"
+    back-label="Podcasts"
+    :title="podcast.title"
+    :image="podcast.posterUrl"
+    :overview="podcast.overview"
+    :message="message"
+    :message-bad="messageBad"
+  >
+    <template #facts>
+      <span v-if="podcast.author">{{ podcast.author }}</span>
+      <a v-if="podcast.link" :href="podcast.link" target="_blank" rel="noreferrer">Website</a>
+      <span v-if="podcast.stats.latest">Latest {{ day(podcast.stats.latest) }}</span>
+      <span v-if="podcast.refreshedAt"
+        >Checked {{ new Date(podcast.refreshedAt).toLocaleString() }}</span
+      >
+    </template>
+    <template #status>
+      <span class="mp-badge" :class="status.class">{{ status.text }}</span>
+      <span class="mp-muted mp-small mp-count">
+        {{ podcast.stats.downloaded }} of {{ podcast.stats.episodes }} episodes downloaded
+      </span>
+      <p v-if="podcast.refreshError" class="mp-error mp-small">
+        The feed could not be read: {{ podcast.refreshError }}
+      </p>
+    </template>
+    <template #actions>
+      <button
+        class="primary"
+        data-testid="download-wanted"
+        :disabled="busy === 'download' || !podcast.stats.wanted"
+        @click="download()"
+      >
+        Download wanted
+      </button>
+      <button data-testid="edit-podcast" @click="editing = !editing">Settings</button>
+      <button :disabled="busy === 'refresh'" data-testid="refresh" @click="refresh">
+        {{ busy === 'refresh' ? 'Checking…' : 'Check feed' }}
+      </button>
+      <button class="danger" @click="remove">Remove</button>
+    </template>
 
     <div v-if="editing" class="mp-card mp-edit">
       <div class="mp-field">
@@ -139,11 +137,12 @@
 
     <!-- other plugins add sections here (history…) -->
     <k-slot name="podcast-detail" :data="{ podcast }" />
-  </section>
+  </MediaDetailShell>
   <section v-else class="pc"><p class="mp-empty">Podcast not found.</p></section>
 </template>
 
 <script lang="ts" setup>
+import MediaDetailShell from '@magpiejs/console-kit/MediaDetailShell.vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import type { PodcastEpisodeRow, PodcastsData } from '../src/console'

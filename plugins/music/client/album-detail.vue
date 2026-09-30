@@ -1,106 +1,94 @@
 <template>
-  <section v-if="artist" class="mu">
-    <a
-      class="mp-back"
-      :href="`/music/${artist.id}`"
-      @click.prevent="router.push(`/music/${artist.id}`)"
-      >← {{ artist.title }}</a
-    >
-    <p v-if="error" class="mp-error">{{ error }}</p>
-    <template v-if="detail">
-      <div class="mp-hero">
-        <img
-          v-if="detail.album.coverUrl && !coverBroken"
-          class="poster"
-          :src="detail.album.coverUrl"
-          alt=""
-          @error="coverBroken = true"
-        />
-        <div v-else class="poster placeholder">{{ detail.album.title }}</div>
-        <div class="info">
-          <h1>
-            {{ detail.album.title }}
-            <span class="mp-muted year">{{ detail.album.releaseDate?.slice(0, 4) }}</span>
-          </h1>
-          <div class="facts mp-muted">
-            <span>{{
-              [detail.album.primaryType, ...detail.album.secondaryTypes].filter(Boolean).join(' · ')
-            }}</span>
-            <span v-if="detail.album.releaseDate">{{ detail.album.releaseDate }}</span>
-            <span v-if="length">{{ length }}</span>
-          </div>
-          <div class="status">
-            <span class="mp-badge" :class="albumStatus(detail.album).class">{{
-              albumStatus(detail.album).text
-            }}</span>
-            <label class="mp-small"
-              ><input
-                type="checkbox"
-                :checked="detail.album.monitored"
-                @change="
-                  data.monitorAlbum(detail.album.id, ($event.target as HTMLInputElement).checked)
-                "
-              />
-              Monitored</label
-            >
-          </div>
-          <div class="mp-row">
-            <button class="primary" :disabled="busy" data-testid="search-album" @click="searchNow">
-              {{ busy ? 'Searching…' : 'Search' }}
-            </button>
-            <button data-testid="choose-album" @click="picker = Date.now()">Choose</button>
-          </div>
-          <p v-if="message" class="mp-small mp-muted">{{ message }}</p>
-        </div>
-      </div>
-
-      <ReleasePicker
-        v-if="picker"
-        :key="picker"
-        :label="detail.album.title"
-        :search="searchReleases"
-        :grab="grabRelease"
-        @close="picker = undefined"
-      />
-
-      <h2>Tracks</h2>
-      <table class="mp-table tracks">
-        <tbody>
-          <template v-for="disc in discs" :key="disc">
-            <tr v-if="discs.length > 1" class="disc-head">
-              <td colspan="4">Disc {{ disc }}</td>
-            </tr>
-            <tr
-              v-for="t in detail.tracks.filter((x) => x.disc === disc)"
-              :key="t.id"
-              :data-testid="`track-${t.disc}-${t.number}`"
-            >
-              <td class="num">{{ t.number }}</td>
-              <td>
-                {{ t.title }}
-                <div v-if="t.file" class="mp-muted mp-small mono">{{ t.file.path }}</div>
-              </td>
-              <td class="len">{{ duration(t.lengthMs) }}</td>
-              <td class="state">
-                <span v-if="t.file" class="mp-badge ok">{{ t.file.quality }}</span>
-                <span
-                  v-else-if="detail.album.released"
-                  class="mp-badge"
-                  :class="detail.album.monitored ? 'bad' : ''"
-                  >Missing</span
-                >
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+  <MediaDetailShell
+    v-if="artist && detail"
+    class="mu"
+    :back-to="`/music/${artist.id}`"
+    :back-label="artist.title"
+    :title="detail.album.title"
+    :year="detail.album.releaseDate?.slice(0, 4)"
+    :image="detail.album.coverUrl"
+    :message="error || message"
+    :message-bad="!!error"
+  >
+    <template #facts>
+      <span>{{
+        [detail.album.primaryType, ...detail.album.secondaryTypes].filter(Boolean).join(' · ')
+      }}</span>
+      <span v-if="detail.album.releaseDate">{{ detail.album.releaseDate }}</span>
+      <span v-if="length">{{ length }}</span>
     </template>
-    <p v-else-if="!error" class="mp-muted">Loading the track list…</p>
+    <template #status>
+      <span class="mp-badge" :class="albumStatus(detail.album).class">{{
+        albumStatus(detail.album).text
+      }}</span>
+      <label class="mp-small"
+        ><input
+          type="checkbox"
+          :checked="detail.album.monitored"
+          @change="data.monitorAlbum(detail.album.id, ($event.target as HTMLInputElement).checked)"
+        />
+        Monitored</label
+      >
+    </template>
+    <template #actions>
+      <button class="primary" :disabled="busy" data-testid="search-album" @click="searchNow">
+        {{ busy ? 'Searching…' : 'Search' }}
+      </button>
+      <button data-testid="choose-album" @click="picker = Date.now()">Choose</button>
+    </template>
+
+    <ReleasePicker
+      v-if="picker"
+      :key="picker"
+      :label="detail.album.title"
+      :search="searchReleases"
+      :grab="grabRelease"
+      @close="picker = undefined"
+    />
+
+    <h2>Tracks</h2>
+    <table class="mp-table tracks">
+      <tbody>
+        <template v-for="disc in discs" :key="disc">
+          <tr v-if="discs.length > 1" class="disc-head">
+            <td colspan="4">Disc {{ disc }}</td>
+          </tr>
+          <tr
+            v-for="t in detail.tracks.filter((x) => x.disc === disc)"
+            :key="t.id"
+            :data-testid="`track-${t.disc}-${t.number}`"
+          >
+            <td class="num">{{ t.number }}</td>
+            <td>
+              {{ t.title }}
+              <div v-if="t.file" class="mp-muted mp-small mono">{{ t.file.path }}</div>
+            </td>
+            <td class="len">{{ duration(t.lengthMs) }}</td>
+            <td class="state">
+              <span v-if="t.file" class="mp-badge ok">{{ t.file.quality }}</span>
+              <span
+                v-else-if="detail.album.released"
+                class="mp-badge"
+                :class="detail.album.monitored ? 'bad' : ''"
+                >Missing</span
+              >
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </MediaDetailShell>
+  <section v-else-if="artist" class="mu">
+    <NavLink class="mp-back" :to="`/music/${artist.id}`">← {{ artist.title }}</NavLink>
+    <p v-if="error" class="mp-error">{{ error }}</p>
+    <p v-else class="mp-muted">Loading the track list…</p>
   </section>
   <section v-else class="mu"><p class="mp-empty">Artist not found.</p></section>
 </template>
 
 <script lang="ts" setup>
+import MediaDetailShell from '@magpiejs/console-kit/MediaDetailShell.vue'
+import NavLink from '@magpiejs/console-kit/NavLink.vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'
@@ -114,7 +102,6 @@ const artist = computed(() => data.value.artists.find((a) => a.id === Number(rou
 const albumId = computed(() => Number(route.params.albumId))
 const detail = ref<Awaited<ReturnType<MusicData['album']>>>()
 const error = ref('')
-const coverBroken = ref(false)
 const busy = ref(false)
 const message = ref('')
 const picker = ref<number>()

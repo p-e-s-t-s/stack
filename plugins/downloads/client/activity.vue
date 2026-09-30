@@ -1,14 +1,13 @@
 <template>
   <section class="dl">
     <div class="mp-head"><h1>Activity</h1></div>
-    <div class="mp-tabs">
-      <button :class="{ active: tab === 'queue' }" @click="tab = 'queue'">
-        Downloading ({{ queue.length }})
-      </button>
-      <button :class="{ active: tab === 'blocklist' }" @click="tab = 'blocklist'">
-        Blocklist ({{ data.blocklist.length }})
-      </button>
-    </div>
+    <TabBar
+      v-model="tab"
+      :tabs="[
+        { key: 'queue', label: `Downloading (${queue.length})` },
+        { key: 'blocklist', label: `Blocklist (${data.blocklist.length})` },
+      ]"
+    />
 
     <template v-if="tab === 'queue'">
       <p v-if="!queue.length" class="mp-empty">Nothing is downloading.</p>
@@ -107,6 +106,7 @@ import { computed, ref } from 'vue'
 import { useRouter, useRpc } from '@cordisjs/client'
 import { downloadPercent } from '@magpiejs/console-kit'
 import DownloadProgress from '@magpiejs/console-kit/DownloadProgress.vue'
+import TabBar from '@magpiejs/console-kit/TabBar.vue'
 import type { DownloadsData } from '../src/console'
 
 const data = useRpc<DownloadsData>()

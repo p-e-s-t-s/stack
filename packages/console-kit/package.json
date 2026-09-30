@@ -1,14 +1,24 @@
 {
   "name": "@magpiejs/console-kit",
   "version": "0.0.0",
-  "description": "Shared web console building blocks for Magpie's kind plugins: status formatting and the release picker panel",
+  "description": "Shared web console building blocks for Magpie's plugins: status formatting, the release picker, and the list, detail, add and navigation components",
   "type": "module",
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
     "./ReleasePicker.vue": "./src/ReleasePicker.vue",
     "./DownloadProgress.vue": "./src/DownloadProgress.vue",
-    "./navigation": "./client/navigation.ts"
+    "./navigation": "./client/navigation.ts",
+    "./NavLink.vue": "./src/NavLink.vue",
+    "./LocationNotice.vue": "./src/LocationNotice.vue",
+    "./TabBar.vue": "./src/TabBar.vue",
+    "./CollapsibleSection.vue": "./src/CollapsibleSection.vue",
+    "./MediaCardGrid.vue": "./src/MediaCardGrid.vue",
+    "./MediaDetailShell.vue": "./src/MediaDetailShell.vue",
+    "./SearchBox.vue": "./src/SearchBox.vue",
+    "./LookupResult.vue": "./src/LookupResult.vue",
+    "./ProfileFolderFields.vue": "./src/ProfileFolderFields.vue",
+    "./AddMediaFlow.vue": "./src/AddMediaFlow.vue"
   },
   "dependencies": {
     "@magpiejs/types": "0.0.0"

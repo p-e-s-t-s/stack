@@ -1,36 +1,28 @@
 <template>
-  <section v-if="author" class="bk">
-    <a class="mp-back" href="/books" @click.prevent="router.push('/books')">← Books</a>
-    <div class="mp-hero">
-      <img
-        v-if="author.photoUrl && !photoBroken"
-        class="poster"
-        :src="author.photoUrl"
-        alt=""
-        @error="photoBroken = true"
-      />
-      <div v-else class="poster placeholder">{{ author.name }}</div>
-      <div class="info">
-        <h1>{{ author.name }}</h1>
-        <p class="overview">{{ author.overview }}</p>
-        <div class="mp-row">
-          <button :disabled="busy === 'refresh'" @click="refresh">
-            {{ busy === 'refresh' ? 'Refreshing…' : 'Refresh' }}
-          </button>
-          <button
-            v-for="k in KINDS.filter((k) => !author!.formats[k] && data.rootFolders[k].length)"
-            :key="k"
-            :data-testid="`follow-${k}`"
-            @click="followAlso(k)"
-          >
-            Also follow {{ LABEL[k].toLowerCase() }}
-          </button>
-        </div>
-        <p v-if="message" class="mp-small" :class="messageBad ? 'mp-error' : 'mp-muted'">
-          {{ message }}
-        </p>
-      </div>
-    </div>
+  <MediaDetailShell
+    v-if="author"
+    class="bk"
+    back-to="/books"
+    back-label="Books"
+    :title="author.name"
+    :image="author.photoUrl"
+    :overview="author.overview"
+    :message="message"
+    :message-bad="messageBad"
+  >
+    <template #actions>
+      <button :disabled="busy === 'refresh'" @click="refresh">
+        {{ busy === 'refresh' ? 'Refreshing…' : 'Refresh' }}
+      </button>
+      <button
+        v-for="k in KINDS.filter((k) => !author!.formats[k] && data.rootFolders[k].length)"
+        :key="k"
+        :data-testid="`follow-${k}`"
+        @click="followAlso(k)"
+      >
+        Also follow {{ LABEL[k].toLowerCase() }}
+      </button>
+    </template>
 
     <div class="format-cards">
       <div v-for="k in followed" :key="k" class="mp-card" :data-testid="`format-${k}`">
@@ -170,11 +162,12 @@
     <button v-if="filtered.length > limit" class="more" @click="limit += 100">
       Show {{ Math.min(100, filtered.length - limit) }} more
     </button>
-  </section>
+  </MediaDetailShell>
   <section v-else class="bk"><p class="mp-empty">Author not found.</p></section>
 </template>
 
 <script lang="ts" setup>
+import MediaDetailShell from '@magpiejs/console-kit/MediaDetailShell.vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'
@@ -191,7 +184,6 @@ const author = computed(() =>
   data.value.authors.find((a) => Object.values(a.formats).some((f) => f.id === id.value)),
 )
 const followed = computed(() => KINDS.filter((k) => author.value?.formats[k]))
-const photoBroken = ref(false)
 
 // books are fetched per author, and again whenever the author changes
 const bookRows = ref<BookRow[]>()

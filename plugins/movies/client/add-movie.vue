@@ -1,93 +1,67 @@
 <template>
-  <section class="mv">
-    <div class="mp-head">
-      <h1>Add movie</h1>
-    </div>
-    <p v-if="!data.setup.metadata" class="mp-lead">
-      Movie search needs TMDB:
-      <a href="/settings/metadata" @click.prevent="router.push('/settings/metadata')"
-        >add your API key</a
-      >.
-    </p>
-    <form class="mp-row mp-search" @submit.prevent="search">
-      <input
-        v-model="term"
-        placeholder="Search for a movie by title"
-        data-testid="lookup"
-        autofocus
-      />
-      <button class="primary" type="submit" :disabled="!term.trim() || searching">
-        {{ searching ? 'Searching…' : 'Search' }}
-      </button>
-    </form>
-    <p v-if="error" class="mp-error">{{ error }}</p>
-
-    <template v-if="results.length">
-      <div v-if="!data.rootFolders.length" class="mp-card">
-        Choose a library location in
-        <a href="/settings/media" @click.prevent="router.push('/settings/media')"
-          >Media management</a
-        >
-        first.
-      </div>
-      <div v-else class="mp-card mp-options">
-        <label>
-          <span>Quality</span>
-          <select v-model="form.profileId">
-            <option v-for="p in data.profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
-          </select>
-        </label>
-        <label v-if="data.rootFolders.length > 1">
-          <span>Folder</span>
-          <select v-model="form.rootFolderId">
-            <option v-for="f in data.rootFolders" :key="f.id" :value="f.id">{{ f.path }}</option>
-          </select>
-        </label>
-        <label>
-          <span>Download when</span>
-          <select v-model="form.minimumAvailability">
-            <option value="announced">Announced</option>
-            <option value="inCinemas">In cinemas</option>
-            <option value="released">Released</option>
-          </select>
-        </label>
-        <label class="check">
-          <input v-model="form.search" type="checkbox" />
-          <span>Start searching right away</span>
-        </label>
-      </div>
-
-      <div v-for="r in results" :key="r.ids.tmdb" class="mp-result" data-testid="lookup-result">
-        <img v-if="r.posterUrl" class="poster" :src="r.posterUrl" alt="" />
-        <div v-else class="poster placeholder" />
-        <div class="body">
-          <div class="title">
-            <strong>{{ r.title }}</strong> <span class="mp-muted">{{ r.year }}</span>
-          </div>
-          <p class="mp-muted overview">{{ r.overview }}</p>
-        </div>
-        <div class="action">
-          <button v-if="r.libraryId" @click="router.push(`/movie/${r.libraryId}`)">
-            In library
-          </button>
-          <button
-            v-else
-            class="primary"
-            :disabled="!form.rootFolderId || adding"
-            data-testid="add"
-            @click="add(r)"
-          >
-            Add
-          </button>
-        </div>
-      </div>
+  <AddMediaFlow
+    class="mv"
+    title="Add movie"
+    placeholder="Search for a movie by title"
+    v-model:term="term"
+    :searching="searching"
+    :error="error"
+    :results="results"
+    :has-location="!!data.rootFolders.length"
+    :result-key="(r) => r.ids.tmdb!"
+    :result-title="(r) => r.title"
+    :result-subtitle="(r) => r.year"
+    :result-overview="(r) => r.overview"
+    :result-image="(r) => r.posterUrl"
+    @search="search"
+  >
+    <template #notice>
+      <p v-if="!data.setup.metadata" class="mp-lead">
+        Movie search needs TMDB:
+        <NavLink to="/settings/metadata">add your API key</NavLink>.
+      </p>
     </template>
-  </section>
+    <template #options>
+      <ProfileFolderFields
+        v-model:profile-id="form.profileId"
+        v-model:root-folder-id="form.rootFolderId"
+        :profiles="data.profiles"
+        :root-folders="data.rootFolders"
+      />
+      <label>
+        <span>Download when</span>
+        <select v-model="form.minimumAvailability">
+          <option value="announced">Announced</option>
+          <option value="inCinemas">In cinemas</option>
+          <option value="released">Released</option>
+        </select>
+      </label>
+      <label class="check">
+        <input v-model="form.search" type="checkbox" />
+        <span>Start searching right away</span>
+      </label>
+    </template>
+    <template #action="{ result: r }">
+      <button v-if="r.libraryId" @click="router.push(`/movie/${r.libraryId}`)">In library</button>
+      <button
+        v-else
+        class="primary"
+        :disabled="!form.rootFolderId || adding"
+        data-testid="add"
+        @click="add(r)"
+      >
+        Add
+      </button>
+    </template>
+  </AddMediaFlow>
 </template>
 
 <script lang="ts" setup>
 import { reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
+import AddMediaFlow from '@magpiejs/console-kit/AddMediaFlow.vue'
+import NavLink from '@magpiejs/console-kit/NavLink.vue'
+import ProfileFolderFields from '@magpiejs/console-kit/ProfileFolderFields.vue'
 import type { MoviesData } from '../src/console'
 
 const data = useRpc<MoviesData>()

@@ -1,100 +1,75 @@
 <template>
-  <section class="sr">
-    <div class="mp-head"><h1>Add series</h1></div>
-    <form class="mp-row mp-search" @submit.prevent="search">
-      <input
-        v-model="term"
-        placeholder="Search for a show by title"
-        data-testid="lookup"
-        autofocus
+  <AddMediaFlow
+    class="sr"
+    title="Add series"
+    placeholder="Search for a show by title"
+    v-model:term="term"
+    :searching="searching"
+    :error="error"
+    :results="results"
+    :has-location="!!data.rootFolders.length"
+    :result-key="(r) => r.ids.tmdb!"
+    :result-title="(r) => r.title"
+    :result-subtitle="(r) => r.year"
+    :result-overview="(r) => r.overview"
+    :result-image="(r) => r.posterUrl"
+    @search="search"
+  >
+    <template #options>
+      <ProfileFolderFields
+        v-model:profile-id="form.profileId"
+        v-model:root-folder-id="form.rootFolderId"
+        :profiles="data.profiles"
+        :root-folders="data.rootFolders"
       />
-      <button class="primary" type="submit" :disabled="!term.trim() || searching">
-        {{ searching ? 'Searching…' : 'Search' }}
-      </button>
-    </form>
-    <p v-if="error" class="mp-error">{{ error }}</p>
-
-    <template v-if="results.length">
-      <div v-if="!data.rootFolders.length" class="mp-card">
-        Choose a library location in
-        <a href="/settings/media" @click.prevent="router.push('/settings/media')"
-          >Media management</a
-        >
-        first.
-      </div>
-      <div v-else class="mp-card mp-options">
-        <label>
-          <span>Quality</span>
-          <select v-model="form.profileId">
-            <option v-for="p in data.profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
-          </select>
-        </label>
-        <label v-if="data.rootFolders.length > 1">
-          <span>Folder</span>
-          <select v-model="form.rootFolderId">
-            <option v-for="f in data.rootFolders" :key="f.id" :value="f.id">{{ f.path }}</option>
-          </select>
-        </label>
-        <label>
-          <span>Monitor</span>
-          <select v-model="form.monitor" data-testid="monitor">
-            <option value="all">All episodes</option>
-            <option value="future">Future episodes</option>
-            <option value="missing">Missing episodes</option>
-            <option value="first">First season</option>
-            <option value="latest">Latest season</option>
-            <option value="none">None</option>
-          </select>
-        </label>
-        <label>
-          <span>Type</span>
-          <select v-model="form.seriesType">
-            <option value="standard">Standard</option>
-            <option value="daily">Daily (talk shows, news)</option>
-            <option value="anime">Anime</option>
-          </select>
-        </label>
-        <label class="check">
-          <input v-model="form.seasonFolders" type="checkbox" />
-          <span>Season folders</span>
-        </label>
-        <label class="check">
-          <input v-model="form.search" type="checkbox" />
-          <span>Start searching right away</span>
-        </label>
-      </div>
-
-      <div v-for="r in results" :key="r.ids.tmdb" class="mp-result" data-testid="lookup-result">
-        <img v-if="r.posterUrl" class="poster" :src="r.posterUrl" alt="" />
-        <div v-else class="poster placeholder" />
-        <div class="body">
-          <div class="title">
-            <strong>{{ r.title }}</strong> <span class="mp-muted">{{ r.year }}</span>
-          </div>
-          <p class="mp-muted overview">{{ r.overview }}</p>
-        </div>
-        <div class="action">
-          <button v-if="r.libraryId" @click="router.push(`/series/${r.libraryId}`)">
-            In library
-          </button>
-          <button
-            v-else
-            class="primary"
-            :disabled="!form.rootFolderId || adding"
-            data-testid="add"
-            @click="add(r)"
-          >
-            {{ adding ? 'Adding…' : 'Add' }}
-          </button>
-        </div>
-      </div>
+      <label>
+        <span>Monitor</span>
+        <select v-model="form.monitor" data-testid="monitor">
+          <option value="all">All episodes</option>
+          <option value="future">Future episodes</option>
+          <option value="missing">Missing episodes</option>
+          <option value="first">First season</option>
+          <option value="latest">Latest season</option>
+          <option value="none">None</option>
+        </select>
+      </label>
+      <label>
+        <span>Type</span>
+        <select v-model="form.seriesType">
+          <option value="standard">Standard</option>
+          <option value="daily">Daily (talk shows, news)</option>
+          <option value="anime">Anime</option>
+        </select>
+      </label>
+      <label class="check">
+        <input v-model="form.seasonFolders" type="checkbox" />
+        <span>Season folders</span>
+      </label>
+      <label class="check">
+        <input v-model="form.search" type="checkbox" />
+        <span>Start searching right away</span>
+      </label>
     </template>
-  </section>
+    <template #action="{ result: r }">
+      <button v-if="r.libraryId" @click="router.push(`/series/${r.libraryId}`)">In library</button>
+      <button
+        v-else
+        class="primary"
+        :disabled="!form.rootFolderId || adding"
+        data-testid="add"
+        @click="add(r)"
+      >
+        {{ adding ? 'Adding…' : 'Add' }}
+      </button>
+    </template>
+  </AddMediaFlow>
 </template>
 
 <script lang="ts" setup>
 import { reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
+import AddMediaFlow from '@magpiejs/console-kit/AddMediaFlow.vue'
+import ProfileFolderFields from '@magpiejs/console-kit/ProfileFolderFields.vue'
 import type { SeriesData } from '../src/console'
 import type { MonitorOption, SeriesType } from '../src/schema'
 

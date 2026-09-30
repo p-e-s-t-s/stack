@@ -9,9 +9,7 @@
     </p>
     <p v-if="!data.tools.ffprobe" class="mp-muted mp-small" data-testid="no-ffprobe">
       ffprobe is not available, so the checks marked “needs ffprobe” are skipped. Set it up in
-      <a href="/settings/media-tools" @click.prevent="router.push('/settings/media-tools')"
-        >Settings → Media tools</a
-      >.
+      <NavLink to="/settings/media-tools">Settings → Media tools</NavLink>.
     </p>
 
     <form class="mp-card" @submit.prevent="save">
@@ -124,14 +122,14 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue'
-import { useRouter, useRpc } from '@cordisjs/client'
+import { useRpc } from '@cordisjs/client'
+import NavLink from '@magpiejs/console-kit/NavLink.vue'
 import type { Verdict } from '../src'
 import type { VerifyData } from '../src/console'
 import type { Mode } from '../src/schema'
 import { summarize } from './describe'
 
 const data = useRpc<VerifyData>()
-const router = useRouter()
 const BADGE = { passed: 'ok', warned: 'warn', rejected: 'bad' }
 
 const modes = ref<Record<string, Mode>>(

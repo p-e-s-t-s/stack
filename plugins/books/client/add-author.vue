@@ -1,20 +1,20 @@
 <template>
-  <section class="bk">
-    <div class="mp-head"><h1>Add author</h1></div>
-    <form class="mp-row mp-search" @submit.prevent="search">
-      <input
-        v-model="term"
-        placeholder="An author's name, or the title of a book they wrote"
-        data-testid="lookup"
-        autofocus
-      />
-      <button class="primary" type="submit" :disabled="!term.trim() || searching">
-        {{ searching ? 'Searching…' : 'Search' }}
-      </button>
-    </form>
-    <p v-if="error" class="mp-error">{{ error }}</p>
-
-    <template v-if="results.length">
+  <AddMediaFlow
+    class="bk"
+    title="Add author"
+    placeholder="An author's name, or the title of a book they wrote"
+    v-model:term="term"
+    :searching="searching"
+    :error="error"
+    :results="results"
+    :options-card="false"
+    :result-key="(r) => r.ids.openlibrary!"
+    :result-title="(r) => r.title"
+    :result-overview="(r) => r.overview"
+    :result-image="(r) => r.posterUrl"
+    @search="search"
+  >
+    <template #options>
       <div class="add-formats">
         <div v-for="k in KINDS" :key="k" class="mp-card" :data-testid="`format-${k}`">
           <label class="check">
@@ -26,30 +26,16 @@
             <span>{{ LABEL[k] }}</span>
           </label>
           <p v-if="!data.rootFolders[k].length" class="mp-muted mp-small">
-            Choose a library location in
-            <a href="/settings/media" @click.prevent="router.push('/settings/media')"
-              >Media management</a
-            >
+            Choose a library location in <NavLink to="/settings/media">Media management</NavLink>
             first.
           </p>
-          <template v-else-if="form[k].enabled">
-            <label>
-              <span>Quality</span>
-              <select v-model="form[k].profileId">
-                <option v-for="p in data.profiles[k]" :key="p.id" :value="p.id">
-                  {{ p.name }}
-                </option>
-              </select>
-            </label>
-            <label v-if="data.rootFolders[k].length > 1">
-              <span>Folder</span>
-              <select v-model="form[k].rootFolderId">
-                <option v-for="f in data.rootFolders[k]" :key="f.id" :value="f.id">
-                  {{ f.path }}
-                </option>
-              </select>
-            </label>
-          </template>
+          <ProfileFolderFields
+            v-else-if="form[k].enabled"
+            v-model:profile-id="form[k].profileId"
+            v-model:root-folder-id="form[k].rootFolderId"
+            :profiles="data.profiles[k]"
+            :root-folders="data.rootFolders[k]"
+          />
         </div>
       </div>
       <div class="mp-card mp-options">
@@ -67,52 +53,33 @@
           <span>Start searching right away</span>
         </label>
       </div>
-
-      <div
-        v-for="r in results"
-        :key="r.ids.openlibrary"
-        class="mp-result"
-        data-testid="lookup-result"
-      >
-        <img
-          v-if="r.posterUrl && !broken.has(r.ids.openlibrary!)"
-          class="poster"
-          :src="r.posterUrl"
-          alt=""
-          @error="broken.add(r.ids.openlibrary!)"
-        />
-        <div v-else class="poster placeholder" />
-        <div class="body">
-          <div class="title">
-            <strong>{{ r.title }}</strong>
-          </div>
-          <p class="mp-muted overview">{{ r.overview }}</p>
-        </div>
-        <div class="action">
-          <button
-            v-if="chosen.every((k) => r.followed[k])"
-            @click="router.push(`/books/${Object.values(r.followed)[0]}`)"
-          >
-            Following
-          </button>
-          <button
-            v-else
-            class="primary"
-            :disabled="!chosen.length || !!adding"
-            data-testid="add"
-            @click="add(r)"
-          >
-            {{ adding === r.ids.openlibrary ? 'Adding…' : 'Follow' }}
-          </button>
-        </div>
-      </div>
     </template>
-  </section>
+    <template #action="{ result: r }">
+      <button
+        v-if="chosen.every((k) => r.followed[k])"
+        @click="router.push(`/books/${Object.values(r.followed)[0]}`)"
+      >
+        Following
+      </button>
+      <button
+        v-else
+        class="primary"
+        :disabled="!chosen.length || !!adding"
+        data-testid="add"
+        @click="add(r)"
+      >
+        {{ adding === r.ids.openlibrary ? 'Adding…' : 'Follow' }}
+      </button>
+    </template>
+  </AddMediaFlow>
 </template>
 
 <script lang="ts" setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter, useRpc } from '@cordisjs/client'
+import AddMediaFlow from '@magpiejs/console-kit/AddMediaFlow.vue'
+import NavLink from '@magpiejs/console-kit/NavLink.vue'
+import ProfileFolderFields from '@magpiejs/console-kit/ProfileFolderFields.vue'
 import type { BooksData } from '../src/console'
 import type { MonitorOption } from '../src/schema'
 import { KINDS, LABEL } from './status'
@@ -123,7 +90,6 @@ const term = ref('')
 const error = ref('')
 const searching = ref(false)
 const adding = ref<string>()
-const broken = reactive(new Set<string>())
 const results = ref<Awaited<ReturnType<BooksData['lookup']>>>([])
 const monitor = ref<MonitorOption>('all')
 const startSearch = ref(true)

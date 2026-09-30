@@ -1,56 +1,46 @@
 <template>
-  <section v-if="artist" class="mu">
-    <a class="mp-back" href="/music" @click.prevent="router.push('/music')">← Music</a>
-    <div class="mp-hero">
-      <img
-        v-if="artist.posterUrl && !coverBroken"
-        class="poster"
-        :src="artist.posterUrl"
-        alt=""
-        @error="coverBroken = true"
-      />
-      <div v-else class="poster placeholder">{{ artist.title }}</div>
-      <div class="info">
-        <h1>{{ artist.title }}</h1>
-        <div class="facts mp-muted">
-          <span v-if="artist.overview">{{ artist.overview }}</span>
-          <span>{{ profileName }}</span>
-          <span
-            >{{ artist.albumTypes.join(', ')
-            }}{{
-              artist.secondaryTypes.length ? ` + ${artist.secondaryTypes.join(', ')}` : ''
-            }}</span
-          >
-        </div>
-        <div class="status">
-          <span class="mp-badge" :class="status.class">{{ status.text }}</span>
-          <span class="mp-muted mp-small mp-count">
-            {{ artist.stats.complete }} of {{ artist.stats.wanted }} released albums complete
-            <template v-if="artist.stats.nextRelease">
-              · next on {{ artist.stats.nextRelease }}</template
-            >
-          </span>
-        </div>
-        <div class="mp-row">
-          <button
-            class="primary"
-            data-testid="search-now"
-            :disabled="busy === 'search'"
-            @click="searchNow()"
-          >
-            {{ busy === 'search' ? 'Searching…' : 'Search monitored' }}
-          </button>
-          <button data-testid="edit-artist" @click="editing = !editing">Edit</button>
-          <button :disabled="busy === 'refresh'" @click="refresh">
-            {{ busy === 'refresh' ? 'Refreshing…' : 'Refresh' }}
-          </button>
-          <button class="danger" @click="remove">Remove</button>
-        </div>
-        <p v-if="message" class="mp-small" :class="messageBad ? 'mp-error' : 'mp-muted'">
-          {{ message }}
-        </p>
-      </div>
-    </div>
+  <MediaDetailShell
+    v-if="artist"
+    class="mu"
+    back-to="/music"
+    back-label="Music"
+    :title="artist.title"
+    :image="artist.posterUrl"
+    :message="message"
+    :message-bad="messageBad"
+  >
+    <template #facts>
+      <span v-if="artist.overview">{{ artist.overview }}</span>
+      <span>{{ profileName }}</span>
+      <span
+        >{{ artist.albumTypes.join(', ')
+        }}{{ artist.secondaryTypes.length ? ` + ${artist.secondaryTypes.join(', ')}` : '' }}</span
+      >
+    </template>
+    <template #status>
+      <span class="mp-badge" :class="status.class">{{ status.text }}</span>
+      <span class="mp-muted mp-small mp-count">
+        {{ artist.stats.complete }} of {{ artist.stats.wanted }} released albums complete
+        <template v-if="artist.stats.nextRelease">
+          · next on {{ artist.stats.nextRelease }}</template
+        >
+      </span>
+    </template>
+    <template #actions>
+      <button
+        class="primary"
+        data-testid="search-now"
+        :disabled="busy === 'search'"
+        @click="searchNow()"
+      >
+        {{ busy === 'search' ? 'Searching…' : 'Search monitored' }}
+      </button>
+      <button data-testid="edit-artist" @click="editing = !editing">Edit</button>
+      <button :disabled="busy === 'refresh'" @click="refresh">
+        {{ busy === 'refresh' ? 'Refreshing…' : 'Refresh' }}
+      </button>
+      <button class="danger" @click="remove">Remove</button>
+    </template>
 
     <div v-if="editing" class="mp-card mp-edit">
       <div class="mp-field">
@@ -121,17 +111,14 @@
     />
 
     <p v-if="!albums" class="mp-muted">Loading…</p>
-    <details
+    <CollapsibleSection
       v-for="g in groups"
       :key="g.name"
-      class="mp-section"
+      :title="g.name"
+      :count="g.albums.length"
       :open="g.open"
       :data-testid="`group-${g.name}`"
     >
-      <summary>
-        <h3>{{ g.name }}</h3>
-        <span class="mp-muted mp-small mp-count">{{ g.albums.length }}</span>
-      </summary>
       <table class="mp-table albums">
         <tbody>
           <tr
@@ -179,12 +166,14 @@
           </tr>
         </tbody>
       </table>
-    </details>
-  </section>
+    </CollapsibleSection>
+  </MediaDetailShell>
   <section v-else class="mu"><p class="mp-empty">Artist not found.</p></section>
 </template>
 
 <script lang="ts" setup>
+import CollapsibleSection from '@magpiejs/console-kit/CollapsibleSection.vue'
+import MediaDetailShell from '@magpiejs/console-kit/MediaDetailShell.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'
@@ -200,7 +189,6 @@ const status = computed(() => artistStatus(artist.value!))
 const profileName = computed(
   () => data.value.profiles.find((p) => p.id === artist.value?.profileId)?.name ?? '',
 )
-const coverBroken = ref(false)
 const broken = reactive(new Set<number>())
 
 const albums = ref<AlbumRow[]>()

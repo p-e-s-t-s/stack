@@ -19,17 +19,13 @@
         {{ f.label }}
       </button>
     </div>
-    <div class="mp-tabs">
-      <button
-        v-for="p in familyProfiles"
-        :key="p.id"
-        :class="{ active: draft?.id === p.id }"
-        @click="edit(p)"
-      >
-        {{ p.name }}
-      </button>
+    <TabBar
+      :tabs="familyProfiles.map((p) => ({ key: p.id, label: p.name }))"
+      :model-value="draft?.id ?? null"
+      @select="(id) => edit(familyProfiles.find((p) => p.id === id)!)"
+    >
       <button v-if="draft && !draft.id" class="active">New profile</button>
-    </div>
+    </TabBar>
 
     <div v-if="draft" class="profile">
       <div class="mp-card">
@@ -194,6 +190,7 @@
 <script lang="ts" setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { useRpc } from '@cordisjs/client'
+import TabBar from '@magpiejs/console-kit/TabBar.vue'
 import type { DecisionData } from '../src/console'
 import type { Profile, ProfileItem } from '../src/schema'
 

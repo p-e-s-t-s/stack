@@ -1,49 +1,44 @@
 <template>
-  <section v-if="movie" class="mv">
-    <a class="mp-back" href="/movies" @click.prevent="router.push('/movies')">← Movies</a>
-    <div class="mp-hero">
-      <img v-if="movie.posterUrl" class="poster" :src="movie.posterUrl" alt="" />
-      <div v-else class="poster placeholder">{{ movie.title }}</div>
-      <div class="info">
-        <h1>
-          {{ movie.title }} <span class="mp-muted year">{{ movie.year }}</span>
-        </h1>
-        <div class="facts mp-muted">
-          <span v-if="movie.runtimeMinutes">{{ movie.runtimeMinutes }} min</span>
-          <span v-if="movie.genres.length">{{ movie.genres.join(', ') }}</span>
-          <span>{{ profileName }}</span>
-          <span>{{ movie.monitored ? 'Monitored' : 'Not monitored' }}</span>
-        </div>
-        <div class="status">
-          <span class="mp-badge" :class="status.class">{{ status.text }}</span>
-          <span v-if="!movie.available" class="mp-muted mp-small">{{ availability }}</span>
-        </div>
-        <p class="overview">{{ movie.overview }}</p>
-        <div class="mp-row">
-          <button
-            class="primary"
-            data-testid="search-now"
-            :disabled="busy === 'search-now'"
-            @click="searchNow"
-          >
-            {{ busy === 'search-now' ? 'Searching…' : 'Search now' }}
-          </button>
-          <button data-testid="interactive-search" :disabled="searching" @click="search()">
-            {{ searching ? 'Searching…' : 'Choose a release' }}
-          </button>
-          <button data-testid="edit-movie" @click="editing = !editing">Edit</button>
-          <button @click="router.push(`/import?mediaId=${movie.id}`)">Rescan files</button>
-          <button @click="router.push(`/import?mediaId=${movie.id}&mode=repair`)">
-            Repair files
-          </button>
-          <button :disabled="busy === 'refresh'" @click="refresh">Refresh</button>
-          <button class="danger" @click="remove">Remove</button>
-        </div>
-        <p v-if="message" class="mp-small" :class="messageBad ? 'mp-error' : 'mp-muted'">
-          {{ message }}
-        </p>
-      </div>
-    </div>
+  <MediaDetailShell
+    v-if="movie"
+    class="mv"
+    back-to="/movies"
+    back-label="Movies"
+    :title="movie.title"
+    :year="movie.year"
+    :image="movie.posterUrl"
+    :overview="movie.overview"
+    :message="message"
+    :message-bad="messageBad"
+  >
+    <template #facts>
+      <span v-if="movie.runtimeMinutes">{{ movie.runtimeMinutes }} min</span>
+      <span v-if="movie.genres.length">{{ movie.genres.join(', ') }}</span>
+      <span>{{ profileName }}</span>
+      <span>{{ movie.monitored ? 'Monitored' : 'Not monitored' }}</span>
+    </template>
+    <template #status>
+      <span class="mp-badge" :class="status.class">{{ status.text }}</span>
+      <span v-if="!movie.available" class="mp-muted mp-small">{{ availability }}</span>
+    </template>
+    <template #actions>
+      <button
+        class="primary"
+        data-testid="search-now"
+        :disabled="busy === 'search-now'"
+        @click="searchNow"
+      >
+        {{ busy === 'search-now' ? 'Searching…' : 'Search now' }}
+      </button>
+      <button data-testid="interactive-search" :disabled="searching" @click="search()">
+        {{ searching ? 'Searching…' : 'Choose a release' }}
+      </button>
+      <button data-testid="edit-movie" @click="editing = !editing">Edit</button>
+      <button @click="router.push(`/import?mediaId=${movie.id}`)">Rescan files</button>
+      <button @click="router.push(`/import?mediaId=${movie.id}&mode=repair`)">Repair files</button>
+      <button :disabled="busy === 'refresh'" @click="refresh">Refresh</button>
+      <button class="danger" @click="remove">Remove</button>
+    </template>
 
     <div v-if="editing" class="mp-card mp-edit">
       <div class="mp-field">
@@ -217,11 +212,12 @@
 
     <!-- other plugins add sections here (history…) -->
     <k-slot name="movie-detail" :data="{ movie }" />
-  </section>
+  </MediaDetailShell>
   <section v-else class="mv"><p class="mp-empty">Movie not found.</p></section>
 </template>
 
 <script lang="ts" setup>
+import MediaDetailShell from '@magpiejs/console-kit/MediaDetailShell.vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import type { MovieSummary, MoviesData, ReleaseRow } from '../src/console'

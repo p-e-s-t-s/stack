@@ -1,64 +1,51 @@
 <template>
-  <section class="pc">
-    <div class="mp-head">
-      <h1>Podcasts</h1>
-      <input v-if="data.podcasts.length" v-model="filter" placeholder="Filter" class="mp-filter" />
+  <MediaCardGrid
+    class="pc"
+    title="Podcasts"
+    :items="data.podcasts"
+    :item-key="(p) => p.id"
+    :item-title="(p) => p.title"
+    :item-href="(p) => `/podcasts/${p.id}`"
+    :item-image="(p) => p.posterUrl"
+    :summary="summary"
+    card-test-id="podcast-card"
+  >
+    <template #actions>
       <button :disabled="!data.podcasts.length" @click="exportOpml">Export OPML</button>
       <button class="primary" data-testid="add-podcast" @click="router.push('/podcasts/add')">
         Add podcast
       </button>
-    </div>
-    <p v-if="data.podcasts.length" class="mp-lead">{{ summary }}</p>
-    <div v-if="!data.rootFolders.length" class="mp-card">
-      Choose a library location in
-      <a href="/settings/media" @click.prevent="router.push('/settings/media')">Media management</a>
-      to start following podcasts.
-    </div>
-    <div v-else-if="!data.canDownload" class="mp-card">
-      Add a <strong>direct download</strong> client in
-      <a href="/settings/clients" @click.prevent="router.push('/settings/clients')"
-        >Download clients</a
-      >
-      so episodes can be downloaded.
-    </div>
-
-    <p v-if="!data.podcasts.length" class="mp-empty">
+    </template>
+    <template #notices>
+      <LocationNotice v-if="!data.rootFolders.length">to start following podcasts.</LocationNotice>
+      <div v-else-if="!data.canDownload" class="mp-card">
+        Add a <strong>direct download</strong> client in
+        <NavLink to="/settings/clients">Download clients</NavLink>
+        so episodes can be downloaded.
+      </div>
+    </template>
+    <template #empty>
       No podcasts yet. Use <strong>Add podcast</strong> to search for one, paste a feed URL or
       import an OPML file.
-    </p>
-    <div class="mp-grid">
-      <a
-        v-for="p in shown"
-        :key="p.id"
-        class="tile"
-        :href="`/podcasts/${p.id}`"
-        data-testid="podcast-card"
-        @click.prevent="router.push(`/podcasts/${p.id}`)"
-      >
-        <img v-if="p.posterUrl" class="poster" :src="p.posterUrl" loading="lazy" alt="" />
-        <div v-else class="poster placeholder">{{ p.title }}</div>
-        <div class="title">{{ p.title }}</div>
-        <div class="meta">
-          <span class="mp-muted mp-count">{{ p.stats.downloaded }} / {{ p.stats.episodes }}</span>
-          <span class="mp-badge" :class="podcastStatus(p).class">{{ podcastStatus(p).text }}</span>
-        </div>
-      </a>
-    </div>
-  </section>
+    </template>
+    <template #meta="{ item: p }">
+      <span class="mp-muted mp-count">{{ p.stats.downloaded }} / {{ p.stats.episodes }}</span>
+      <span class="mp-badge" :class="podcastStatus(p).class">{{ podcastStatus(p).text }}</span>
+    </template>
+  </MediaCardGrid>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useRouter, useRpc } from '@cordisjs/client'
+import LocationNotice from '@magpiejs/console-kit/LocationNotice.vue'
+import MediaCardGrid from '@magpiejs/console-kit/MediaCardGrid.vue'
+import NavLink from '@magpiejs/console-kit/NavLink.vue'
 import type { PodcastsData } from '../src/console'
 import { podcastStatus } from './status'
 
 const data = useRpc<PodcastsData>()
 const router = useRouter()
-const filter = ref('')
-const shown = computed(() =>
-  data.value.podcasts.filter((p) => p.title.toLowerCase().includes(filter.value.toLowerCase())),
-)
 const summary = computed(() => {
   const all = data.value.podcasts
   const downloaded = all.reduce((n, p) => n + p.stats.downloaded, 0)
