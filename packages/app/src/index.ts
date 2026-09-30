@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import Loader from '@cordisjs/plugin-loader'
+import { applyStagedConfig } from '@magpiejs/database'
 import { Context, Logger } from 'cordis'
 
 export interface StartOptions {
@@ -63,6 +64,9 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/browse' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
     { name: '@magpiejs/system' },
+    // checks that everything Magpie depends on works, and scheduled backups of the database
+    { name: '@magpiejs/health' },
+    { name: '@magpiejs/backup' },
     { name: '@magpiejs/settings' },
   ]
 }
@@ -70,6 +74,8 @@ export function defaultConfig(options: StartOptions) {
 export async function start(options: StartOptions) {
   const configDir = resolve(options.configDir)
   mkdirSync(configDir, { recursive: true })
+  // a restore staged from the console replaces magpie.yml before it is read
+  if (applyStagedConfig(configDir)) console.log('restored magpie.yml from a backup')
 
   const ctx = new Context()
   // data paths (database, backups) resolve against the config directory

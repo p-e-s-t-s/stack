@@ -779,8 +779,9 @@ search and replace works from the UI.
 ### Phase 9 — Hardening & release
 - Health checks page: indexer/client reachability, root folder free space and
   permissions, path mapping sanity (compare client-reported path vs visible path),
-  failed jobs, DB integrity.
+  failed jobs, DB integrity. **Built**: [Health checks and backups](health-and-backups.md).
 - Backups: scheduled zipped DB + config backups with retention; restore from UI.
+  **Built** (same doc).
 - Performance: test with 5,000 movies / 1,000 series / 100k episodes; paginate/virtualize
   UI lists; DB indices on hot queries.
 - Security review: API key handling, CSRF/origin checks on WebSocket, secrets redacted in

@@ -9,6 +9,7 @@ import { type Context, Service } from 'cordis'
 import { drizzle, type NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite'
 import z from 'schemastery'
 import { NAMESPACE_PATTERN } from './ownership'
+import { applyStagedDatabase } from './restore'
 import {
   getApplied,
   type Migration,
@@ -19,6 +20,7 @@ import {
 } from './runner'
 
 export * from './ownership'
+export * from './restore'
 export * from './runner'
 
 declare module 'cordis' {
@@ -80,7 +82,12 @@ export class DatabaseService extends Service {
   async *[Service.init]() {
     const base = this.ctx.root.baseUrl ? fileURLToPath(this.ctx.root.baseUrl) : process.cwd()
     this.filename = this.config.path === ':memory:' ? ':memory:' : resolve(base, this.config.path)
-    if (this.filename !== ':memory:') mkdirSync(dirname(this.filename), { recursive: true })
+    if (this.filename !== ':memory:') {
+      mkdirSync(dirname(this.filename), { recursive: true })
+      if (applyStagedDatabase(base, this.filename, this.backupDir!)) {
+        this.ctx.logger.info('restored the database from a backup')
+      }
+    }
 
     this.sqlite = new DatabaseSync(this.filename)
     this.sqlite.exec('PRAGMA journal_mode = WAL')
@@ -103,9 +110,7 @@ export class DatabaseService extends Service {
    * typed Drizzle instance. Runs inside the caller's lifecycle: disposing the plugin
    * unregisters the schema (its tables and data stay).
    */
-  register<S extends Record<string, unknown>>(
-    options: RegisterOptions<S>,
-  ): Drizzle<S> {
+  register<S extends Record<string, unknown>>(options: RegisterOptions<S>): Drizzle<S> {
     const caller = this.ctx
     const { namespace, schema, steps } = options
     if (!NAMESPACE_PATTERN.test(namespace)) {

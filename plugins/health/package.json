@@ -1,0 +1,28 @@
+{
+  "name": "@magpiejs/health",
+  "version": "0.0.0",
+  "description": "Health checks: is everything Magpie depends on reachable, writable and working",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/console-kit": "0.0.0",
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/jobs": "0.0.0",
+    "drizzle-orm": "1.0.0-rc.4"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/api": "0.0.0",
+    "@magpiejs/downloads": "0.0.0",
+    "@magpiejs/indexers": "0.0.0",
+    "@magpiejs/library": "0.0.0",
+    "@magpiejs/testing": "0.0.0",
+    "@magpiejs/webui": "0.0.0",
+    "cordis": "4.0.0-rc.10"
+  }
+}

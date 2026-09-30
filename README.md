@@ -24,7 +24,7 @@ On first start Magpie creates a config directory (`./data` by default; change it
 ```
 magpie.yml        plugins and their settings (edited by the UI; hand edits are fine too)
 data/magpie.db    SQLite database
-data/backups/     automatic backups taken before migrations
+data/backups/     scheduled backups (zip) and snapshots taken before migrations
 ```
 
 For a production run, build the web console first:

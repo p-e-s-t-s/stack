@@ -1,0 +1,54 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "5ad93838-564a-493c-b043-11dd0edfb0e1",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "backup_settings",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "backup_settings"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "backup_settings"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "backup_settings"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "backup_settings_pk",
+      "table": "backup_settings",
+      "entityType": "pks"
+    }
+  ],
+  "renames": []
+}
