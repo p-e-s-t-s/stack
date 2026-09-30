@@ -6,6 +6,7 @@ import type { MediaItem, MediaFile } from '@magpiejs/library'
 import type { MetadataSearchResult } from '@magpiejs/types'
 import { parse } from '@magpiejs/parser'
 import { fileSystem, findFiles, VIDEO_EXTENSIONS, transfer, recycle } from './files'
+import { announceChange } from './changes'
 import * as schema from './schema'
 
 export type ReviewKind = 'movie' | 'series'
@@ -615,6 +616,18 @@ export class ReviewService {
             path: dest,
             mode: session.mode,
           })
+          // only the manual flow changes files on disk; adopt, rescan and repair just record
+          if (session.mode === 'manual')
+            announceChange(this.ctx, {
+              origin: 'manual',
+              item,
+              added: [dest],
+              removed: old
+                .map((f) => join(folder, f.path))
+                .filter((p) => resolve(p) !== resolve(dest)),
+              replaced: old.length > 0,
+              release: row.releaseName,
+            })
         } catch (e) {
           row.error = (e as Error).message
           if (row.status !== 'placed' && row.status !== 'staged') row.status = 'failed'

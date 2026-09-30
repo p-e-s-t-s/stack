@@ -68,7 +68,13 @@ export default function podcastImport(ctx: Context, podcasts: PodcastsService) {
       podcasts.linkFile(row.id, episode.id)
       await podcasts.applyRetention(podcast.id)
       ctx.emit('podcasts/episodes', podcast.id)
-      return { path: dest, method, replaced: existing?.path }
+      return {
+        path: dest,
+        method,
+        replaced: existing?.path,
+        added: [dest],
+        removed: oldPath && oldPath !== dest ? [oldPath] : [],
+      }
     },
     { extensions: PODCAST_EXTENSIONS },
   )

@@ -165,6 +165,38 @@ describe('import', () => {
     ])
   })
 
+  it('announces the files an import added and a replacement removed', async () => {
+    const changes: { added: string[]; removed: string[]; replaced: boolean }[] = []
+    ctx.on('media/changed', (change) => void changes.push(change))
+    await ctx.import.importGrab(
+      download('Night.of.the.Living.Dead.1968.720p.WEB-DL.x264-GRP', 'webdl-720p', {
+        'a.mkv': 3000,
+      }).id,
+    )
+    await ctx.import.importGrab(
+      download('Night.of.the.Living.Dead.1968.1080p.BluRay.x264-GRP', 'bluray-1080p', {
+        'b.mkv': 8000,
+      }).id,
+    )
+    const first = moviePath('Night of the Living Dead (1968) [WEB-DL-720p].mkv')
+    const second = moviePath('Night of the Living Dead (1968) [Bluray-1080p].mkv')
+    expect(changes).toMatchObject([
+      { added: [first], removed: [], replaced: false },
+      { added: [second], removed: [first], replaced: true },
+    ])
+  })
+
+  it('keeps a grab imported when a media/changed listener throws', async () => {
+    ctx.on('media/changed', () => {
+      throw new Error('listener broke')
+    })
+    const grab = download('Night.of.the.Living.Dead.1968.720p.WEB-DL.x264-GRP', 'webdl-720p', {
+      'a.mkv': 3000,
+    })
+    await ctx.import.importGrab(grab.id)
+    expect(ctx.downloads.get(grab.id)!.state).toBe('imported')
+  })
+
   it('copies when a hardlink is not possible across filesystems', async () => {
     ctx.import.fs = {
       ...fileSystem,

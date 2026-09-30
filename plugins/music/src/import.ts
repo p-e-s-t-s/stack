@@ -132,10 +132,13 @@ export default function albumImport(ctx: Context, music: MusicService) {
         'Release Year': album.releaseDate?.slice(0, 4),
       }),
     )
+    const removed: string[] = []
     for (const old of existing.values()) {
       await tools.recycle(join(folder, old.path))
+      removed.push(join(folder, old.path))
       ctx.library.removeFile(old.id)
     }
+    const added: string[] = []
     let method = ''
     const parsed = parseMusic(grab.title)
     for (const { path, size, track } of [...matched.values()].sort(
@@ -152,6 +155,7 @@ export default function albumImport(ctx: Context, music: MusicService) {
       })
       const dest = join(albumDir, name + extname(path).toLowerCase())
       method = await tools.place(path, dest)
+      added.push(dest)
       const row = ctx.library.addFile({
         mediaId: artist.id,
         path: relative(folder, dest),
@@ -171,6 +175,8 @@ export default function albumImport(ctx: Context, music: MusicService) {
       method,
       replaced: existing.size ? `${existing.size} files` : undefined,
       files: matched.size,
+      added,
+      removed,
       skipped: skipped.length ? skipped : undefined,
     }
   }
