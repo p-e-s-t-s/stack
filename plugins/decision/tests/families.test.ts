@@ -48,7 +48,7 @@ const release = (title: string, size = 300 * 1024 ** 2): ReleaseInfo => ({
 })
 
 it('judges releases with a registered family', async () => {
-  const withFamily = (family: QualityFamily<any>) => ({
+  const withFamily = <P extends BaseParsed>(family: QualityFamily<P>) => ({
     inject: ['decision'],
     apply: (ctx: Context) => void ctx.decision.family(family),
   })

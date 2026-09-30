@@ -37,6 +37,11 @@ const parser = new XMLParser({
 
 const list = <T>(v: T | T[] | undefined): T[] => (v === undefined ? [] : Array.isArray(v) ? v : [v])
 
+/** A parsed XML element: child elements and `@_`-prefixed attributes. */
+type XmlNode = Record<string, unknown>
+const nodes = (value: unknown) => list(value as XmlNode | XmlNode[] | undefined)
+const attr = (node: XmlNode | undefined, name: string) => node?.[`@_${name}`] as string | undefined
+
 /** The text of an element that may have attributes (`<guid isPermaLink="false">…</guid>`). */
 function text(node: unknown): string | undefined {
   if (node === undefined || node === null) return undefined
@@ -98,9 +103,9 @@ export function parseFeed(xml: string): Feed {
   const image = channel['itunes:image']?.['@_href'] ?? text(channel.image?.url) ?? undefined
 
   const episodes: FeedEpisode[] = []
-  for (const item of list<any>(channel.item)) {
-    const enclosure = list<any>(item.enclosure)[0]
-    const url = enclosure?.['@_url']
+  for (const item of nodes(channel.item)) {
+    const enclosure = nodes(item.enclosure)[0]
+    const url = attr(enclosure, 'url')
     // items without media (announcements, trailers without files) can't be downloaded
     if (!url) continue
     episodes.push({
@@ -110,13 +115,13 @@ export function parseFeed(xml: string): Feed {
       publishedAt: isoDate(text(item.pubDate)),
       enclosure: {
         url,
-        type: enclosure['@_type'],
-        length: int(enclosure['@_length']),
+        type: attr(enclosure, 'type'),
+        length: int(attr(enclosure, 'length')),
       },
       durationSeconds: parseDuration(text(item['itunes:duration'])),
       season: int(text(item['itunes:season']) ?? text(item['podcast:season'])),
       number: int(text(item['itunes:episode']) ?? text(item['podcast:episode'])),
-      imageUrl: item['itunes:image']?.['@_href'],
+      imageUrl: attr(nodes(item['itunes:image'])[0], 'href'),
     })
   }
   return {

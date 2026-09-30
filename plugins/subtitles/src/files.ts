@@ -59,13 +59,21 @@ export function run(binary: string, args: string[], signal?: AbortSignal, timeou
     })
   })
 }
+/** The fields of an ffprobe stream that `probe` reads. */
+interface ProbeStream {
+  index: number
+  codec_type?: string
+  codec_name?: string
+  tags?: { language?: string }
+  disposition?: { forced?: number; hearing_impaired?: number }
+}
 export async function probe(path: string, binary: string, signal?: AbortSignal): Promise<ProbeFacts> {
   const json = JSON.parse(await run(binary, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', path], signal))
   if (!Array.isArray(json.streams)) throw new Error('probe did not return stream inventory')
   const duration = Number(json.format?.duration)
   return {
     duration: Number.isFinite(duration) && duration > 0 ? duration : undefined,
-    streams: json.streams.filter((s: any) => s.codec_type === 'subtitle').map((s: any) => ({
+    streams: (json.streams as ProbeStream[]).filter((s) => s.codec_type === 'subtitle').map((s) => ({
       index: s.index, codec: s.codec_name ?? 'unknown', language: language(s.tags?.language),
       forced: typeof s.disposition?.forced === 'number' ? !!s.disposition.forced : null,
       hi: typeof s.disposition?.hearing_impaired === 'number' ? !!s.disposition.hearing_impaired : null,

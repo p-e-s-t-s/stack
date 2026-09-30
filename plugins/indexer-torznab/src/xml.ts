@@ -16,13 +16,18 @@ const text = (value: unknown): string | undefined =>
       ? text((value as Record<string, unknown>)['#text'])
       : String(value)
 
+/** A parsed XML element: child elements and `@_`-prefixed attributes. */
+type XmlNode = Record<string, unknown>
+const nodes = (value: unknown) => list(value as XmlNode | XmlNode[] | undefined)
+const attr = (node: XmlNode | undefined, name: string) => node?.[`@_${name}`]
+
 export class TorznabError extends Error {}
 
-function checkError(doc: Record<string, any>) {
-  const error = doc.error
+function checkError(doc: XmlNode) {
+  const error = doc.error as XmlNode | undefined
   if (error)
     throw new TorznabError(
-      `${error['@_description'] ?? 'indexer error'} (code ${error['@_code'] ?? '?'})`,
+      `${attr(error, 'description') ?? 'indexer error'} (code ${attr(error, 'code') ?? '?'})`,
     )
 }
 
@@ -30,19 +35,21 @@ function checkError(doc: Record<string, any>) {
 export function parseCaps(xml: string): IndexerCaps {
   const doc = parser.parse(xml)
   checkError(doc)
-  const caps = doc.caps ?? {}
-  const searching = caps.searching ?? {}
-  const params = (node: any) =>
-    node?.['@_available'] === 'yes'
-      ? String(node['@_supportedParams'] ?? 'q')
+  const caps = (doc.caps ?? {}) as XmlNode
+  const searching = (caps.searching ?? {}) as XmlNode
+  const params = (node: unknown) => {
+    const search = node as XmlNode | undefined
+    return attr(search, 'available') === 'yes'
+      ? String(attr(search, 'supportedParams') ?? 'q')
           .split(',')
-          .map((p: string) => p.trim())
+          .map((p) => p.trim())
       : []
-  const categories = list(caps.categories?.category).flatMap((c: any) => [
-    { id: Number(c['@_id']), name: String(c['@_name']) },
-    ...list(c.subcat).map((s: any) => ({
-      id: Number(s['@_id']),
-      name: `${c['@_name']}/${s['@_name']}`,
+  }
+  const categories = nodes((caps.categories as XmlNode | undefined)?.category).flatMap((c) => [
+    { id: Number(attr(c, 'id')), name: String(attr(c, 'name')) },
+    ...nodes(c.subcat).map((s) => ({
+      id: Number(attr(s, 'id')),
+      name: `${attr(c, 'name')}/${attr(s, 'name')}`,
     })),
   ])
   const music = params(searching['music-search'])
@@ -66,15 +73,15 @@ export function parseResults(
 ): ReleaseInfo[] {
   const doc = parser.parse(xml)
   checkError(doc)
-  const items = list(doc.rss?.channel?.item)
-  return items.flatMap((item: any): ReleaseInfo[] => {
+  const channel = (doc.rss as XmlNode | undefined)?.channel as XmlNode | undefined
+  return nodes(channel?.item).flatMap((item): ReleaseInfo[] => {
     const attrs = new Map<string, string>()
-    for (const a of [...list(item['torznab:attr']), ...list(item['newznab:attr'])]) {
-      attrs.set(String(a['@_name']).toLowerCase(), String(a['@_value']))
+    for (const a of [...nodes(item['torznab:attr']), ...nodes(item['newznab:attr'])]) {
+      attrs.set(String(attr(a, 'name')).toLowerCase(), String(attr(a, 'value')))
     }
     const title = text(item.title)
-    const enclosure = list(item.enclosure)[0]
-    const downloadUrl = enclosure?.['@_url'] ?? text(item.link) ?? attrs.get('magneturl')
+    const enclosure = nodes(item.enclosure)[0]
+    const downloadUrl = text(attr(enclosure, 'url')) ?? text(item.link) ?? attrs.get('magneturl')
     if (!title || !downloadUrl) return []
     const num = (v?: string) =>
       v === undefined || v === '' || Number.isNaN(Number(v)) ? undefined : Number(v)
@@ -91,7 +98,8 @@ export function parseResults(
         indexerId,
         downloadUrl,
         infoUrl: text(item.comments) ?? text(item.link),
-        size: num(attrs.get('size')) ?? num(text(item.size)) ?? num(enclosure?.['@_length']),
+        size:
+          num(attrs.get('size')) ?? num(text(item.size)) ?? num(text(attr(enclosure, 'length'))),
         publishedAt: pubDate ? new Date(pubDate).toISOString() : undefined,
         seeders: num(attrs.get('seeders')),
         leechers:
@@ -100,7 +108,7 @@ export function parseResults(
             : undefined,
         infoHash: attrs.get('infohash'),
         categories: [
-          ...list(item.category).map((c) => num(text(c))),
+          ...list<unknown>(item.category).map((c) => num(text(c))),
           ...[...attrs.entries()].filter(([k]) => k === 'category').map(([, v]) => num(v)),
         ].filter((c): c is number => c !== undefined),
         ids: {

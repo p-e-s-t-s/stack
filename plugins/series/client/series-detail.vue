@@ -64,7 +64,7 @@
         <label>Type</label>
         <select
           :value="series.seriesType"
-          @change="update({ seriesType: ($event.target as HTMLSelectElement).value as any })"
+          @change="update({ seriesType: ($event.target as HTMLSelectElement).value as SeriesType })"
         >
           <option value="standard">Standard</option>
           <option value="daily">Daily</option>
@@ -214,6 +214,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import ReleasePicker from '@magpiejs/console-kit/ReleasePicker.vue'
 import type { EpisodeRow, SeriesData } from '../src/console'
+import type { SeriesType } from '../src/schema'
 import { episodeStatus, seasonName, seriesStatus } from './status'
 
 const STATUS: Record<string, string> = {

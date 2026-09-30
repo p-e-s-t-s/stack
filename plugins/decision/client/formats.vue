@@ -48,13 +48,13 @@
               <td>
                 <template v-if="c.type === 'size'">
                   <input
-                    v-model.number="(c.value as any).min"
+                    v-model.number="sizeOf(c).min"
                     type="number"
                     placeholder="min GB"
                     style="width: 80px"
                   />
                   <input
-                    v-model.number="(c.value as any).max"
+                    v-model.number="sizeOf(c).max"
                     type="number"
                     placeholder="max GB"
                     style="width: 80px"
@@ -117,7 +117,10 @@
 import { computed, ref, watch } from 'vue'
 import { useRpc } from '@cordisjs/client'
 import type { DecisionData } from '../src/console'
-import type { CustomFormat } from '../src/schema'
+import type { Condition, CustomFormat } from '../src/schema'
+
+/** The `{ min, max }` GB range of a size condition. */
+const sizeOf = (c: Condition) => c.value as { min?: number; max?: number }
 
 const data = useRpc<DecisionData>()
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))

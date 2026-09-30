@@ -60,7 +60,10 @@
         <select
           :value="movie.minimumAvailability"
           @change="
-            update({ minimumAvailability: ($event.target as HTMLSelectElement).value as any })
+            update({
+              minimumAvailability: ($event.target as HTMLSelectElement)
+                .value as MinimumAvailability,
+            })
           "
         >
           <option value="announced">Announced</option>
@@ -176,6 +179,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter, useRpc } from '@cordisjs/client'
 import type { MoviesData, ReleaseRow } from '../src/console'
+import type { MinimumAvailability } from '../src/schema'
 import { downloadPercent } from '@magpiejs/console-kit'
 import DownloadProgress from '@magpiejs/console-kit/DownloadProgress.vue'
 import { downloadLabel, gb, movieStatus } from './status'

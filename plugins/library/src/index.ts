@@ -55,14 +55,11 @@ export const DEFAULT_FILE_HANDLING: FileHandling = { useHardlinks: true, recycle
 
 /** Characters not allowed in file names on common filesystems. */
 export function cleanFileName(name: string) {
-  return (
-    name
-      // eslint-disable-next-line no-control-regex
-      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
-      .replace(/\s+/g, ' ')
-      .replace(/[. ]+$/, '')
-      .trim()
-  )
+  return name
+    .replace(/[<>:"/\\|?*\p{Cc}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[. ]+$/, '')
+    .trim()
 }
 
 /**

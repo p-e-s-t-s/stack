@@ -2,6 +2,9 @@
 
 import { XMLParser } from 'fast-xml-parser'
 
+/** A parsed XML element: child elements and `@_`-prefixed attributes. */
+type XmlNode = Record<string, unknown>
+
 const escape = (value: string) =>
   value.replace(
     /[&<>"']/g,
@@ -32,14 +35,18 @@ ${outlines}
 export function parseOpml(xml: string): { title?: string; feedUrl: string }[] {
   const doc = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' }).parse(xml)
   const found: { title?: string; feedUrl: string }[] = []
-  const walk = (node: any) => {
-    for (const outline of [node?.outline ?? []].flat()) {
-      const url = outline['@_xmlUrl']
-      if (url) found.push({ title: outline['@_title'] ?? outline['@_text'], feedUrl: url })
+  const walk = (node: XmlNode | undefined) => {
+    for (const outline of [node?.outline ?? []].flat() as XmlNode[]) {
+      const url = outline['@_xmlUrl'] as string | undefined
+      if (url)
+        found.push({
+          title: (outline['@_title'] ?? outline['@_text']) as string | undefined,
+          feedUrl: url,
+        })
       walk(outline)
     }
   }
-  walk(doc?.opml?.body)
+  walk((doc?.opml as XmlNode | undefined)?.body as XmlNode | undefined)
   if (!doc?.opml) throw new Error('not an OPML file')
   return found
 }

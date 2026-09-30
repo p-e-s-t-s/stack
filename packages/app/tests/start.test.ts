@@ -33,7 +33,7 @@ describe('start', () => {
       ctx
         .get('database')!
         .status()
-        .map((s: any) => s.namespace),
+        .map((s) => s.namespace),
     ).toEqual(['jobs'])
     await ctx.fiber.dispose()
   })

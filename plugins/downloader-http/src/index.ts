@@ -63,8 +63,7 @@ export function fileNameFor(url: string, contentType?: string | null) {
   } catch {
     // not a valid URL or escape: fall back below
   }
-  // eslint-disable-next-line no-control-regex
-  name = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '').trim()
+  name = name.replace(/[<>:"/\\|?*\p{Cc}]/gu, '').trim()
   if (!name || !name.includes('.')) {
     const ext = contentType?.includes('mpeg')
       ? '.mp3'

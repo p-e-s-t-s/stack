@@ -74,6 +74,7 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { useRpc } from '@cordisjs/client'
+import type { ParsedRelease } from '@magpiejs/parser'
 import type { DecisionData, TestResult } from '../src/console'
 
 const data = useRpc<DecisionData>()
@@ -124,7 +125,7 @@ function fields(parsed: TestResult['parsed']): [string, string][] {
       .filter(([k, v]) => !['input', 'spans'].includes(k) && v !== undefined && v !== '')
       .map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
   }
-  const p = parsed as any
+  const p = parsed as ParsedRelease
   const e = p.episodes
   const rows: [string, unknown][] = [
     ['title', p.title],
