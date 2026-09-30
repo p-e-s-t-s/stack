@@ -32,7 +32,7 @@ and the console (6). How it differs from the design below is in §8.
 ### 2.1 Where it runs
 
 **After the files are found and before anything is placed.** Nothing has touched the
-library yet, so a rejection needs no cleanup and no [undo](undo-file-operations.md).
+library yet, so a rejection needs no cleanup.
 Implementation: `ImportService` wraps `tools.files()` so the first call runs the checks
 once and caches the result; a failing check throws before any importer logic runs.
 

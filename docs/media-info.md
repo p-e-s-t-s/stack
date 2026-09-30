@@ -169,8 +169,7 @@ candidate-versus-file comparison. They do two things:
    file is treated as not meeting the cutoff and the item becomes wanted again. This is
    how "no English audio track" or "actually 1080p despite a 2160p label" gets fixed
    automatically: give that file format a large negative score.
-2. **Display:** the score breakdown on the media-info panel and in the explainer (see
-   [release explainer](release-explain.md)).
+2. **Display:** the score breakdown on the media-info panel.
 
 ### 4.3 Wiring
 

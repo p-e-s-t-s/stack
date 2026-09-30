@@ -116,8 +116,6 @@ its release also passes another wanted target's decision, import places the file
 - **Subtitles** attach to files (`file_id`), so each version gets its own subtitle scan
   and requirements with no change; the subtitle profile stays per item.
 - **History** events carry `targetId` in `data`, shown as a chip.
-- **Undo** ([plan](undo-file-operations.md)): operations are per file, and "newer
-  operation on the same item" checks become per target.
 - **Post-download checks** ([plan](post-download-checks.md)): unchanged; the target's
   profile supplies the expected language and quality.
 - **Calendar, status badges:** an item is "downloaded" when all monitored targets have
