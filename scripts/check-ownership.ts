@@ -14,7 +14,8 @@ let checked = 0
 for (const name of readdirSync(root)) {
   const dir = join(root, name)
   const migrations = join(dir, 'migrations')
-  if (!existsSync(join(migrations, 'meta', '_journal.json'))) continue
+  if (!existsSync(migrations)) continue
+  if (!readMigrations(migrations).length) continue
   const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
   const namespace: unknown = pkg.magpie?.namespace
   if (typeof namespace !== 'string' || !NAMESPACE_PATTERN.test(namespace)) {
