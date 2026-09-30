@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -28,6 +28,34 @@ afterEach(() => {
 const count = (table: string) =>
   (db.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n
 
+describe('readMigrations', () => {
+  it('reads the folder-per-migration layout in name order', () => {
+    const root = join(dir, 'migrations')
+    for (const [name, sql] of [
+      ['20260102_second', 'ALTER TABLE `mig_a` ADD `b` text;'],
+      [
+        '20260101_first',
+        'CREATE TABLE `mig_a` (`id` integer);\n--> statement-breakpoint\nCREATE INDEX `mig_a_idx` ON `mig_a` (`id`);',
+      ],
+    ] as const) {
+      mkdirSync(join(root, name), { recursive: true })
+      writeFileSync(join(root, name, 'migration.sql'), sql)
+      writeFileSync(join(root, name, 'snapshot.json'), '{}')
+    }
+    const migrations = readMigrations(root)
+    expect(migrations.map((m) => m.tag)).toEqual(['20260101_first', '20260102_second'])
+    expect(migrations[0]!.statements).toHaveLength(2)
+    expect(runMigrations(db, { namespace: 'mig', migrations })).toEqual([
+      '20260101_first',
+      '20260102_second',
+    ])
+  })
+
+  it('still fails clearly when there is no migrations folder', () => {
+    expect(() => readMigrations(join(dir, 'missing'))).toThrow('cannot read migration journal')
+  })
+})
+
 describe('runMigrations', () => {
   it('applies migrations once and records them', () => {
     expect(runMigrations(db, { namespace: 'library', migrations: library })).toEqual([
@@ -50,7 +78,9 @@ describe('runMigrations', () => {
       '0002_title_nullable',
     ])
     expect(count('subtitles_assignments')).toBe(2)
-    expect((db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys).toBe(1)
+    expect((db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys).toBe(
+      1,
+    )
 
     db.exec('DELETE FROM library_media WHERE id = 1')
     expect(count('subtitles_assignments')).toBe(1)

@@ -3,13 +3,15 @@ import { readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises
 import { dirname, extname, relative, resolve } from 'node:path'
 import type { Drizzle } from '@magpiejs/database'
 import type {} from '@magpiejs/jobs'
+import type {} from '@magpiejs/media-tools'
+import type {} from '@magpiejs/mediainfo'
 import { type MediaFile, type MediaItem, mediaFiles } from '@magpiejs/library'
 import type {} from '@magpiejs/series'
 import { SubtitleProviderError, type SubtitleProvider, type SubtitleSearchContext, type SubtitleCandidate, type SubtitleFormat } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 import { and, eq, ne } from 'drizzle-orm'
 import z from 'schemastery'
-import { decode, fileHash, fingerprint, hashBytes, movieHash, probe, run, safePath, sidecar, shifted, unpack, validateText, MAX_SUBTITLE } from './files'
+import { decode, fileHash, fingerprint, hashBytes, movieHash, run, safePath, sidecar, shifted, unpack, validateText, MAX_SUBTITLE } from './files'
 import { evaluate, scoreCandidate, validateProfile } from './policy'
 import * as schema from './schema'
 import console_ from './console'
@@ -24,9 +26,8 @@ declare module 'cordis' {
     'subtitles/action'(mediaId: number, type: 'subtitle-downloaded' | 'subtitle-upgraded' | 'subtitle-synced' | 'subtitle-failed', detail: Record<string, unknown>): void
   }
 }
-export interface Config { ffprobe: string; syncEngine: 'ffsubsync' | 'alass'; syncBinary: string; sweepMinutes: number }
+export interface Config { syncEngine: 'ffsubsync' | 'alass'; syncBinary: string; sweepMinutes: number }
 export const Config: z<Partial<Config>, Config> = z.object({
-  ffprobe: z.string().default('ffprobe').description('ffprobe executable path.'),
   syncEngine: z.union(['ffsubsync','alass']).default('ffsubsync'),
   syncBinary: z.string().default('').description('Optional sync executable path; empty disables external sync.'),
   sweepMinutes: z.natural().min(1).default(60),
@@ -36,12 +37,11 @@ interface Ticket { candidate: SubtitleCandidate; fileId: number; requirementId: 
 export interface FileView { file: MediaFile; title: string; kind: 'movie' | 'series'; profile: schema.Profile | null; inherited: boolean; inventory: schema.Inventory[]; wanted: (typeof schema.wanted.$inferSelect)[]; probeError: string | null }
 
 export class SubtitlesService extends Service {
-  static inject = ['database', 'library', 'jobs']
+  static inject = ['database', 'library', 'jobs', 'mediaTools', 'mediainfo']
   static Config = Config
   db!: Drizzle<typeof schema>
   config: Config
   now = () => Date.now()
-  probeFile = probe
   private providers = new Map<string, SubtitleProvider>()
   private tickets = new Map<string, Ticket>()
   private locks = new Map<number, Promise<unknown>>()
@@ -51,7 +51,12 @@ export class SubtitlesService extends Service {
   async [Service.init]() {
     this.db = this.ctx.database.register({ namespace: 'subtitles', schema, migrations: new URL('../migrations', import.meta.url) })
     const tools = this.db.select().from(schema.settings).where(eq(schema.settings.key,'tools')).get()?.value
-    if (tools) Object.assign(this.config,tools)
+    if (tools) {
+      this.config.syncEngine = tools.syncEngine
+      this.config.syncBinary = tools.syncBinary
+      // ffprobe's location used to be saved here; it now lives in Settings → Media tools
+      if (tools.ffprobe) void this.ctx.mediaTools.adopt('ffprobe', tools.ffprobe).catch(() => {})
+    }
     this.ctx.effect(() => () => { this.controller.abort(); this.tickets.clear() })
     await this.recover()
     this.ctx.jobs.define<{ fileId: number }>('subtitles.scan', async ({ fileId }, { signal }) => { await this.scan(fileId, signal) })
@@ -65,6 +70,8 @@ export class SubtitlesService extends Service {
     this.ctx.jobs.schedule('subtitles.reconcile', 'subtitles.reconcile', 86_400_000)
     this.ctx.on('library/file-added', (item, file) => { if (this.isVideo(item)) this.queueScan(file.id) })
     this.ctx.on('library/updated', item => { if (this.isVideo(item)) this.queueItem(item.id) })
+    // files that could not be scanned for lack of ffprobe are scanned once it works
+    this.ctx.on('media-tools/changed', () => { if (this.ctx.mediaTools.status.ffprobe.ok) for (const item of this.videoItems()) this.queueItem(item.id) })
     this.ctx.on('library/file-removed', () => this.changed())
     this.ctx.on('library/deleted', () => this.changed())
     this.ctx.inject(['series'], ctx => {
@@ -79,8 +86,8 @@ export class SubtitlesService extends Service {
   private changed() { this.ctx.emit('subtitles/changed') }
   saveTools(input: unknown) {
     const v = input as Partial<Config> | null
-    if (!v || typeof v.ffprobe !== 'string' || !v.ffprobe.trim() || typeof v.syncBinary !== 'string' || !['ffsubsync','alass'].includes(v.syncEngine ?? '')) throw new Error('invalid media tool settings')
-    const value = {ffprobe:v.ffprobe.trim(),syncBinary:v.syncBinary.trim(),syncEngine:v.syncEngine as Config['syncEngine']}
+    if (!v || typeof v.syncBinary !== 'string' || !['ffsubsync','alass'].includes(v.syncEngine ?? '')) throw new Error('invalid media tool settings')
+    const value = {syncBinary:v.syncBinary.trim(),syncEngine:v.syncEngine as Config['syncEngine']}
     this.db.insert(schema.settings).values({key:'tools',value}).onConflictDoUpdate({target:schema.settings.key,set:{value}}).run()
     Object.assign(this.config,value)
     for (const item of this.videoItems()) this.queueItem(item.id)
@@ -161,9 +168,13 @@ export class SubtitlesService extends Service {
         const { path, root, file } = this.file(fileId)
         await safePath(root, path)
         generation = await fingerprint(path)
-        const old = this.db.select().from(schema.probes).where(eq(schema.probes.fileId,fileId)).get()
-        const facts = old?.generation === generation && old.facts && !old.error ? old.facts : await this.probeFile(path, this.config.ffprobe, s)
-        const found: (Omit<typeof schema.inventory.$inferInsert, 'fileId' | 'generation'>)[] = facts.streams.map(stream=>({
+        // one probe per file version, shared with the rest of Magpie
+        const info = await this.ctx.mediainfo.ensure(fileId, s)
+        if (!info) throw new Error('media file not found')
+        if (info.error || !info.facts) throw new Error(info.error ?? 'media could not be read')
+        if (info.fingerprint !== generation) throw new Error('media changed while scanning')
+        const facts = info.facts
+        const found: (Omit<typeof schema.inventory.$inferInsert, 'fileId' | 'generation'>)[] = facts.subtitles.map(stream=>({
           location: `stream:${stream.index}`, embedded: true, format: stream.codec, language: stream.language, forced: stream.forced, hi: stream.hi,
         }))
         const entries = await readdir(dirname(path))
@@ -190,7 +201,7 @@ export class SubtitlesService extends Service {
             const values = { ...row, fileId, generation, present: true, managed: edited ? false : prior?.managed ?? false, protected: edited || prior?.protected || false }
             tx.insert(schema.inventory).values(values).onConflictDoUpdate({target:[schema.inventory.fileId,schema.inventory.location],set:values}).run()
           }
-          tx.insert(schema.probes).values({fileId,generation,facts,error:null,scannedAt:this.now()}).onConflictDoUpdate({target:schema.probes.fileId,set:{generation,facts,error:null,scannedAt:this.now()}}).run()
+          tx.insert(schema.probes).values({fileId,generation,error:null,scannedAt:this.now()}).onConflictDoUpdate({target:schema.probes.fileId,set:{generation,error:null,scannedAt:this.now()}}).run()
         })
         this.recompute(fileId)
         this.queueWanted(fileId)
@@ -199,14 +210,14 @@ export class SubtitlesService extends Service {
         s.throwIfAborted()
         if (!this.ctx.library.db.select().from(mediaFiles).where(eq(mediaFiles.id,fileId)).get()) return
         const error = this.message(e)
-        this.db.insert(schema.probes).values({fileId,generation,facts:null,error,scannedAt:this.now()}).onConflictDoUpdate({target:schema.probes.fileId,set:{generation,error,facts:null,scannedAt:this.now()}}).run()
+        this.db.insert(schema.probes).values({fileId,generation,error,scannedAt:this.now()}).onConflictDoUpdate({target:schema.probes.fileId,set:{generation,error,scannedAt:this.now()}}).run()
         this.recompute(fileId)
       } finally { this.changed() }
     })
   }
   private context(fileId: number): { query: SubtitleSearchContext; monitored: boolean } {
     const {file,item} = this.file(fileId)
-    const facts = this.db.select().from(schema.probes).where(eq(schema.probes.fileId,fileId)).get()?.facts
+    const facts = this.ctx.mediainfo.get(fileId)?.facts
     let episodes: SubtitleSearchContext['episodes'] = [], monitored = item.monitored
     if (item.kind === 'series') {
       const series = this.ctx.get('series')
@@ -229,7 +240,7 @@ export class SubtitlesService extends Service {
     const requirementIds = new Set(profile.requirements.map(r=>r.id))
     for (const row of this.db.select().from(schema.wanted).where(eq(schema.wanted.fileId,fileId)).all()) if (!requirementIds.has(row.requirementId)) this.db.delete(schema.wanted).where(eq(schema.wanted.id,row.id)).run()
     for (const r of profile.requirements) {
-      let result = evaluate(r,profile,rows,!!p?.facts && !p.error,monitored,this.now())
+      let result = evaluate(r,profile,rows,!!p && !p.error,monitored,this.now())
       if (result.state !== 'disabled' && item.kind === 'series' && !query.episodes.length) result = {state:'unknown',reason:'episode identity not yet available'}
       const prior = this.db.select().from(schema.wanted).where(and(eq(schema.wanted.fileId,fileId),eq(schema.wanted.requirementId,r.id))).get()
       const same = !!prior && prior.generation === p?.generation && prior.profileId === profile.id && prior.revision === profile.revision
@@ -296,7 +307,7 @@ export class SubtitlesService extends Service {
     const {profile,requirement} = this.requirement(fileId,requirementId)
     const {path,root} = this.file(fileId)
     const inventory = this.db.select().from(schema.probes).where(eq(schema.probes.fileId,fileId)).get()
-    if (!inventory?.facts || inventory.error) throw new Error('complete a successful scan before searching')
+    if (!inventory || inventory.error) throw new Error('complete a successful scan before searching')
     await safePath(root,path)
     const generation = await fingerprint(path)
     const {query} = this.context(fileId)
@@ -523,7 +534,8 @@ export class SubtitlesService extends Service {
   operationList() { return this.db.select().from(schema.operations).all().map(({root:_root,target:_target,staged:_staged,backup:_backup,...op})=>op) }
   async toolHealth() {
     const test = async (binary: string, args: string[]) => { try { await run(binary,args,this.signal(),5000); return 'available' } catch(e) { return this.message(e) } }
-    return {ffprobe:await test(this.config.ffprobe,['-version']),sync:this.config.syncBinary ? await test(this.config.syncBinary,['--help']):'not configured'}
+    const { ffprobe } = await this.ctx.mediaTools.check()
+    return {ffprobe:ffprobe.ok ? 'available' : ffprobe.detail,sync:this.config.syncBinary ? await test(this.config.syncBinary,['--help']):'not configured'}
   }
   private message(e: unknown) { return e instanceof Error ? e.message : String(e) }
 }

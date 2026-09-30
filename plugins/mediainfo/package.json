@@ -1,0 +1,36 @@
+{
+  "name": "@magpiejs/mediainfo",
+  "version": "0.0.0",
+  "description": "What is really inside each library file: resolution, audio and subtitle tracks",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "magpie": {
+    "namespace": "mediainfo"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@magpiejs/console-kit": "0.0.0",
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/jobs": "0.0.0",
+    "@magpiejs/library": "0.0.0",
+    "@magpiejs/media-tools": "0.0.0",
+    "@magpiejs/probe": "0.0.0",
+    "drizzle-orm": "1.0.0-rc.4"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/series": "0.0.0",
+    "@magpiejs/testing": "0.0.0",
+    "@magpiejs/webui": "0.0.0",
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "1.0.0-rc.4"
+  }
+}

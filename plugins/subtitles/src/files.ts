@@ -1,11 +1,10 @@
-import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { open, readFile, realpath, stat } from 'node:fs/promises'
 import { basename, extname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { unzipSync } from 'fflate'
+import { fingerprint, run } from '@magpiejs/probe'
 import type { SubtitleFormat } from '@magpiejs/types'
 import { language } from './policy'
-import type { ProbeFacts } from './schema'
 
 export const MAX_SUBTITLE = 8 * 1024 * 1024
 export const hashBytes = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex')
@@ -29,11 +28,7 @@ export async function safePath(root: string, path: string, mustExist = true) {
   }
   return path
 }
-export async function fingerprint(path: string) {
-  const s = await stat(path)
-  if (!s.isFile()) throw new Error('media path is not a file')
-  return `${s.size}:${s.mtimeMs}:${s.ino}`
-}
+export { fingerprint, run }
 /** OpenSubtitles hash: size plus first/last 64 KiB of little-endian 64-bit words. */
 export async function movieHash(path: string) {
   const size = (await stat(path)).size
@@ -49,36 +44,6 @@ export async function movieHash(path: string) {
     }
     return BigInt.asUintN(64, hash).toString(16).padStart(16, '0')
   } finally { await handle.close() }
-}
-export function run(binary: string, args: string[], signal?: AbortSignal, timeout = 30_000): Promise<string> {
-  return new Promise((resolve_, reject) => {
-    execFile(binary, args, { signal, timeout, maxBuffer: MAX_SUBTITLE, windowsHide: true }, (error, stdout) => {
-      // Do not expose child command lines / arbitrary stderr in RPC or logs.
-      if (error) reject(new Error(signal?.aborted ? 'operation cancelled' : `media tool failed (${(error as NodeJS.ErrnoException).code ?? 'timeout or invalid output'})`))
-      else resolve_(stdout)
-    })
-  })
-}
-/** The fields of an ffprobe stream that `probe` reads. */
-interface ProbeStream {
-  index: number
-  codec_type?: string
-  codec_name?: string
-  tags?: { language?: string }
-  disposition?: { forced?: number; hearing_impaired?: number }
-}
-export async function probe(path: string, binary: string, signal?: AbortSignal): Promise<ProbeFacts> {
-  const json = JSON.parse(await run(binary, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', path], signal))
-  if (!Array.isArray(json.streams)) throw new Error('probe did not return stream inventory')
-  const duration = Number(json.format?.duration)
-  return {
-    duration: Number.isFinite(duration) && duration > 0 ? duration : undefined,
-    streams: (json.streams as ProbeStream[]).filter((s) => s.codec_type === 'subtitle').map((s) => ({
-      index: s.index, codec: s.codec_name ?? 'unknown', language: language(s.tags?.language),
-      forced: typeof s.disposition?.forced === 'number' ? !!s.disposition.forced : null,
-      hi: typeof s.disposition?.hearing_impaired === 'number' ? !!s.disposition.hearing_impaired : null,
-    })),
-  }
 }
 export function sidecar(video: string, name: string) {
   const base = basename(video, extname(video))

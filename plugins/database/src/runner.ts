@@ -1,11 +1,11 @@
 // Per-plugin migration runner (docs/PLAN.md §4.2).
 //
-// Migrations are drizzle-kit output: `meta/_journal.json` plus one `<tag>.sql` file per
-// entry, statements separated by `--> statement-breakpoint`. Everything here is
+// Migrations are drizzle-kit output (either layout, see `readMigrations`), statements
+// separated by `--> statement-breakpoint`. Everything here is
 // synchronous (node:sqlite), so migrations from different plugins can never interleave.
 
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DatabaseSync } from 'node:sqlite'
@@ -38,24 +38,43 @@ interface Journal {
   entries: { idx: number; tag: string }[]
 }
 
+function migrationOf(tag: string, content: string): Migration {
+  return {
+    tag,
+    hash: createHash('sha256').update(content).digest('hex'),
+    statements: splitStatements(content),
+  }
+}
+
+/**
+ * Reads drizzle-kit output in either layout: `meta/_journal.json` with `<tag>.sql` files, or
+ * (newer drizzle-kit) one `<timestamp>_<name>/migration.sql` folder per migration, ordered by
+ * folder name. The tag is the file or folder name.
+ */
 export function readMigrations(folder: string | URL): Migration[] {
   const dir = typeof folder === 'string' ? folder : fileURLToPath(folder)
-  let journal: Journal
+  let journal: Journal | undefined
   try {
     journal = JSON.parse(readFileSync(join(dir, 'meta', '_journal.json'), 'utf8'))
   } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code !== 'ENOENT')
+      throw new Error(`cannot read migration journal in ${dir}`, { cause })
+  }
+  if (journal) {
+    return [...journal.entries]
+      .sort((a, b) => a.idx - b.idx)
+      .map(({ tag }) => migrationOf(tag, readFileSync(join(dir, `${tag}.sql`), 'utf8')))
+  }
+  let names: string[]
+  try {
+    names = readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && existsSync(join(dir, e.name, 'migration.sql')))
+      .map((e) => e.name)
+      .sort()
+  } catch (cause) {
     throw new Error(`cannot read migration journal in ${dir}`, { cause })
   }
-  return [...journal.entries]
-    .sort((a, b) => a.idx - b.idx)
-    .map(({ tag }) => {
-      const content = readFileSync(join(dir, `${tag}.sql`), 'utf8')
-      return {
-        tag,
-        hash: createHash('sha256').update(content).digest('hex'),
-        statements: splitStatements(content),
-      }
-    })
+  return names.map((tag) => migrationOf(tag, readFileSync(join(dir, tag, 'migration.sql'), 'utf8')))
 }
 
 export function splitStatements(content: string) {
@@ -188,7 +207,8 @@ export function runMigrations(db: DatabaseSync, options: RunOptions): string[] {
   }
 
   // must be set outside a transaction to take effect
-  const fkWasOn = (db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys === 1
+  const fkWasOn =
+    (db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number }).foreign_keys === 1
   db.exec('PRAGMA foreign_keys = OFF')
   try {
     db.exec('BEGIN')

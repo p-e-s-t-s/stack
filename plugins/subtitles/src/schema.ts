@@ -29,16 +29,13 @@ export const defaults = sqliteTable('subtitles_defaults', {
 })
 export const settings = sqliteTable('subtitles_settings', {
   key: text('key').primaryKey(),
-  value: text('value', {mode:'json'}).$type<{ffprobe:string; syncEngine:'ffsubsync'|'alass'; syncBinary:string}>().notNull(),
+  value: text('value', {mode:'json'}).$type<{ffprobe?:string; syncEngine:'ffsubsync'|'alass'; syncBinary:string}>().notNull(),
 })
-export interface ProbeFacts {
-  duration?: number
-  streams: { index: number; codec: string; language: string | null; forced: boolean | null; hi: boolean | null }[]
-}
 export const probes = sqliteTable('subtitles_probes', {
   fileId: integer('file_id').primaryKey().references(() => mediaFiles.id, { onDelete: 'cascade' }),
   generation: text('generation').notNull(),
-  facts: text('facts', { mode: 'json' }).$type<ProbeFacts>(),
+  /** Unused since probe results moved to @magpiejs/mediainfo; dropped by a later migration. */
+  facts: text('facts', { mode: 'json' }).$type<unknown>(),
   error: text('error'),
   scannedAt: integer('scanned_at').notNull(),
 })

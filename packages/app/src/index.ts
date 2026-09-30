@@ -49,6 +49,9 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/downloader-http' },
     { name: '@magpiejs/import' },
     { name: '@magpiejs/history' },
+    // ffprobe/ffmpeg location, and what is inside each library file
+    { name: '@magpiejs/media-tools' },
+    { name: '@magpiejs/mediainfo' },
     { name: '@magpiejs/subtitles' },
     { name: '@magpiejs/calendar' },
     { name: '@magpiejs/browse' },
