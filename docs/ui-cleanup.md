@@ -10,15 +10,15 @@ scheduled — a starting point if/when this gets picked up.
 contributes no page content. Every media kind plugin owns its own pages under
 `plugins/<kind>/client/`:
 
-| Plugin   | Files                                                     | Lines |
-| -------- | ---------------------------------------------------------- | ----- |
-| movies   | `add-movie.vue`, `movie-detail.vue`, `movie-list.vue`       | 531   |
-| series   | `add-series.vue`, `series-detail.vue`, `series-list.vue`    | 539   |
-| music    | `add-artist.vue`, `album-detail.vue`, `artist-detail.vue`, `artist-list.vue` | 647 |
-| podcasts | `add-podcast.vue`, `podcast-detail.vue`, `podcast-list.vue` | 531   |
-| books    | `add-author.vue`, `author-detail.vue`, `author-list.vue`    | 549   |
+| Plugin   | Files                                                                        | Lines |
+| -------- | ---------------------------------------------------------------------------- | ----- |
+| movies   | `add-movie.vue`, `movie-detail.vue`, `movie-list.vue`                        | 531   |
+| series   | `add-series.vue`, `series-detail.vue`, `series-list.vue`                     | 539   |
+| music    | `add-artist.vue`, `album-detail.vue`, `artist-detail.vue`, `artist-list.vue` | 647   |
+| podcasts | `add-podcast.vue`, `podcast-detail.vue`, `podcast-list.vue`                  | 531   |
+| books    | `add-author.vue`, `author-detail.vue`, `author-list.vue`                     | 549   |
 
-~2,800 lines total. The only shared *component* is `packages/console-kit`
+~2,800 lines total. The only shared _component_ is `packages/console-kit`
 (`ReleasePicker.vue` + status helpers) — nothing for the list/detail/add pattern itself.
 
 Everything else in the console — auth, calendar, decision (profiles/formats/parse-tester),
@@ -27,7 +27,7 @@ downloads, history, indexers, library, metadata, settings, system — is one pag
 
 ## 2. What's already standard — leave it alone
 
-Before adding components, worth naming what's *not* broken, so the cleanup doesn't turn
+Before adding components, worth naming what's _not_ broken, so the cleanup doesn't turn
 into a rewrite:
 
 - **The CSS system.** `plugins/webui/app/shell/style.css` (633 lines) already defines a
@@ -66,7 +66,7 @@ same `mp-head` / `mp-lead` / `mp-empty` classes, same search-debounce → pick �
 submit flow, same button states (`{{ adding ? 'Adding…' : 'Add' }}`). The five plugins each
 reimplement this rather than sharing it, so each one has drifted slightly (different
 loading-state wording, different empty-state markup, different card layouts) even though
-nothing about the *design* actually differs on purpose.
+nothing about the _design_ actually differs on purpose.
 
 This is the real problem, not visual polish: five copies of the same flow that will keep
 diverging every time one of them is touched.
@@ -76,13 +76,13 @@ diverging every time one of them is touched.
 Parameterized by data/fields; each kind plugin supplies configuration and slots, not
 markup. In rough size order, largest payoff first:
 
-| Component            | Replaces                                                        | Notes |
-| --------------------- | ----------------------------------------------------------------| ----- |
-| `MediaCardGrid`       | all 5 `*-list.vue` grids                                        | items, `href`, poster/placeholder, a `statusFn`; filter input and empty state built in; summary line and one extra slot (movies' setup checklist, series' "add a root folder" card) stay as page-level content above the grid. |
-| `MediaDetailShell`    | the `.mp-hero` header in all 5 `*-detail.vue`                   | poster, title, year/facts, status, overview, action buttons as a slot. |
-| `CollapsibleSection`  | every hand-rolled `.mp-section` (`<details>`) block              | episodes (series), tracks (music), formats (books), releases — same open/close chevron markup repeated per section, per plugin. |
-| `AddMediaFlow`        | all 5 `add-*.vue` search→pick→configure→submit flows              | search box + debounce, result list (`.mp-result`), a slot for the kind-specific configure fields, submit button with `{{ busy ? '…' : 'Add' }}` state. Most per-kind variance lives here (monitor modes, season folders, quality profile) — do this one last. |
-| `TabBar`              | inline `.mp-tabs` button loops (`decision/profiles.vue`, family picker) | 2 current uses; only worth it if a 3rd shows up — listed for completeness, not urgent. |
+| Component            | Replaces                                                                | Notes                                                                                                                                                                                                                                                         |
+| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MediaCardGrid`      | all 5 `*-list.vue` grids                                                | items, `href`, poster/placeholder, a `statusFn`; filter input and empty state built in; summary line and one extra slot (movies' setup checklist, series' "add a root folder" card) stay as page-level content above the grid.                                |
+| `MediaDetailShell`   | the `.mp-hero` header in all 5 `*-detail.vue`                           | poster, title, year/facts, status, overview, action buttons as a slot.                                                                                                                                                                                        |
+| `CollapsibleSection` | every hand-rolled `.mp-section` (`<details>`) block                     | episodes (series), tracks (music), formats (books), releases — same open/close chevron markup repeated per section, per plugin.                                                                                                                               |
+| `AddMediaFlow`       | all 5 `add-*.vue` search→pick→configure→submit flows                    | search box + debounce, result list (`.mp-result`), a slot for the kind-specific configure fields, submit button with `{{ busy ? '…' : 'Add' }}` state. Most per-kind variance lives here (monitor modes, season folders, quality profile) — do this one last. |
+| `TabBar`             | inline `.mp-tabs` button loops (`decision/profiles.vue`, family picker) | 2 current uses; only worth it if a 3rd shows up — listed for completeness, not urgent.                                                                                                                                                                        |
 
 `ReleasePicker` and the `status.ts` helpers stay as-is (see §2) — they're not part of this.
 
