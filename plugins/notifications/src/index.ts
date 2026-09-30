@@ -144,7 +144,7 @@ export class NotificationsService extends Service {
     const files = change.added.length
     this.publish({
       type: change.replaced ? 'media.upgraded' : 'media.imported',
-      title: `${change.replaced ? 'Upgraded' : 'Imported'}: ${label(item)}`,
+      title: `${change.replaced ? 'Upgraded' : 'Imported'}: ${label(item)}${change.version ? ` [${change.version}]` : ''}`,
       body: change.release,
       data: {
         kind: item.kind,
@@ -152,6 +152,7 @@ export class NotificationsService extends Service {
         title: item.title,
         year: item.year,
         release: change.release,
+        version: change.version,
         files,
         origin: change.origin,
       },

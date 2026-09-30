@@ -14,6 +14,8 @@ export interface MediaChange {
   replaced: boolean
   /** The release name, when there is one. */
   release?: string
+  /** Name of the version (e.g. `4K`) when the item keeps several; unset for the default one. */
+  version?: string
 }
 
 declare module 'cordis' {

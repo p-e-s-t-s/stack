@@ -187,6 +187,7 @@ export class ImportService extends Service {
       removed: result.removed ?? [],
       replaced: !!result.replaced,
       release: grab.title,
+      version: grab.targetId ? this.ctx.library.target(grab.targetId)?.name : undefined,
     })
   }
 

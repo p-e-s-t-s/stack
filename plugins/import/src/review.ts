@@ -671,6 +671,7 @@ export class ReviewService {
                 .filter((p) => resolve(p) !== resolve(dest)),
               replaced: old.length > 0,
               release: row.releaseName,
+              version: row.targetId ? this.ctx.library.target(row.targetId)?.name : undefined,
             })
         } catch (e) {
           row.error = (e as Error).message

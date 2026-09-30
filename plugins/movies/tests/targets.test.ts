@@ -156,8 +156,12 @@ describe('targets', () => {
     expect(grabs.find((g) => g.title === UHD)!.targetId).toBe(target.id)
     expect(grabs.find((g) => g.title === HD_1080)!.targetId).toBeNull()
 
+    const versions: (string | undefined)[] = []
+    ctx.on('media/changed', (change) => void versions.push(change.version))
     await finish(1, 'a.mkv')
     await finish(2, 'b.mkv', 9000)
+    // notifications can tell the two imports apart
+    expect(versions.sort()).toEqual(['4K', undefined])
     const files = ctx.library.files(movieId)
     expect(files).toHaveLength(2)
     expect(files.find((f) => f.targetId === target.id)!.path).toBe(

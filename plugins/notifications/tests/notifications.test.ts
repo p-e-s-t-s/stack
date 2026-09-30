@@ -66,6 +66,22 @@ describe('notifications', () => {
     expect(a.sent[0]!.event.type).toBe('media.upgraded')
   })
 
+  it('names the version when an item keeps several', async () => {
+    const a = fake('a', ['media.imported', 'media.upgraded'])
+    ctx.notifications.register(a.notifier, { name: 'A' })
+    ctx.emit('media/changed', {
+      origin: 'download',
+      item,
+      added: ['/m/a.4k.mkv'],
+      removed: [],
+      replaced: false,
+      version: '4K',
+    })
+    await ctx.jobs.tick()
+    expect(a.sent[0]!.event.title).toBe('Imported: Night of the Living Dead (1968) [4K]')
+    expect(a.sent[0]!.event.data).toMatchObject({ version: '4K' })
+  })
+
   it('never puts local paths in a message', async () => {
     const a = fake('a', ['media.imported'])
     ctx.notifications.register(a.notifier, { name: 'A' })
