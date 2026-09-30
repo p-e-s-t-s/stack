@@ -1,6 +1,18 @@
 # Phase 7 — Subtitles / Bazarr replacement
 
-Implementation plan; no subtitle runtime is implemented by this document.
+**Status: steps 7a–7f are built** (`plugins/subtitles`, `subtitles-opensubtitles`,
+`subtitles-subdl`; one test file, `plugins/subtitles/tests/scan.test.ts`). The sections below
+are the design the code followed; read them as reference, not as open work.
+
+Still open:
+
+- Provider adapters `subtitles-podnapisi` and `subtitles-addic7ed` (validate provider access
+  first, as the gates below say).
+- Bazarr migration (see "Deferred migration" at the end).
+- External sync supports SRT only; other formats use offset adjustment.
+- Test coverage beyond the scan tests: the boundary list under the delivery table is
+  largely untested.
+- Known typecheck errors in the subtitles plugins (see [media-info.md](media-info.md)).
 
 ## Outcome and scope
 

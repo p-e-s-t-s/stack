@@ -468,7 +468,7 @@ What Phase 1 found out (differs from the original plan):
 - `@cordisjs/client` defaults to the `zh-CN` locale; the shell follows the browser.
 - The web console builds with Vite 7 (what `@cordisjs/client` uses); Vitest uses Vite 8.
 
-### Phase 2 — Release parser & decision engine (pure logic, heavily tested)
+### Phase 2 — Release parser & decision engine (done)
 
 Detailed plan: [phase-2.md](phase-2.md).
 
@@ -484,7 +484,7 @@ Detailed plan: [phase-2.md](phase-2.md).
 **Exit:** ≥500 reviewed fixtures pass; 10k names parse in under a second; every rule has
 unit tests; the new pages work in the production build.
 
-### Phase 3 — MVP: movies end-to-end
+### Phase 3 — MVP: movies end-to-end (done)
 
 Detailed plan: [phase-3.md](phase-3.md).
 
@@ -704,8 +704,13 @@ rather than worked around:
   the next kind plugin to make this mistake gets a clear error instead of a silent wrong
   answer.
 
-### Phase 5 — Migration & library scan
-- Library scan / existing folder import (§5.5).
+### Phase 5 — Migration & library scan (partly done)
+
+Built: library scan, adopting an existing collection, rescan and repair, and manual import
+(§5.5; see [library-import.md](library-import.md)). Not started: everything below it.
+Detailed migration plan: [phase-5-migration.md](phase-5-migration.md).
+
+- ~~Library scan / existing folder import (§5.5).~~ Done.
 - `plugins/migrate-arr`: read Radarr/Sonarr SQLite DBs (read-only) and import media,
   files, profiles, custom formats, indexers, download clients, tags, history (last N
   months). Dry-run report first.
@@ -737,8 +742,11 @@ Prowlarr's app sync.
 Out of scope: running indexer site definitions ourselves (Cardigann), FlareSolverr —
 Prowlarr already does both.
 
-### Phase 7 — Subtitles (Bazarr replacement)
-Detailed implementation plan: [phase-7-subtitles.md](phase-7-subtitles.md).
+### Phase 7 — Subtitles (Bazarr replacement) (mostly done)
+Detailed plan and what remains: [phase-7-subtitles.md](phase-7-subtitles.md). Built:
+`plugins/subtitles` (profiles, inventory, wanted sweeps, upgrades, blocklist, journaled
+installs, offset and external sync), `subtitles-opensubtitles` and `subtitles-subdl`, and
+the UI. Still open: `subtitles-podnapisi`, `subtitles-addic7ed`, Bazarr migration.
 
 - `plugins/subtitles`: subtitle profiles (languages, forced, hearing-impaired, cutoff),
   detection of embedded tracks (ffprobe) and external `.srt/.ass` files, "wanted"
@@ -760,7 +768,7 @@ Detailed implementation plan: [phase-7-subtitles.md](phase-7-subtitles.md).
 search and replace works from the UI.
 
 ### Phase 8 — More providers & integrations
-- Download clients: Transmission, Deluge, SABnzbd, NZBGet (usenet: no seeding, `nzo_id`
+- Download clients: ~~Transmission, Deluge~~ (done), SABnzbd, NZBGet (usenet: no seeding, `nzo_id`
   refs, post-processing status handling).
 - Notifiers: Discord, Telegram, ntfy, generic webhook, email; media server refresh
   (Plex, Jellyfin, Emby) on import.

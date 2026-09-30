@@ -5,7 +5,11 @@ that works with Prowlarr for indexers, built on the [Cordis](https://github.com/
 feature is a plugin that owns its own data, jobs and web console pages, and can be enabled,
 reconfigured or removed at runtime. See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
-**Status:** Phase 1 (foundations). No media features yet.
+**Status:** Phases 1–4.8 and most of 7 are built: movies, TV, podcasts, books and music
+(search, grab, import, automation, calendar), qBittorrent, Transmission, Deluge and direct-HTTP
+download clients, TMDB, iTunes, Open Library and MusicBrainz metadata, library scan and
+import, subtitles, and media info. Not started: Radarr/Sonarr migration, Prowlarr sync,
+notifications, usenet clients and request-app compatibility (see the plan).
 
 ## Requirements
 

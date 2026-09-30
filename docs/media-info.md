@@ -38,7 +38,9 @@ and subtitles had no tests before `plugins/subtitles/tests/scan.test.ts`.
 Builds on [post-download checks](post-download-checks.md), which introduces
 `@magpiejs/probe` (pure package) and `@magpiejs/media-tools` (binary paths and health).
 
-## 1. What exists
+## 1. What exists (before this work)
+
+This describes the code before Phase A and B were built; see Status above for what changed.
 
 - No plugin stores media facts. `docs/PLAN.md` planned a `mediainfo` JSON on
   `media_files` and `docs/phase-3.md` §4.4 says ffprobe confirms codecs on import; neither

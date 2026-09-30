@@ -1,5 +1,8 @@
 # Phase 3 — Movies end to end (MVP)
 
+**Status: done.** Transmission was built later, along with Deluge (Phase 8 items). The text
+below is the original plan.
+
 Detailed plan for Phase 3 of [PLAN.md](PLAN.md#phase-3--mvp-movies-end-to-end). Goal: add a
 movie in the web console and have Magpie find it through Prowlarr, send it to qBittorrent
 or Transmission, and import the finished download into your library — then keep upgrading

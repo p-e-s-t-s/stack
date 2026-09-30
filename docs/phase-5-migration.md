@@ -1,8 +1,8 @@
 # Phase 5 — Radarr / Sonarr migration
 
 Implementation plan for the migration part of [PLAN.md](PLAN.md#phase-5--migration--library-scan).
-Library scanning and TRaSH Guides import remain separate features. This document proposes
-behavior and contracts; source API/schema compatibility must be verified during adapter work.
+Library scanning is already built (see [library-import.md](library-import.md)); TRaSH Guides
+import remains a separate, unstarted feature. This document proposes behavior and contracts; source API/schema compatibility must be verified during adapter work.
 
 ## 1. Goal and scope
 
@@ -187,8 +187,8 @@ and reject unsupported layouts rather than attempting best-effort SQL writes or 
 6. **Extended migration:** history, supported tags/configuration and additional format rules.
    Keep incompatible data visible until implemented or explicitly excluded.
 
-Do not make generic folder scanning or TRaSH import a prerequisite for importing an already
-identified source library. Reuse future scanning helpers for file validation where useful.
+Do not make TRaSH import a prerequisite for importing an already identified source library.
+Reuse the existing scan and adoption helpers for file validation where useful.
 
 ## 8. Acceptance criteria
 

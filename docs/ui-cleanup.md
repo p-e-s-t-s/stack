@@ -111,4 +111,10 @@ must use the same component."
 
 ## 7. Status
 
-Not started. No milestones yet — this is scoping, not a commitment.
+Mostly not started. Since this was written, series, books and music moved onto the shared
+`ReleasePicker` and `console-kit` CSS, and media-page badges and list styles are shared
+(`console-kit` now also has `DownloadProgress.vue` and `navigation.ts`). None of the
+components in §4 (`MediaCardGrid`, `MediaDetailShell`, `CollapsibleSection`, `AddMediaFlow`,
+`TabBar`) exist yet, and each kind still has its own list, detail and add pages. The
+component list in §1 is also out of date: `plugins/mediainfo` and `plugins/subtitles`
+contribute panels to the detail pages.
