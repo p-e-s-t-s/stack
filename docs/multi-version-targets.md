@@ -119,10 +119,13 @@ item's folder after import, which covers every version. Checked against the serv
 - **Emby:** all versions in one movie folder, each beginning with the folder name followed
   by ` - `; the text after the dash is shown in the client. At most 8 versions are listed.
   [Emby docs](https://emby.media/support/articles/Movie-Naming.html)
-- **Plex:** `Movie Name (year) - <text>.ext` in one folder. Confirmed only from search
-  results and secondary guides: support.plex.tv returned 403 to our fetch, so recheck
-  [Plex's multi-version page](https://support.plex.tv/articles/200381043-multi-version-movies/)
-  by hand. Editions are a separate Plex Pass feature, not used here.
+- **Plex:** `MovieName (Release Year) - ArbitraryText.ext` in the movie's folder, e.g.
+  `Pulp Fiction (1994)/Pulp Fiction (1994) - 1080p.mkv`. The text after the dash is for
+  humans outside Plex and is **not displayed**; Plex shows the real resolution. Apps pick
+  the best version by default, and not every app offers a version picker. Editions are a
+  separate feature, not used here.
+  [Plex docs](https://support.plex.tv/articles/naming-and-organizing-your-movie-media-files/)
+  (page text supplied by the user; the site blocked our fetch).
 
 Consequences for naming:
 
@@ -133,8 +136,9 @@ Consequences for naming:
   separators or characters the naming code strips.
 - The primary file (no suffix) is the folder name alone, which all three accept as one
   of the versions.
-- Shows up in the client as the target name, so "4K" / "1080p" are good names; the
-  "Kids cut" example is fine too.
+- Emby shows the target name; Jellyfin shows the label; Plex ignores it and shows the real
+  resolution. Plex may not offer a version picker in every app, so the UI shouldn't
+  promise one.
 - Import must place the file before (or together with) the refresh; the refresh intent
   names the item folder, not individual files.
 
@@ -211,9 +215,9 @@ is the hard part.
   targets ("fallback of") and is deferred.
 - **Disk space:** show the projected extra space when adding a version, using the
   quality-size definitions and runtime.
-- **Plex naming** is verified only via secondary sources (§3.5); confirm against
-  support.plex.tv by hand before step 5 ships. Jellyfin and Emby are confirmed from their
-  docs.
+- **Plex name prefix:** Plex wants `Name (Year)` before the dash. Confirm the default
+  folder template always yields that (Jellyfin additionally wants the folder name, including
+  any provider ID, as the prefix).
 - **Existing-library folders** whose files don't start with the folder name (renamed or
   imported by hand) won't group in Jellyfin; decide whether the rescan flow offers to
   rename them.
