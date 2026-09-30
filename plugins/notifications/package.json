@@ -1,0 +1,40 @@
+{
+  "name": "@magpiejs/notifications",
+  "version": "0.0.0",
+  "description": "Tells people when something was imported or failed, through notifier plugins",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./config": "./src/config.ts",
+    "./transport": "./src/transport.ts"
+  },
+  "magpie": {
+    "namespace": "notifications"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@magpiejs/console-kit": "0.0.0",
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/downloads": "0.0.0",
+    "@magpiejs/import": "0.0.0",
+    "@magpiejs/jobs": "0.0.0",
+    "@magpiejs/library": "0.0.0",
+    "@magpiejs/types": "0.0.0",
+    "drizzle-orm": "1.0.0-rc.4",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10",
+    "@cordisjs/plugin-http": "^1.5.2"
+  },
+  "devDependencies": {
+    "@magpiejs/testing": "0.0.0",
+    "@magpiejs/webui": "0.0.0",
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "1.0.0-rc.4"
+  }
+}

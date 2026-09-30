@@ -90,8 +90,10 @@ export default function bookImport(ctx: Context, books: BooksService) {
         ? join(bookDir, fileName + extname(path).toLowerCase())
         : join(bookDir, relative(grab.outputPath!, path))
 
+    const removed: string[] = []
     for (const old of existing) {
       await tools.recycle(join(folder, old.path))
+      removed.push(join(folder, old.path))
       ctx.library.removeFile(old.id)
     }
     const placed: { path: string; method: string; row: MediaFile }[] = []
@@ -121,6 +123,8 @@ export default function bookImport(ctx: Context, books: BooksService) {
       method: placed[0]!.method,
       replaced: existing.map((f) => f.path).join(', ') || undefined,
       files: placed.length,
+      added: placed.map((p) => p.path),
+      removed,
     }
   }
 

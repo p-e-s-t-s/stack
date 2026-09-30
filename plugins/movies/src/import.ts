@@ -100,6 +100,12 @@ export default function movieImport(ctx: Context, movies: MoviesService) {
       releaseGroup: parsed.group ?? null,
       revision: parsed.revision,
     })
-    return { path: dest, method, replaced: existing ? existing.path : undefined }
+    return {
+      path: dest,
+      method,
+      replaced: existing ? existing.path : undefined,
+      added: [dest],
+      removed: oldPath && oldPath !== dest ? [oldPath] : [],
+    }
   })
 }

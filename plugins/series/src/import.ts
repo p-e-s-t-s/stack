@@ -176,7 +176,7 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
     const folder = ctx.library.folderOf(show)
     const quality = grab.quality
 
-    const results: { path: string; method: string; replaced?: string }[] = []
+    const results: { path: string; method: string; replaced?: string; removed: string[] }[] = []
     const skipped: string[] = []
     for (const video of videos) {
       const name = basename(video.path, extname(video.path))
@@ -206,14 +206,12 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
         continue
       }
 
-      const dest = ctx.import.review
-        .adapter('series')
-        .plan(show, {
-          source: video.path,
-          quality,
-          episodeIds: covered.map((e) => e.id),
-          releaseName: parsed.input,
-        }).destination
+      const dest = ctx.import.review.adapter('series').plan(show, {
+        source: video.path,
+        quality,
+        episodeIds: covered.map((e) => e.id),
+        releaseName: parsed.input,
+      }).destination
 
       // files this one replaces entirely; a multi-episode file that also holds other
       // episodes stays for those
@@ -228,8 +226,12 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
       )
       const method = await tools.place(video.path, dest)
 
+      const removed: string[] = []
       for (const file of replaced) {
-        if (join(folder, file.path) !== dest) await tools.recycle(join(folder, file.path))
+        if (join(folder, file.path) !== dest) {
+          await tools.recycle(join(folder, file.path))
+          removed.push(join(folder, file.path))
+        }
         ctx.library.removeFile(file.id)
       }
       const row = ctx.library.addFile({
@@ -251,6 +253,7 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
         path: dest,
         method,
         replaced: replaced.map((f) => f.path).join(', ') || undefined,
+        removed,
       })
     }
 
@@ -265,6 +268,8 @@ export default function episodeImport(ctx: Context, series: SeriesService) {
           .filter(Boolean)
           .join(', ') || undefined,
       files: results.length,
+      added: results.map((r) => r.path),
+      removed: results.flatMap((r) => r.removed),
       skipped: skipped.length ? skipped : undefined,
     } satisfies ImportResult
   }

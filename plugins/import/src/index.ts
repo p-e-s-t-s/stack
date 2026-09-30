@@ -17,9 +17,11 @@ import {
   placeSafely,
   VIDEO_EXTENSIONS,
 } from './files'
+import { announceChange } from './changes'
 import { ReviewService } from './review'
 import reviewConsole from './console'
 
+export * from './changes'
 export * from './files'
 export * from './review'
 
@@ -43,6 +45,10 @@ export interface ImportResult {
   replaced?: string
   /** For downloads with several files (season packs). */
   files?: number
+  /** Every file put into the library (absolute); defaults to `[path]`. */
+  added?: string[]
+  /** Every file taken out of the library by a replacement (absolute). */
+  removed?: string[]
   /** Files that were left out, with the reason. */
   skipped?: string[]
 }
@@ -155,18 +161,14 @@ export class ImportService extends Service {
     if (!grab || (grab.state !== 'import_pending' && grab.state !== 'import_failed')) return
     const item = this.ctx.library.get(grab.mediaId)
     this.ctx.downloads.setState(grab.id, 'importing')
+    let result: ImportResult
     try {
       if (!item) throw new ImportError('the item is no longer in the library')
       const registered = this.importers.get(item.kind)
       if (!registered) throw new ImportError(`nothing can import ${item.kind} downloads right now`)
-      const result = await registered.importer(
-        item,
-        grab,
-        this.tools(item, grab, registered.options),
-      )
+      result = await registered.importer(item, grab, this.tools(item, grab, registered.options))
       this.ctx.downloads.setState(grab.id, 'imported')
       this.ctx.logger.info('imported %s to %s (%s)', grab.title, result.path, result.method)
-      this.ctx.emit('import/completed', item, grab, result)
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       this.ctx.downloads.setState(grab.id, 'import_failed', reason)
@@ -174,7 +176,18 @@ export class ImportService extends Service {
       this.ctx.emit('import/failed', item, grab, reason)
       // unexpected errors (e.g. disk full) are retried by the job; import errors are final
       if (!(error instanceof ImportError)) throw error
+      return
     }
+    // outside the try: a listener's error must not mark an imported grab as failed
+    this.ctx.emit('import/completed', item!, grab, result)
+    announceChange(this.ctx, {
+      origin: 'download',
+      item: item!,
+      added: result.added ?? [result.path],
+      removed: result.removed ?? [],
+      replaced: !!result.replaced,
+      release: grab.title,
+    })
   }
 
   private tools(item: MediaItem, grab: Grab, options: ImporterOptions): ImportTools {

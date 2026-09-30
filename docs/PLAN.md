@@ -762,9 +762,9 @@ search and replace works from the UI.
 ### Phase 8 — More providers & integrations
 - Download clients: Transmission, Deluge, SABnzbd, NZBGet (usenet: no seeding, `nzo_id`
   refs, post-processing status handling).
-- Notifiers: Discord, Telegram, ntfy, generic webhook, email; media server refresh
-  (Plex, Jellyfin, Emby) on import.
-  Detailed architecture, delivery guarantees, provider scope and acceptance checks:
+- Notifiers: Discord, ntfy, generic webhook, email (built; Telegram not yet); media server
+  refresh (Plex, Jellyfin, Emby) on import (built, unverified against live servers).
+  What was built and how it differs from the original design:
   [Notifications and media-server refresh](notifications-media-refresh.md).
 - Seerr-first request-app compatibility (legacy Overseerr/Jellyseerr where practical):
   extend the `/api/v3` shim with movie/series

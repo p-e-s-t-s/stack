@@ -278,16 +278,25 @@ export interface DownloadClient {
 // Notifications
 
 export interface NotificationEvent {
+  /** `media.imported`, `media.upgraded`, `download.grabbed`, `download.failed`, `import.failed`. */
   type: string
   title: string
   body?: string
+  /** Plain facts about the event; never local file paths or credentials. */
   data?: Record<string, unknown>
 }
 
 export interface Notifier {
   id: string
+  /** The event types this destination wants. */
   events: string[]
-  send(event: NotificationEvent): Promise<void>
+  /** `deliveryId` stays the same across retries of one message, so receivers can drop repeats. */
+  send(
+    event: NotificationEvent,
+    options?: { signal?: AbortSignal; deliveryId?: string },
+  ): Promise<void>
+  /** Sends a clearly marked test message. */
+  test(): Promise<TestResult>
 }
 
 export * from './subtitles'
