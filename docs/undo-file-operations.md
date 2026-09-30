@@ -222,9 +222,9 @@ the UI (step 7). Differences from the plan above:
   multi-episode file lost.
 - **Sidecars** are trashed with a replaced video only when the old video's path goes away.
   A same-name replacement leaves them where they are, since they still belong to the new
-  file. Subtitles found in the trash that were recreated since undo are left alone with a
-  warning, the video still comes back; a replaced video that is missing from the trash
-  blocks the undo.
+  file. On undo, a sidecar whose name has been taken again (a provider wrote a new
+  subtitle there) is left alone with a warning and the video still comes back; a replaced
+  _video_ that is missing from the trash blocks the undo.
 - **Kind hooks:** `ctx.import.registerUndo(kind, { capture, restore, rollback, changed })`.
   Series registers them (episode links). Movies needs none: file records carry everything.
   Hooks run after the library transaction, since kinds open their own.
@@ -237,8 +237,8 @@ the UI (step 7). Differences from the plan above:
   commit. `import-undone` history events record it. The grab stays `imported`; "Undo and
   blocklist" / "Undo and search again" (§2.5) are not built.
 
-Not built: **bulk rename with preview** (step 6, second half) and with it any producer of
-`rename` operations (the engine can undo them); undo for music, books and podcasts; the
-manual-import row flow does not journal `delete` of files it removed for a `rescan` with
-"remove missing" (that only deletes records). Deletes made elsewhere in Magpie (removing a
-movie version, podcast retention) are not journaled either.
+Not built: **bulk rename with preview** (step 6, second half), and with it any producer of
+`rename` operations (the engine can already undo them); undo for music, books and podcasts;
+"Undo and blocklist" / "Undo and search again". Not journaled: the "remove missing records"
+option of a rescan (it only deletes records, never files) and deletes made elsewhere in
+Magpie (removing a movie version, podcast retention).
