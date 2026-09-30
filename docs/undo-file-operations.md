@@ -37,6 +37,7 @@ A new table owned by `import` (it performs the operations), `import_operations`:
 | Column                  | Meaning                                                                   |
 | ----------------------- | ------------------------------------------------------------------------- |
 | `id`, `batchId`         | one batch per import job, review commit or bulk action                    |
+| `parentId`              | set on sidecar operations; points at the video operation they belong to   |
 | `mediaId`               | item affected (FK `library_media_items`, cascade)                         |
 | `type`                  | `place`, `replace`, `rename`, `delete`                                    |
 | `source`, `dest`        | absolute paths; `source` null for deletes                                 |
@@ -105,6 +106,36 @@ purged operations become `expired`).
   `downloads.remove(..., { blocklist: true })` path) and "Undo and search again".
 - The item is wanted again automatically because the file row is gone.
 
+### 2.6 Sidecar files
+
+Sidecars (subtitles next to the video) follow the movie. They are journaled as **child
+operations** (`parentId` = the video's operation), so the UI, batch counts and "Undo"
+button stay per item, while undo still restores every file.
+
+- **Discovery.** At operation time, list the destination and source folders and match
+  names with `sidecar(video, name)` from `subtitles/src/files.ts`, so both plugins agree
+  on what counts as a sidecar (one language suffix, known extensions). Move this helper
+  to a shared package, or expose it through the subtitles plugin, rather than copying it.
+  Dot-prefixed `.magpie-*` staging and backup files are never sidecars (the extension
+  check already excludes them).
+- **Per type.**
+  - `rename` / `place` by move: sidecars are renamed or moved with the video; undo reverses
+    each.
+  - `replace`: old sidecars are parked in the trash with the old video (the new release
+    may not sync with them); undo restores both. Subtitles fetches fresh ones on
+    `library/file-added`, as it does today.
+  - `place` by hardlink/copy (new import): nothing pre-exists, nothing to carry.
+  - `delete`: sidecars are trashed with the video and restored with it.
+- **Fingerprint the video only.** Users edit and re-sync subtitles, and that must not block
+  undoing the video. On undo, a sidecar whose hash no longer matches its journal entry is
+  skipped and reported, never overwritten or deleted silently.
+- **No subtitle DB snapshot.** The subtitles plugin reconciles from disk on
+  `library/file-added` / `file-removed`, so undo only moves files and the hooks re-emit
+  the events. Subtitles keeps its own `operations` journal for installs it makes; that is
+  separate and is not undone by this feature.
+- A failed sidecar step marks that child `undo_failed` and the parent
+  `undone` with warnings; it does not roll back the video.
+
 ## 3. UI
 
 - **History page:** an "Undo" button on `imported` events while their operation is
@@ -116,15 +147,15 @@ purged operations become `expired`).
 
 ## 4. Work breakdown
 
-| #   | Step                                                       | Files                                     | Size |
-| --- | ---------------------------------------------------------- | ----------------------------------------- | ---- |
-| 1   | `import_operations` table + journal service                | `import/src`, migration                   | M    |
-| 2   | Managed trash, retention job, settings                     | `import/src/files.ts`, `library` settings | M    |
-| 3   | Journal writes in `placeSafely`, `recycle`, importers      | `import`, `movies`, `series`              | M    |
-| 4   | Undo engine with fingerprint, stack and containment checks | `import/src`                              | M    |
-| 5   | Kind undo hooks (movies, series) restoring DB rows         | `movies`, `series`                        | M    |
-| 6   | Review `commit()` batching and bulk rename with preview    | `import/src/review.ts`                    | M    |
-| 7   | History, operations UI                                     | `history`, `import/client`                | M    |
+| #   | Step                                                                   | Files                                     | Size |
+| --- | ---------------------------------------------------------------------- | ----------------------------------------- | ---- |
+| 1   | `import_operations` table + journal service                            | `import/src`, migration                   | M    |
+| 2   | Managed trash, retention job, settings                                 | `import/src/files.ts`, `library` settings | M    |
+| 3   | Journal writes (incl. sidecars) in `placeSafely`, `recycle`, importers | `import`, `movies`, `series`              | M    |
+| 4   | Undo engine with fingerprint, stack and containment checks             | `import/src`                              | M    |
+| 5   | Kind undo hooks (movies, series) restoring DB rows                     | `movies`, `series`                        | M    |
+| 6   | Review `commit()` batching and bulk rename with preview                | `import/src/review.ts`                    | M    |
+| 7   | History, operations UI                                                 | `history`, `import/client`                | M    |
 
 Steps 1–5 give single-import undo; 6–7 add batches and UI. Music, books and podcasts
 adopt the hooks afterwards (they register importers the same way).
@@ -141,15 +172,18 @@ adopt the hooks afterwards (they register importers the same way).
   observed).
 - Series: undo of a season-pack import with a multi-episode file still needed elsewhere
   (see the guard at `series/src/import.ts:136`).
+- Sidecars: rename/replace/delete carry them as child operations and undo restores them;
+  a user-edited sidecar is skipped with a warning while the video still undoes; `.magpie-*`
+  backup files are never treated as sidecars.
 - Retention job purges by age and by size cap and marks operations `expired`.
 
 ## 6. Open questions
 
 - **Default retention and trash on by default?** Recommend on, 7 days, 20 GB cap, with a
   clear first-run notice.
-- **Sidecar files** (subtitles next to the video): moves and renames need to carry them
-  and journal them, so undo restores them too. Confirm how the subtitles plugin expects
-  them to move before step 3.
+- ~~**Sidecar files**~~ Resolved: they follow the video as child operations, see §2.6.
+  Still open: where the shared `sidecar()` matcher lives (shared package vs. exported by
+  subtitles), to settle in step 3.
 - **Undo of deletions the user made elsewhere** (file manager, Plex): out of scope; only
   operations Magpie performed.
 - **Should undo also exist for metadata changes** (title match, monitor flags)? Different
