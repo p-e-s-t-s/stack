@@ -1,7 +1,7 @@
 # Multi-version targets (4K + 1080p of the same item)
 
 Not a phase; a plan for keeping more than one version of a library item, each with its
-own quality profile and optionally its own root folder. Radarr and Sonarr have declined
+own quality profile, all in the item's one folder. Radarr and Sonarr have declined
 this for years ("one file per movie"); Magpie's schema already allows it.
 
 **Scope:** movies first. Series follow (§7) because episode × target multiplies wanted
@@ -23,10 +23,11 @@ migration.
 
 ## 2. Model
 
-**Target** = a named goal for an item: a profile, an optional root folder, and a file-name
-suffix.
+**Target** = a named goal for an item: a profile and a file-name suffix. Every target's
+file lives in the item's own folder (`<root>/<item.folder>/`): media servers only group
+versions found in one folder (§3.5), so targets cannot have their own root folder.
 
-- The item's existing `profile_id` / `root_folder_id` remain the **primary target**. It is
+- The item's existing `profile_id` remains the **primary target**. It is
   not a row. This avoids a second source of truth and needs no data migration.
 - New table owned by `library`, `library_targets`:
 
@@ -36,7 +37,6 @@ suffix.
 | `media_id`       | FK `library_media_items`, cascade                                |
 | `name`           | "4K", "Kids cut", "Mobile" (unique per item; used in file names) |
 | `profile_id`     | FK `decision` profiles, restrict                                 |
-| `root_folder_id` | FK `library_root_folders`, nullable (null = the item's root)     |
 | `monitored`      | can be paused independently                                      |
 
 - `library_media_files` gains `target_id` (FK `library_targets`, `restrict`).
@@ -81,14 +81,14 @@ its release also passes another wanted target's decision, import places the file
 - The importer takes the grab's `targetId`, replaces only **that target's** file, and
   records the new file with `target_id`.
 - Non-primary targets get a file-name suffix so media servers treat the files as versions:
-  `Movie (2020)/Movie (2020) - 4K.mkv` (the suffix convention Plex, Jellyfin and Emby read).
+  `Movie (2020)/Movie (2020) - 4K.mkv` (the suffix convention Plex, Jellyfin and Emby read;
+  verified in §3.5).
   Add a `{Target}` token to the naming template (`library/src/index.ts` `renderName`), with
   the default template appending ` - {Target}` only for non-primary targets.
-- A target with its own root folder lands in `<that root>/<item.folder>/`;
-  `library.folderOf(item, targetId)` resolves it, so `library_media_files.path` stays
-  relative to the right folder.
-- Hardlinks: downloads and both versions may live on different filesystems; the existing
-  hardlink→copy fallback applies per file.
+- All targets land in the item's folder, so `library_media_files.path` stays relative to
+  `library.folderOf(item)` and no per-target folder resolution is needed.
+- Hardlinks: the download may live on a different filesystem from the library; the
+  existing hardlink→copy fallback applies per file.
 
 ### 3.4 Other plugins
 
@@ -104,7 +104,41 @@ its release also passes another wanted target's decision, import places the file
 - **`compat-api` (Radarr v3):** exposes the primary target's file only as `movieFile`;
   extra targets are invisible to Prowlarr and Overseerr, which is correct for them.
 
-### 3.5 Rescan and manual import
+### 3.5 Media servers
+
+The file layout is the only integration: Magpie writes versions in the shape the servers
+group, and the media-server refresh ([plan](notifications-media-refresh.md)) reports the
+item's folder after import, which covers every version. Checked against the servers' docs
+(2026-09-30):
+
+- **Jellyfin:** each version file name must begin exactly with the folder name (including
+  year and any provider ID such as `[imdbid-tt…]`), then a separator (` - `, `.`, `_` or
+  brackets; spaces optional), then a label. A mismatch makes them separate items. Sorted
+  alphabetically except resolutions, which sort descending.
+  [Jellyfin docs](https://jellyfin.org/docs/general/server/media/movies/)
+- **Emby:** all versions in one movie folder, each beginning with the folder name followed
+  by ` - `; the text after the dash is shown in the client. At most 8 versions are listed.
+  [Emby docs](https://emby.media/support/articles/Movie-Naming.html)
+- **Plex:** `Movie Name (year) - <text>.ext` in one folder. Confirmed only from search
+  results and secondary guides: support.plex.tv returned 403 to our fetch, so recheck
+  [Plex's multi-version page](https://support.plex.tv/articles/200381043-multi-version-movies/)
+  by hand. Editions are a separate Plex Pass feature, not used here.
+
+Consequences for naming:
+
+- The default template must render `<folder name> - {Target}`: the prefix has to equal the
+  folder name character for character, or Jellyfin splits the movie. If users customize
+  the file-name template away from the folder name, warn when targets exist.
+- ` - ` is the one separator all three accept. Target names must not contain path
+  separators or characters the naming code strips.
+- The primary file (no suffix) is the folder name alone, which all three accept as one
+  of the versions.
+- Shows up in the client as the target name, so "4K" / "1080p" are good names; the
+  "Kids cut" example is fine too.
+- Import must place the file before (or together with) the refresh; the refresh intent
+  names the item folder, not individual files.
+
+### 3.6 Rescan and manual import
 
 `review.ts` rescans folders and currently treats the item's single file as the match.
 With several files in a folder it must assign each to a target: by the ` - <Target>`
@@ -115,9 +149,12 @@ a guard.
 
 ## 4. UI
 
-- Movie detail: a versions panel. Each row is a target with its profile, root folder, file
+- **Single-target items render exactly as today**: no versions panel, badge, chip,
+  selector or filter appears until an item has a second target. The only entry point is an
+  "Add version" action on the movie detail page.
+- Movie detail: a versions panel, shown only once a second target exists. Each row is a target with its profile, file
   and quality, status (missing / upgrade wanted / met), and search / interactive search /
-  delete-target actions. "Add version" picks a profile and optional root folder.
+  delete-target actions. "Add version" picks a profile.
 - Movie list: an optional second badge for additional targets; a filter for "missing a
   version".
 - Settings: a default-targets rule editor (phase 2).
@@ -144,7 +181,7 @@ with an existing library.
 - Wanted: each target independently missing / cutoff-unmet / met; unmonitored target
   ignored; removing a target with files is refused.
 - Search/RSS/sweep: one movie, two targets, two different releases grabbed, each imported
-  into its own file with the right suffix and root folder; the `in-queue` rule allows both.
+  into its own file with the right suffix in the item's folder; the `in-queue` rule allows both.
 - A failed 4K download blocklists the release for both targets and re-searches only the
   4K target.
 - Shared release (step 8): one grab satisfies two targets with a hardlink; never
@@ -174,5 +211,9 @@ is the hard part.
   targets ("fallback of") and is deferred.
 - **Disk space:** show the projected extra space when adding a version, using the
   quality-size definitions and runtime.
-- **Media server support for the naming convention** should be verified against current
-  Plex, Jellyfin and Emby docs before step 5 ships.
+- **Plex naming** is verified only via secondary sources (§3.5); confirm against
+  support.plex.tv by hand before step 5 ships. Jellyfin and Emby are confirmed from their
+  docs.
+- **Existing-library folders** whose files don't start with the folder name (renamed or
+  imported by hand) won't group in Jellyfin; decide whether the rescan flow offers to
+  rename them.
