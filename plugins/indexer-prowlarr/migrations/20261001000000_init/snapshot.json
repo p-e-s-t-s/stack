@@ -1,0 +1,96 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "bb103805-5d2f-45f5-88e5-720830acbc8e",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "prowlarr_pushed",
+      "entityType": "tables"
+    },
+    {
+      "name": "prowlarr_tags",
+      "entityType": "tables"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "prowlarr_pushed"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "prowlarr_pushed"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "body",
+      "entityType": "columns",
+      "table": "prowlarr_pushed"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "prowlarr_tags"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "label",
+      "entityType": "columns",
+      "table": "prowlarr_tags"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "prowlarr_pushed_pk",
+      "table": "prowlarr_pushed",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "prowlarr_tags_pk",
+      "table": "prowlarr_tags",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "label"
+      ],
+      "nameExplicit": false,
+      "name": "prowlarr_tags_label_unique",
+      "entityType": "uniques",
+      "table": "prowlarr_tags"
+    }
+  ],
+  "renames": []
+}

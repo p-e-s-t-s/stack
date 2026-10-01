@@ -718,7 +718,9 @@ rather than worked around:
 **Exit:** a real Radarr + Sonarr instance migrates with a report showing zero
 unexplained mismatches.
 
-### Phase 6 — Prowlarr integration
+### Phase 6 — Prowlarr integration (done)
+Built as `plugins/indexer-prowlarr`: pull over Prowlarr's v1 API and push over the Radarr/Sonarr
+v3 API. See [Prowlarr integration](prowlarr.md).
 
 Magpie doesn't replace Prowlarr; it uses it. Indexers work from Phase 3 by pasting
 Prowlarr's per-indexer Torznab/Newznab URLs; this phase removes that manual step.
