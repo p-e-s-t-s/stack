@@ -18,12 +18,14 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "check:ownership": "tsx scripts/check-ownership.ts",
     "build": "tsx scripts/build-webui.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.0.3",
     "eslint": "^10.11.0",
     "prettier": "^3.9.9",
     "tsx": "^4.23.15",
