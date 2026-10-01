@@ -19,6 +19,9 @@
   gap: 2px;
   overflow-x: auto;
 }
+a:where(.dock-links *, .dock-foot *) {
+  text-decoration: none;
+}
 .dock-links a {
   padding: 8px 12px;
   border-radius: 8px;
@@ -51,6 +54,7 @@
   min-height: 0;
 }
 .dock-table {
+  display: table; /* the built-in stylesheet makes tables scroll blocks */
   width: 100%;
 }
 .dock-thumb {
@@ -66,4 +70,7 @@
 .dock-meta {
   text-align: right;
   white-space: nowrap;
+}
+.dock-meta > * + * {
+  margin-left: 10px;
 }

@@ -34,6 +34,7 @@ export const BUILT_IN: ThemeDefinition = {
   name: 'Magpie',
   description: 'The built-in look.',
   apiVersion: API_VERSION,
+  swatch: ['#f6f7f9', '#ffffff', '#2f6fde', '#1c1f24'],
 }
 
 export interface ThemeInfo extends ThemeDefinition {

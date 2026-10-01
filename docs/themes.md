@@ -4,6 +4,39 @@ Not a numbered phase. Plan for letting the web console be re-skinned, and re-lai
 plugins, with each user choosing their own. Builds on [ui-cleanup.md](ui-cleanup.md) (the
 `console-kit` list/detail/add components), which is the prerequisite for most of this.
 
+## Status
+
+Steps 1–6 of §6 are built and were exercised in a browser (default shell, Appearance page,
+switching to Dock, reload, `?theme=default`, a deliberately broken theme part). Where the
+build differs from the plan:
+
+- **Parts.** `home` is dropped (there is no home page; `/` redirects to the landing page).
+  `media.card` and `page.header` are not built; the list is `shell`, `settings.layout`,
+  `media.list`, `media.detail`, `media.add`. `ThemeParts` checks part names, not props.
+- **Regions.** `shell.topbar`, `shell.nav-foot` and `shell.notices` exist; `shell.brand` is
+  deferred. `auth` contributes Log out; `webui` contributes the Settings link and the
+  offline notice.
+- **Shell contract.** A shell has no default slot. It places `<RoutedPage />` for the page and
+  `<Part name="settings.layout">` for the settings frame. The engine registers the built-in
+  components in `ctx.client.themes.defaults`, which is how a theme package renders a built-in
+  part without importing `webui`.
+- **Client state** is a plain class at `ctx.client.themes`, not a Cordis `Service`: a service
+  read through `useContext()` needs a declared `inject`, which component code cannot give.
+- **HTTP** is `/themes`, `/themes/me`, `/themes/default` (session cookie), not under `/api`.
+- **Entries load on every page.** `routes` in `addEntry` only lists the URLs the server will
+  serve the HTML shell for; the entry itself is loaded regardless. Lazy parts and styles matter
+  for that reason (spike question (a) in §6).
+- **Page styles.** `<style scoped>` blocks in page components are not layered, so they beat the
+  `theme` layer. They only style page-specific classes and read `--mp-*` tokens, so token
+  overrides still apply.
+- **Not built yet:** the conformance test harness (no Vue test tooling in the repo), custom CSS
+  layer, colour-mode choice, login-page tokens, scoped part overrides, per-user options and
+  config-driven theme variants (§5.5).
+- **Existing installs.** `magpie.yml` is written from the default plugin list on first run, so
+  an install that already has one must add `@magpiejs/themes` (and any theme plugins) to it.
+
+How to write a theme: [theme-authoring.md](theme-authoring.md).
+
 ## 1. Goals and non-goals
 
 Goals:
