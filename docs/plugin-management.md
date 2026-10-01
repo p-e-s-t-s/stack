@@ -1,27 +1,32 @@
-# Plugin browser, install and management (Magpie plugins only)
+# Plugin browser and management (Magpie plugins only)
 
 Status: proposal. Nothing here is built.
 
 ## Goal
 
-From **Settings → Plugins** a user can see every Magpie plugin, browse a catalog of ones
-they don't have, install one, add and configure instances of it, update it, and remove it.
-No YAML, no shell, no Cordis names in the UI (same rule as PLAN.md §3.1).
+From **Settings → Plugins** a user can see every plugin that ships with Magpie, see which
+are active, add and configure instances of provider plugins, and turn built-in features
+on and off. No YAML, no shell, no Cordis names in the UI (same rule as PLAN.md §3.1).
 
 ## Scope
 
+**This proposal does not change how plugins are installed, and adds no user installs.**
+Plugins stay npm workspaces under `plugins/*`, exported as TypeScript source and listed in
+`defaultConfig()`. There is no installer, no registry, no `<config>/plugins/` directory, no
+third-party code, and no change to how the loader resolves packages.
+
 In:
 
-- `@magpiejs/*` plugins and third-party plugins that follow the Magpie plugin contract below.
+- Listing the built-in `@magpiejs/*` plugins with their state.
 - **Provider plugins** (indexer, download-client, metadata, subtitle, notifier, media-server):
   the kinds `plugins/settings` already understands via `package.json → magpie.provider`.
 - Toggling built-in feature plugins (movies, podcasts, books, …) on and off.
 
-Out:
+Out (see "Deferred: user installs"):
 
+- Installing, updating or removing packages. Third-party plugins. A catalog or registry.
 - Arbitrary Cordis plugins and `@cordisjs/plugin-market` (PLAN.md §1 rules these out).
-- Third-party plugins that ship their own console pages (see "Phasing", phase 4).
-- Third-party plugins that add database tables. Providers only talk to host services.
+- Changes to `defaultConfig()` defaults, `package.json` `exports`, or the web console build.
 
 ## What exists today
 
@@ -29,205 +34,111 @@ Out:
   `magpie.provider`, imports the package's `Config` schema, renders a form from it
   (`fields.ts`), and adds/updates/removes entries in `magpie.yml` through the loader tree
   (`tree.create/update/remove`). That hot-loads one plugin.
+- Provider forms appear on the per-kind pages (Indexers, Download clients, Metadata,
+  Subtitles) through the `provider-settings` slot. Notifiers and media servers may have their
+  own pages; to confirm.
 - `defaultConfig()` in `packages/app/src/index.ts` is the list of built-in plugins.
-- Plugins are npm workspaces and export TypeScript source (`"exports": "./src/index.ts"`),
-  run through `tsx`.
-- The loader is created with `baseUrl: import.meta.url` of the app, so plugin names
-  resolve from Magpie's own `node_modules`, never from the config directory.
-- PLAN.md already reserves `<config>/plugins/` for user-installed plugins.
 
-These give us the "add an instance" half. The missing half is getting new packages onto
-disk, safely, and describing them before they are loaded.
+So "add an instance" already works. What's missing is one place that shows all plugins and
+their state, and a way to switch features on and off without editing `magpie.yml`.
 
-## Constraints that shape the design
+## Design
 
-1. **Discovery is hard-wired to workspace siblings.** It has to read from a second
-   directory (`<config>/plugins/node_modules`) and from the built-in set.
-2. **Installed plugins must ship compiled JS.** Built-ins export `.ts`; we don't want to rely
-   on `tsx` transforming code under `node_modules`. The contract requires an `exports` entry
-   pointing at JS.
-3. **Plugin UI is built at Magpie build time** (`scripts/build-webui.ts`, `addEntry` with
-   a `manifest.json`). An installed plugin can't add Vue pages at runtime in v1. Provider
-   plugins don't need to: their form is generated from the schemastery `Config`.
-4. **Installing means running third-party code in the Magpie process**, which holds the
-   database, API keys in `magpie.yml`, and library write access. That is the main risk.
-5. **ESM modules can't be unloaded.** A new plugin can be hot-loaded. Updating or
-   uninstalling code that is already imported needs a restart (or cache-busted imports).
-6. `cordis`, `@magpiejs/types` and `schemastery` must resolve to the host's copies, never a
-   second copy inside the plugin's own `node_modules`, or `instanceof`/service injection
-   breaks.
+### `@magpiejs/plugins` (new plugin, owns the feature)
 
-## Plugin contract
-
-Extend the existing `magpie` block in `package.json`:
-
-```jsonc
-{
-  "name": "magpie-indexer-foo",
-  "version": "1.2.0",
-  "keywords": ["magpie-plugin"],
-  "exports": { ".": "./dist/index.js" },
-  "peerDependencies": { "cordis": "4.0.0-rc.10" },
-  "magpie": {
-    "apiVersion": 1, // bumped when @magpiejs/types provider contracts break
-    "provider": { "kind": "indexer", "label": "Foo", "basic": ["name", "url"] },
-    "needs": ["@magpiejs/indexers"], // host services it injects
-    "network": ["api.foo.example"], // hosts it talks to, shown on the install dialog
-    "homepage": "https://…",
-  },
-}
-```
-
-Checks at install and at load: `apiVersion` is supported, `needs` plugins are present,
-`provider.kind` is known, `Config` exports a schema, JS entry exists. A failure keeps the
-plugin out of the picker and shows the reason in **Installed**.
-
-## Components
-
-### 1. `@magpiejs/plugins` (new plugin, owns the feature)
-
-Own plugin so settings stays "edit entries" and this owns "packages". It declares what it
-owns per `scripts/check-ownership.ts`.
+Own plugin so settings stays "edit entries". It declares what it owns per
+`scripts/check-ownership.ts`. It only reads existing information and calls existing
+loader/settings APIs.
 
 ```ts
 interface PluginsService {
-  catalog(query?: string): Promise<CatalogItem[]> // registry + local state merged
-  installed(): InstalledPlugin[] // built-in + user-installed
-  install(name: string, version: string): Promise<JobId>
-  update(name: string, version: string): Promise<JobId>
-  uninstall(name: string, opts: { removeEntries: boolean }): Promise<void>
-  setFeature(name: string, enabled: boolean): Promise<void> // built-in feature toggle
+  list(): PluginInfo[] // every built-in plugin with kind, label, state
+  setFeature(name: string, enabled: boolean): Promise<void> // toggle a feature entry
+}
+
+interface PluginInfo {
+  name: string // package name
+  label: string
+  kind: ProviderKind | 'feature'
+  state: 'active' | 'not-set-up' | 'disabled' | 'failed'
+  instances: number // provider entries in magpie.yml
+  needs: string[] // plugins it depends on
+  error?: string
 }
 ```
 
-Events: `plugins/changed`, `plugins/restart-required`. Long operations run as a job
-(`@magpiejs/jobs`) so the page can show progress and survive a reload.
+Event: `plugins/changed` (mirrors `settings/changed` plus feature toggles).
 
-### 2. Catalog (the "browser")
+Where the data comes from:
 
-Recommended: a **curated static index**, `registry.json`, in a Magpie-owned GitHub repo
-and served over HTTPS (fetched with `@cordisjs/plugin-http`, cached in `<config>/cache/`):
+- **Providers:** `settings.providers()` and `settings.entries()`. No new discovery.
+- **Features:** the entries in `magpie.yml` that aren't providers, read from the loader
+  tree the same way `settings` does.
+- **Dependencies:** a small optional `magpie.needs: ["@magpiejs/indexers"]` in each
+  plugin's `package.json`, next to the existing `magpie.provider` block. Plugins without it
+  are treated as having no dependants, and the toggle warns only when it knows. This is a
+  metadata addition only; it doesn't change how a plugin loads.
+- **Failures:** the loader's per-entry error state, shown with the message. Feeds the
+  existing health plugin rather than adding a new check mechanism.
 
-```jsonc
-{
-  "apiVersion": 1,
-  "plugins": [
-    {
-      "name": "magpie-indexer-foo",
-      "kind": "indexer",
-      "label": "Foo",
-      "summary": "…",
-      "author": "…",
-      "homepage": "…",
-      "versions": [
-        { "version": "1.2.0", "apiVersion": 1, "integrity": "sha512-…", "min": "0.5.0" },
-      ],
-    },
-  ],
-}
-```
+### Lifecycle (existing mechanisms only)
 
-- Curated means a human reviewed it, and `integrity` pins the exact tarball so a
-  compromised npm publish can't reach users.
-- Fallback for power users: **Install by package name** (behind an "unverified" warning),
-  which resolves via the npm registry and requires the `magpie-plugin` keyword.
-- Offline or fetch failure: the Browse tab shows the last cache and a notice. Built-ins
-  and installed plugins always work.
-- Rejected alternative: browse npm search directly. No review, no pinning, no compat data.
+| Action              | How                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| Add instance        | existing `settings.add`, unchanged                                                          |
+| Edit / disable      | existing `settings.update`, unchanged                                                       |
+| Remove instance     | existing `settings.remove`, unchanged                                                       |
+| Toggle feature      | set or clear `disabled` on its loader entry; refuse if an enabled plugin's `needs` lists it |
+| Failed load at boot | entry stays in `magpie.yml`, shown as **Failed** with the error. Magpie still starts        |
 
-### 3. Installer
-
-A private project at `<config>/plugins/` with its own `package.json` and lockfile:
-
-```
-<config>/plugins/
-  package.json          # { "private": true, "dependencies": { …exact versions… } }
-  package-lock.json
-  node_modules/
-```
-
-- Run `npm install <name>@<version> --ignore-scripts --omit=peer --save-exact` as a child
-  process with cwd `<config>/plugins/`. **Never run install scripts.**
-- Verify the tarball integrity against the registry entry before the install is accepted.
-- Resolution: the discovery step imports from that directory by absolute `file:` URL, and
-  peers resolve to the host because they aren't installed there. Verify that
-  `tree.import(...)` in the loader accepts this; if not, register a resolve hook
-  (`module.register`) scoped to that directory. **Open question, spike first.**
-- Docker/bare-metal: the config dir is already the persistent volume, so installs survive
-  upgrades. On a Magpie upgrade, re-validate `apiVersion` of every installed plugin and
-  disable incompatible ones instead of failing startup.
-
-### 4. Lifecycle
-
-| Action              | Steps                                                                                                                                                                                                                   |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install             | consent dialog → job: npm install → validate contract → import `Config` → provider appears in the picker. **Hot, no restart.** Nothing runs until the user adds an instance.                                            |
-| Add instance        | existing `settings.add` flow, unchanged                                                                                                                                                                                 |
-| Update              | snapshot `<config>/plugins/package*.json` and `magpie.yml` → disable its entries → npm install → validate → mark `restart-required` → on restart entries re-enabled. On validate failure restore the snapshot.          |
-| Uninstall           | block while entries exist, or `removeEntries: true` after a confirm that lists them → remove entries → `npm uninstall` → `restart-required` to drop code from memory. Data written by the plugin is never auto-deleted. |
-| Disable / enable    | existing entry toggle                                                                                                                                                                                                   |
-| Built-in feature    | toggle its `magpie.yml` entry; refuse if an enabled plugin lists it in `needs`                                                                                                                                          |
-| Failed load at boot | entry stays in `magpie.yml`, shown as **Failed** with the error, and surfaced in the health plugin. Magpie still starts.                                                                                                |
-
-Restart: Magpie has no self-restart today (`cli.ts` only handles shutdown). Add a
-`system` endpoint that exits with a dedicated code and document the requirement for a
-supervisor (Docker restart policy, systemd). Without one, the banner says "restart Magpie".
+Disabling a feature never deletes its data (PLAN.md: removal only after a backup,
+never automatic).
 
 ## UI: Settings → Plugins
 
-Tabs (follow `docs/ui-cleanup.md` language: no Cordis terms):
+Language follows `docs/ui-cleanup.md`: no Cordis terms.
 
-- **Browse**: search, kind filter, cards (label, summary, author, version, "Built in" /
-  "Installed" / "Install"). Detail drawer shows what it talks to (`network`), what it
-  needs, changelog link, and the install consent text.
-- **Installed**: built-in and user-installed in one list with state chips: _Active_
-  (n instances), _Not set up_, _Update available_, _Incompatible_, _Failed_. Row actions:
-  Add instance (jumps to the existing provider settings slot), Update, Remove.
-- **Features**: toggles for built-in feature plugins with dependency warnings.
-- Global banner: "Restart required" while `plugins/restart-required` is pending.
+- **Providers:** every provider plugin grouped by kind, with a state chip (_Active_ with
+  n instances, _Not set up_, _Failed_) and an **Add instance** action that opens the existing
+  provider form. This is the "browser": one searchable list instead of five separate pages.
+- **Features:** toggles for built-in feature plugins with dependency warnings.
 
 Admin-only (reuse `@magpiejs/auth`). The page is a client entry of `@magpiejs/plugins`,
 built with the rest of the web console.
 
-## Security
-
-- Admin role required for every mutating call; CSRF same as other API routes.
-- Consent dialog states plainly: _this plugin runs inside Magpie and can read your
-  library, settings and API keys_. Curated vs unverified is a visible badge.
-- `--ignore-scripts`, exact versions, integrity pinning, scoped to `<config>/plugins/`.
-- Plugin API keys stay secret-masked (existing `secrets` handling in settings).
-- Honest limit: Node gives no in-process sandbox. The `network` list is disclosure, not
-  enforcement. Don't promise isolation; the curated registry is the real control.
-  A worker-thread or child-process host is a possible later hardening.
-
 ## Phasing
 
-1. **Contract and local manager.** Add `apiVersion/needs/network` to the existing
-   providers. New `@magpiejs/plugins` with **Installed** and **Features** tabs only (built-ins).
-   No installer. Moves the "which providers exist" view out of per-page lists.
-2. **Install from a local tarball / by name** into `<config>/plugins/`, second discovery
-   directory, the loader resolution spike, hot-load. Behind an "advanced" switch.
-3. **Catalog.** `registry.json`, Browse tab, integrity pinning, curated badge, cache.
-4. **Update, uninstall, rollback, restart endpoint, health integration.**
-5. **Later, optional:** prebuilt client bundles for plugins with their own pages (needs a
-   runtime `addEntry` from a package-provided `dist/manifest.json`), and process isolation.
-
-Phases 1 and 4 are the likely cut line if only part gets built.
+1. `@magpiejs/plugins` with `list()` and the **Providers** tab, read-only plus "Add
+   instance" handing off to the existing form.
+2. **Features** tab with `setFeature` and the optional `magpie.needs` metadata.
+3. Failed-state reporting into the health plugin.
 
 ## Testing
 
-- Unit: contract validation, registry parsing, version/`apiVersion` compat.
-- Integration with `packages/testing`: a fixture plugin as a local tarball, installed into a
-  temp config dir, then assert: it appears in `providers()`, `settings.add` works,
-  uninstall is blocked while an entry exists, a bad integrity hash is refused, an
-  incompatible `apiVersion` is listed as Incompatible and not loaded.
-- npm is stubbed with `file:` tarballs so tests need no network.
+With `packages/testing`:
+
+- `list()` reports each built-in provider with correct instance counts and state.
+- `setFeature` disables and re-enables an entry, and refuses when a dependant is enabled.
+- A provider entry that throws on load shows as _Failed_ and the others still start.
+
+## Deferred: user installs
+
+Not part of this work. If it is picked up later it would need its own proposal. The things
+that make it a separate piece of work, so they aren't lost:
+
+- A way to get packages onto disk, and a second discovery location (`settings` is currently
+  hard-wired to the workspace `plugins/*` siblings).
+- Third-party plugins would have to ship compiled JS, as built-ins export `.ts`.
+- Plugin console pages are built at Magpie build time, so installed plugins couldn't add
+  pages at runtime.
+- Third-party code runs in-process with access to the database and API keys, so it needs a
+  trust model (curated registry, integrity pinning, admin-only, no install scripts).
+- ESM can't unload code, so updates and uninstalls would need a restart, and Magpie has no
+  self-restart today.
+- PLAN.md reserves `<config>/plugins/` for this.
 
 ## Open questions
 
-1. Who hosts and reviews the registry, and what is the submission process?
-2. Does `tree.import` / the loader resolve packages outside the app's `node_modules`, or do
-   we need a resolve hook? (spike in phase 2)
-3. Is a self-restart endpoint acceptable, or do we only show a "restart manually" banner?
-4. Should providers be allowed to ship a client bundle at all, given the web console is
-   built ahead of time?
+1. Should the Providers tab replace the per-kind pages, or sit beside them as an index?
+2. Which built-in features, if any, must not be toggleable (e.g. `database`, `auth`, `api`)?
+   Proposal: only plugins listed as optional can be toggled.
