@@ -1,4 +1,4 @@
-// Web console entry: Settings → Media tools.
+// Web console entry: Settings → Video and audio tools.
 
 import type {} from '@magpiejs/webui'
 import type { Context } from 'cordis'

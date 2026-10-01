@@ -10,7 +10,12 @@
     "./torrent": "./src/torrent.ts"
   },
   "magpie": {
-    "namespace": "downloads"
+    "namespace": "downloads",
+    "hosts": {
+      "kind": "download-client",
+      "label": "Download clients",
+      "route": "/settings/clients"
+    }
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"

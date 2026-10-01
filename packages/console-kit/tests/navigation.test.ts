@@ -14,6 +14,37 @@ const page = (path: string, nav?: PageNavigation, order = 0, disabled = false): 
   order,
   disabled: () => disabled,
 })
+describe('Settings sections', () => {
+  it('groups configuration pages under their section, in a fixed order', () => {
+    const model = navigation([
+      page('/advanced', { group: 'configuration', section: 'advanced' }, 5),
+      page('/indexers', { group: 'configuration', section: 'sources' }, 60),
+      page('/clients', { group: 'configuration', section: 'sources' }, 50),
+      page('/general', { group: 'configuration' }, 10),
+      page('/media', { group: 'configuration', section: 'library' }, 90),
+      page('/health', { group: 'system' }),
+    ])
+    expect(model.settings.map((g) => [g.name, g.pages.map((p) => p.path)])).toEqual([
+      ['General', ['/general']],
+      ['Library', ['/media']],
+      ['Sources', ['/indexers', '/clients']],
+      ['Advanced', ['/advanced']],
+      ['System', ['/health']],
+    ])
+  })
+
+  it('lists a page with an unknown section under General instead of dropping it', () => {
+    const model = navigation([
+      page('/odd', { group: 'configuration', section: 'nope' as never }),
+      page('/media', { group: 'configuration', section: 'library' }),
+    ])
+    expect(model.settings.map((g) => [g.name, g.pages.map((p) => p.path)])).toEqual([
+      ['General', ['/odd']],
+      ['Library', ['/media']],
+    ])
+  })
+})
+
 describe('plugin-owned navigation', () => {
   it('uses metadata rather than route names and preserves undeclared pages under Other', () => {
     const model = navigation([

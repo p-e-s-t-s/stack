@@ -4,7 +4,7 @@
       <summary>Media info</summary>
       <p v-if="!data.ffprobe.ok" class="mp-muted mp-small" data-testid="no-ffprobe">
         ffprobe is {{ data.ffprobe.detail }}. Set it up in
-        <NavLink to="/settings/media-tools">Settings → Media tools</NavLink> to see what is inside
+        <NavLink to="/settings/media-tools">Settings → Video and audio tools</NavLink> to see what is inside
         your files.
       </p>
       <div v-for="f in files" :key="f.fileId" class="mp-card" data-testid="media-info-file">

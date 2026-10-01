@@ -5,10 +5,10 @@ import ImportChecks from './import-checks.vue'
 
 export default function (ctx: Context) {
   registerPage(ctx, {
-    navigation: { group: 'configuration', icon: 'other' },
+    navigation: { group: 'configuration', section: 'advanced', icon: 'other' },
     path: '/settings/import-checks',
     permission: 'settings.manage',
-    name: 'Import checks',
+    name: 'Download checks',
     order: 96,
     component: ImportChecks,
   })

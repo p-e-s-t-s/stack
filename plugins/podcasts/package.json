@@ -9,7 +9,11 @@
     "./schema": "./src/schema.ts"
   },
   "magpie": {
-    "namespace": "podcasts"
+    "namespace": "podcasts",
+    "mediaType": {
+      "label": "Podcasts",
+      "summary": "Subscribe to shows and download episodes."
+    }
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"

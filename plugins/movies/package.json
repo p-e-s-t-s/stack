@@ -9,7 +9,11 @@
     "./schema": "./src/schema.ts"
   },
   "magpie": {
-    "namespace": "movies"
+    "namespace": "movies",
+    "mediaType": {
+      "label": "Movies",
+      "summary": "Search, download and keep up with films."
+    }
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"

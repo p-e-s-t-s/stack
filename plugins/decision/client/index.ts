@@ -7,14 +7,14 @@ import './style.css'
 
 export default function (ctx: Context) {
   registerPage(ctx, {
-    navigation: { group: 'configuration', icon: 'settings' },
+    navigation: { group: 'configuration', section: 'library', icon: 'settings' },
     path: '/settings/profiles',
     name: 'Quality profiles',
     order: 80,
     component: Profiles,
   })
   registerPage(ctx, {
-    navigation: { group: 'configuration', icon: 'settings' },
+    navigation: { group: 'configuration', section: 'library', icon: 'settings' },
     path: '/settings/formats',
     name: 'Custom formats',
     order: 70,

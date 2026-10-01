@@ -9,7 +9,12 @@
     "./schema": "./src/schema.ts"
   },
   "magpie": {
-    "namespace": "indexers"
+    "namespace": "indexers",
+    "hosts": {
+      "kind": "indexer",
+      "label": "Indexers",
+      "route": "/settings/indexers"
+    }
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"

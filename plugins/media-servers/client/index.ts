@@ -4,7 +4,7 @@ import MediaServers from './media-servers.vue'
 
 export default function (ctx: Context) {
   registerPage(ctx, {
-    navigation: { group: 'configuration', icon: 'other' },
+    navigation: { group: 'configuration', section: 'connections', icon: 'other' },
     path: '/settings/media-servers',
     name: 'Media servers',
     order: 75,

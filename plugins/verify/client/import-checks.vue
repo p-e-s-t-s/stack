@@ -1,6 +1,6 @@
 <template>
   <section>
-    <div class="mp-head"><h1>Import checks</h1></div>
+    <div class="mp-head"><h1>Download checks</h1></div>
     <p class="mp-lead">
       Before a finished download enters your library, Magpie looks inside it. A download that fails
       a <b>reject</b> check is deleted, the release is blocklisted, and Magpie searches for the next
@@ -9,7 +9,7 @@
     </p>
     <p v-if="!data.tools.ffprobe" class="mp-muted mp-small" data-testid="no-ffprobe">
       ffprobe is not available, so the checks marked “needs ffprobe” are skipped. Set it up in
-      <NavLink to="/settings/media-tools">Settings → Media tools</NavLink>.
+      <NavLink to="/settings/media-tools">Settings → Video and audio tools</NavLink>.
     </p>
 
     <form class="mp-card" @submit.prevent="save">

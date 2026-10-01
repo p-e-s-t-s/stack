@@ -1,4 +1,4 @@
-// Web console entry: Settings → Import checks, and a check badge on queue rows.
+// Web console entry: Settings → Download checks, and a check badge on queue rows.
 
 import type {} from '@magpiejs/webui'
 import type { Context } from 'cordis'

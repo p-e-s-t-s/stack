@@ -9,7 +9,11 @@
     "./schema": "./src/schema.ts"
   },
   "magpie": {
-    "namespace": "books"
+    "namespace": "books",
+    "mediaType": {
+      "label": "Books",
+      "summary": "Authors and books."
+    }
   },
   "dependencies": {
     "@magpiejs/api": "0.0.0",

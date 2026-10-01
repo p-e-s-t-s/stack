@@ -1,5 +1,10 @@
 export interface PageNavigation {
   group: 'library' | 'activity' | 'configuration' | 'system' | 'other'
+  /**
+   * Heading within Settings for pages in the `configuration` group. Pages without one are
+   * listed first, under General.
+   */
+  section?: 'library' | 'sources' | 'connections' | 'advanced'
   icon?: string
   /** Preferred destination within primary navigation or Settings. */
   default?: boolean
@@ -24,6 +29,21 @@ export function isSettings(page: NavPage | undefined) {
   return page?.navigation?.group === 'configuration' || page?.navigation?.group === 'system'
 }
 
+/** Headings of the `configuration` group in Settings, in display order. */
+const SECTIONS: [NonNullable<PageNavigation['section']> | undefined, string][] = [
+  [undefined, 'General'],
+  ['library', 'Library'],
+  ['sources', 'Sources'],
+  ['connections', 'Connections'],
+  ['advanced', 'Advanced'],
+]
+
+/** A page without a known section is listed under General, so it never disappears. */
+function sectionOf(page: NavPage) {
+  const section = page.navigation?.section
+  return SECTIONS.some(([known]) => known === section) ? section : undefined
+}
+
 export function navigation<T extends NavPage>(registered: T[]) {
   const pages = registered
     .filter((page) => !page.disabled())
@@ -37,9 +57,14 @@ export function navigation<T extends NavPage>(registered: T[]) {
     group('Activity', 'activity'),
     group('Other', 'other'),
   ].filter((group) => group.pages.length)
-  const settings = [group('Configuration', 'configuration'), group('System', 'system')].filter(
-    (group) => group.pages.length,
-  )
+  const configuration = pages.filter((page) => page.navigation?.group === 'configuration')
+  const settings = [
+    ...SECTIONS.map(([section, name]) => ({
+      name,
+      pages: configuration.filter((page) => sectionOf(page) === section),
+    })),
+    group('System', 'system'),
+  ].filter((group) => group.pages.length)
   const settingsPages = settings.flatMap((group) => group.pages)
   const primaryPages = groups.flatMap((group) => group.pages)
   const destination = settingsPages.find((page) => page.navigation?.default) ?? settingsPages[0]

@@ -4,7 +4,7 @@ import Metadata from './metadata.vue'
 
 export default function (ctx: Context) {
   registerPage(ctx, {
-    navigation: { group: 'configuration', icon: 'other' },
+    navigation: { group: 'configuration', section: 'sources', icon: 'other' },
     path: '/settings/metadata',
     name: 'Metadata',
     order: 40,
