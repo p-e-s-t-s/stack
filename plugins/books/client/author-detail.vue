@@ -162,6 +162,11 @@
     <button v-if="filtered.length > limit" class="more" @click="limit += 100">
       Show {{ Math.min(100, filtered.length - limit) }} more
     </button>
+    <!-- other plugins add sections here (history…); mediaIds are the author's followed formats -->
+    <k-slot
+      name="author-detail"
+      :data="{ author, mediaIds: followed.map((k) => author!.formats[k]!.id) }"
+    />
   </MediaDetailShell>
   <section v-else class="bk"><p class="mp-empty">Author not found.</p></section>
 </template>

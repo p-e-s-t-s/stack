@@ -167,6 +167,8 @@
         </tbody>
       </table>
     </CollapsibleSection>
+    <!-- other plugins add sections here (history…) -->
+    <k-slot name="artist-detail" :data="{ artist, mediaIds: [artist.id] }" />
   </MediaDetailShell>
   <section v-else class="mu"><p class="mp-empty">Artist not found.</p></section>
 </template>
