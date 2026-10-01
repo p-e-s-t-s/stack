@@ -1,0 +1,34 @@
+{
+  "name": "@magpiejs/list-imdb",
+  "version": "0.0.0",
+  "description": "IMDb list import list for Magpie",
+  "type": "module",
+  "license": "MIT",
+  "magpie": {
+    "provider": {
+      "kind": "import-list",
+      "label": "IMDb list",
+      "basic": [
+        "name",
+        "list",
+        "profileId",
+        "rootFolderId"
+      ]
+    }
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/import-lists": "0.0.0",
+    "@magpiejs/types": "0.0.0",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "@cordisjs/plugin-http": "^1.5.2",
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10"
+  }
+}
