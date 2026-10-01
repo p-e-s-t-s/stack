@@ -43,6 +43,5 @@ the `cat` it is sent).
 The v3 payloads are written from Prowlarr's application-sync behaviour as known, and tested
 against fakes. **Not yet verified against a live Prowlarr**; the fields Prowlarr requires in
 `indexer/schema` or `system/status` may need adjusting. Not built: reporting grabs back to
-Prowlarr's history, and a bare `/api/v3` is taken by this plugin (see
-[request-app-compatibility.md](request-app-compatibility.md), which plans namespaced
-`/api/compat/*` bases).
+Prowlarr's history, and a bare `/api/v3` is taken by this plugin, which a future
+request-app compatibility plugin will have to share or move.

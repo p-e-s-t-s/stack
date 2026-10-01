@@ -774,8 +774,6 @@ search and replace works from the UI.
 - Seerr-first request-app compatibility (legacy Overseerr/Jellyseerr where practical):
   extend the `/api/v3` shim with movie/series
   add/lookup, quality profile and root folder listing, as used by those apps.
-  Detailed scope, routing, contracts and acceptance checks:
-  [Request-app compatibility](request-app-compatibility.md).
 - Import lists: TMDB lists, Trakt, IMDb lists, Plex watchlist.
 - Metadata: `metadata-anidb` for anime; `metadata-tvdb` (v4 API, subscriber PIN);
   `mapping-xem` scene numbering; TMDB episode groups for alternate orderings (moved from
