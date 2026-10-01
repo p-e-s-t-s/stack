@@ -8,8 +8,8 @@
       >, {{ roleLabel }}.
     </p>
 
-    <h2>Password</h2>
-    <form class="mp-card" @submit.prevent="changePassword">
+    <h2 v-if="me?.password">Password</h2>
+    <form v-if="me?.password" class="mp-card" @submit.prevent="changePassword">
       <div class="mp-field">
         <label for="current">Current password</label>
         <input id="current" v-model="current" type="password" autocomplete="current-password" />
@@ -68,6 +68,8 @@ const data = useRpc<AuthData>()
 interface Me {
   username: string
   role: string
+  /** Whether this account has a password to change. */
+  password: boolean
   sessions: SessionInfo[]
 }
 const me = ref<Me>()

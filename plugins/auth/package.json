@@ -6,7 +6,9 @@
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./web": "./src/web.ts",
+    "./mapping": "./src/mapping.ts"
   },
   "magpie": {
     "namespace": "auth"
@@ -29,6 +31,7 @@
   "devDependencies": {
     "@magpiejs/webui": "0.0.0",
     "cordis": "4.0.0-rc.10",
-    "drizzle-kit": "1.0.0-rc.4"
+    "drizzle-kit": "1.0.0-rc.4",
+    "@magpiejs/auth-local": "0.0.0"
   }
 }

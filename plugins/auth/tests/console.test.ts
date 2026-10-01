@@ -5,7 +5,9 @@ import { DeltaState, apply } from '@cordisjs/muon'
 import { Context, Service } from 'cordis'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
+import * as AuthLocal from '@magpiejs/auth-local'
 import AuthService from '../src'
+import { makeAdmin, makeUser } from './helpers'
 
 /** The real access rules on a console that has no browser bundle to build. */
 class TestWebUI extends MagpieWebUI {
@@ -28,13 +30,14 @@ beforeEach(async () => {
   await ctx.plugin(DatabaseService, { path: ':memory:' })
   await ctx.plugin(TestWebUI, { devMode: true, uiPath: '', selfUrl: '', apiPath: '/ws' })
   await ctx.plugin(AuthService)
+  await ctx.plugin(AuthLocal)
   base = ctx.server.baseUrl
   return () => void ctx.server._http.close()
 })
 
 const files = { baseUrl: import.meta.url, manifest: '' }
 const login = async (username: string) => {
-  const res = await fetch(base + '/auth/login', {
+  const res = await fetch(base + '/auth/local/login', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ username, password: 'long enough' }),
@@ -44,9 +47,9 @@ const login = async (username: string) => {
 }
 
 async function users() {
-  await ctx.auth.setup('root', 'long enough')
-  await ctx.auth.createUser('mia', 'long enough', 'manager')
-  await ctx.auth.createUser('vic', 'long enough', 'viewer')
+  await makeAdmin(ctx)
+  await makeUser(ctx, 'mia', 'manager')
+  await makeUser(ctx, 'vic', 'viewer')
 }
 
 /** A console connection that collects what the server sends. */

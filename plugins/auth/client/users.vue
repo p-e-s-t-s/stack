@@ -11,6 +11,7 @@
         <tr>
           <th>User</th>
           <th>Role</th>
+          <th>Signs in with</th>
           <th>Last login</th>
           <th></th>
         </tr>
@@ -31,11 +32,16 @@
               </option>
             </select>
           </td>
+          <td class="mp-muted mp-small">{{ methods(user.methods) }}</td>
           <td class="mp-muted mp-small">
             {{ user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never' }}
           </td>
           <td class="actions">
-            <button class="small" @click="resetting = resetting === user.id ? 0 : user.id">
+            <button
+              v-if="hasPasswords"
+              class="small"
+              @click="resetting = resetting === user.id ? 0 : user.id"
+            >
               Password
             </button>
             <button
@@ -67,7 +73,7 @@
         <label for="new-name">Username</label>
         <input id="new-name" v-model="newName" autocomplete="off" />
       </div>
-      <div class="mp-field">
+      <div v-if="hasPasswords" class="mp-field">
         <label for="new-password">Password</label>
         <input
           id="new-password"
@@ -75,7 +81,10 @@
           type="password"
           autocomplete="new-password"
         />
-        <span class="mp-help">At least 8 characters. They can change it under General.</span>
+        <span class="mp-help"
+          >At least 8 characters; they can change it under General. Leave empty if they sign in
+          another way.</span
+        >
       </div>
       <div class="mp-field">
         <label for="new-role">Role</label>
@@ -87,7 +96,7 @@
         <span class="mp-help">{{ describe(newRole) }}</span>
       </div>
       <div class="mp-row">
-        <button class="primary" type="submit" :disabled="!newName || !newPassword">Add user</button>
+        <button class="primary" type="submit" :disabled="!newName">Add user</button>
       </div>
     </form>
 
@@ -176,6 +185,12 @@ const keyRole = ref<UserInfo['role']>('viewer')
 const newKey = ref('')
 const copied = ref(false)
 
+const hasPasswords = computed(() => data.value.providers.some((p) => p.password))
+const methods = (ids: string[]) =>
+  ids.length
+    ? ids.map((id) => data.value.providers.find((p) => p.id === id)?.label ?? id).join(', ')
+    : 'Nothing yet'
+
 const roleLabel = (id: string) => data.value.roles.find((r) => r.id === id)?.label ?? id
 const describe = (id: string) => data.value.roles.find((r) => r.id === id)?.description
 
@@ -202,7 +217,7 @@ async function add() {
   await run(async () => {
     await api('POST', '/users', {
       username: newName.value,
-      password: newPassword.value,
+      password: newPassword.value || undefined,
       role: newRole.value,
     })
     newName.value = newPassword.value = ''

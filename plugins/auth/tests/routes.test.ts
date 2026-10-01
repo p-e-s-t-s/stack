@@ -3,7 +3,9 @@ import ApiService from '@magpiejs/api'
 import DatabaseService from '@magpiejs/database'
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it } from 'vitest'
+import * as AuthLocal from '@magpiejs/auth-local'
 import AuthService from '../src'
+import { makeAdmin, makeUser } from './helpers'
 
 let ctx: Context
 let base: string
@@ -13,9 +15,10 @@ beforeEach(async () => {
   await ctx.plugin(Server, { host: '127.0.0.1', port: 0 })
   await ctx.plugin(DatabaseService, { path: ':memory:' })
   await ctx.plugin(AuthService)
+  await ctx.plugin(AuthLocal)
   await ctx.plugin(ApiService)
   base = ctx.server.baseUrl + '/api/v1'
-  const root = await ctx.auth.setup('root', 'long enough')
+  const root = await makeAdmin(ctx)
   admin = `magpie_session=${ctx.auth.createSession(root.id)}`
   return () => void ctx.server._http.close()
 })
@@ -37,7 +40,7 @@ async function request(
 }
 
 const cookieFor = async (username: string, role: 'viewer' | 'manager') => {
-  const user = await ctx.auth.createUser(username, 'long enough', role)
+  const user = await makeUser(ctx, username, role)
   return { id: user.id, cookie: `magpie_session=${ctx.auth.createSession(user.id)}` }
 }
 

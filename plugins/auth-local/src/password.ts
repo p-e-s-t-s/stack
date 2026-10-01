@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
+import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 
 const KEY_LENGTH = 32
 
@@ -23,8 +23,3 @@ export async function verifyPassword(password: string, stored: string) {
   const key = await derive(password, Buffer.from(salt, 'base64'))
   return key.length === expected.length && timingSafeEqual(key, expected)
 }
-
-/** A random URL-safe token. */
-export const token = (bytes = 32) => randomBytes(bytes).toString('base64url')
-
-export const sha256 = (value: string) => createHash('sha256').update(value).digest('hex')

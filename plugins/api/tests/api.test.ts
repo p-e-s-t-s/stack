@@ -55,7 +55,7 @@ it('checks what the caller may do: viewers read, managers change, settings need 
   })
   const viewer = ctx.auth.createApiKey('viewer', { role: 'viewer' }).key
   const manager = ctx.auth.createApiKey('manager', { role: 'manager' }).key
-  const admin = await ctx.auth.setup('root', 'long enough')
+  const admin = ctx.auth.createFirstAdmin('root')
   const session = `magpie_session=${ctx.auth.createSession(admin.id)}`
   const call = (method: string, path: string, headers: Record<string, string>) =>
     fetch(`${ctx.server.baseUrl}/api/v1${path}`, { method, headers }).then((r) => r.status)

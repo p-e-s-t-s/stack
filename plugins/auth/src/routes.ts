@@ -41,13 +41,18 @@ export default function routes(ctx: Context, auth: AuthService) {
       role: user.role,
       permissions: [...PERMISSIONS[user.role as Role]],
       sessions: auth.sessions(user.id, sessionId),
+      // whether a password here can be changed, for the account page to offer it
+      password: !!auth.providers.password()?.has(user.id),
     }
   })
   account.put('/account/password', ({ identity, body }) => {
     const { user, sessionId } = session(identity)
-    return call(() =>
-      auth.changePassword(user.id, body?.current ?? '', body?.next ?? '', sessionId),
-    )
+    const passwords = auth.providers.password()
+    if (!passwords?.has(user.id)) throw new ApiError(400, 'this account has no password here')
+    return call(async () => {
+      await passwords.change(user.id, body?.current ?? '', body?.next ?? '')
+      auth.endSessions(user.id, sessionId)
+    })
   })
   // ends your other sessions, keeping this one
   account.delete('/account/sessions', ({ identity }) => {
@@ -61,7 +66,18 @@ export default function routes(ctx: Context, auth: AuthService) {
   admin.get('/users', () => auth.users())
   admin.post('/users', ({ body }) =>
     call(async () => {
-      const user = await auth.createUser(body?.username ?? '', body?.password ?? '', body?.role)
+      const passwords = auth.providers.password()
+      if (body?.password && !passwords) throw new Error('no identity provider keeps passwords')
+      const user = auth.createUser(body?.username ?? '', body?.role)
+      if (body?.password) {
+        try {
+          await passwords!.reset(user.id, body.password)
+        } catch (error) {
+          // no half-made user: without a password they could not log in
+          auth.deleteUser(user.id)
+          throw error
+        }
+      }
       return auth.users().find((u) => u.id === user.id)
     }),
   )
@@ -72,7 +88,14 @@ export default function routes(ctx: Context, auth: AuthService) {
     call(() => auth.deleteUser(id(params.id), session(identity).user.id)),
   )
   admin.put('/users/:id/password', ({ params, body }) =>
-    call(() => auth.resetPassword(id(params.id), body?.password ?? '')),
+    call(async () => {
+      const passwords = auth.providers.password()
+      if (!passwords) throw new Error('no identity provider keeps passwords')
+      const userId = id(params.id)
+      if (!auth.user(userId)) throw new Error('no such user')
+      await passwords.reset(userId, body?.password ?? '')
+      auth.endSessions(userId)
+    }),
   )
 
   admin.get('/api-keys', () => auth.apiKeys())

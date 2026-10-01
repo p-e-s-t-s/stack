@@ -3,21 +3,24 @@
 // accounts, sessions, keys and the permission check. http.ts guards the server and serves
 // the login routes; policy.ts connects it to the web console.
 
-import type { Request } from '@cordisjs/plugin-server'
+import type { Request, Response } from '@cordisjs/plugin-server'
 import type { Drizzle } from '@magpiejs/database'
 import { type Context, Service } from 'cordis'
 import { and, desc, eq, lt, ne } from 'drizzle-orm'
 import z from 'schemastery'
 import console_ from './console'
-import { installGuard, installRoutes, readCookie, COOKIE } from './http'
-import { hashPassword, sha256, token, verifyPassword } from './password'
+import { installGuard, installRoutes } from './http'
 import { KEY_ROLES, type Permission, type Role, isRole, roleAtMost, roleCan } from './permissions'
 import { installPolicy, SocketRegistry } from './policy'
+import { type ExternalLogin, ProviderRegistry } from './providers'
 import routes from './routes'
 import * as schema from './schema'
+import { sha256, token } from './tokens'
+import { COOKIE, readCookie, redirect } from './web'
 
 export * from './schema'
 export * from './permissions'
+export * from './providers'
 
 declare module 'cordis' {
   interface Context {
@@ -37,6 +40,8 @@ export interface UserInfo {
   disabled: boolean
   createdAt: number
   lastLoginAt: number | null
+  /** Ids of the identity providers this user can sign in with. */
+  methods: string[]
 }
 
 export interface SessionInfo {
@@ -76,7 +81,6 @@ export const Config: z<Config> = z.object({
 })
 
 const DAY = 86_400_000
-const MIN_PASSWORD = 8
 /** Writes of "last seen" and "last used" are skipped when the last one is this recent. */
 const TOUCH_INTERVAL = 60_000
 
@@ -88,6 +92,8 @@ export class AuthService extends Service {
   private identities = new WeakMap<object, Identity>()
   /** Open console sockets, to close them when their user's access changes. */
   sockets = new SocketRegistry()
+  /** The identity providers that are loaded: how people prove who they are. */
+  providers = new ProviderRegistry()
 
   constructor(
     ctx: Context,
@@ -107,7 +113,7 @@ export class AuthService extends Service {
     this.ctx.inject(['api'], (ctx) => void ctx.plugin(routes, this))
     this.ctx.inject(['webui'], (ctx) => {
       installPolicy(ctx, this)
-      ctx.plugin(console_)
+      ctx.plugin(console_, this)
     })
   }
 
@@ -132,7 +138,21 @@ export class AuthService extends Service {
   }
 
   users(): UserInfo[] {
-    return this.db.select().from(schema.users).orderBy(schema.users.username).all().map(toInfo)
+    const linked = new Map<number, Set<string>>()
+    for (const link of this.db.select().from(schema.identities).all()) {
+      if (!linked.has(link.userId)) linked.set(link.userId, new Set())
+      linked.get(link.userId)!.add(link.provider)
+    }
+    return this.db
+      .select()
+      .from(schema.users)
+      .orderBy(schema.users.username)
+      .all()
+      .map((user) => {
+        const methods = new Set(linked.get(user.id))
+        for (const p of this.providers.list()) if (p.knows?.(user.id)) methods.add(p.id)
+        return toInfo(user, [...methods].sort())
+      })
   }
 
   user(id: number) {
@@ -140,27 +160,24 @@ export class AuthService extends Service {
   }
 
   /** Makes the first account, an administrator. Fails once any account exists. */
-  async setup(username: string, password: string) {
+  createFirstAdmin(username: string) {
     username = checkUsername(username)
-    checkPassword(password)
-    const passwordHash = await hashPassword(password)
-    // no await between the check and the insert, so two setups cannot both win
     if (this.hasUsers()) throw new Error('an account already exists; log in')
-    return this.insertUser(username, passwordHash, 'admin')
+    return this.insertUser(username, 'admin')
   }
 
-  async createUser(username: string, password: string, role: Role) {
+  /** Makes a user. How they sign in is up to the identity providers. */
+  createUser(username: string, role: Role) {
     username = checkUsername(username)
-    checkPassword(password)
     if (!isRole(role)) throw new Error('choose a role')
-    return this.insertUser(username, await hashPassword(password), role)
+    return this.insertUser(username, role)
   }
 
-  private insertUser(username: string, passwordHash: string, role: Role) {
+  private insertUser(username: string, role: Role) {
     try {
       return this.db
         .insert(schema.users)
-        .values({ username, passwordHash, role, createdAt: Date.now() })
+        .values({ username, role, createdAt: Date.now() })
         .returning()
         .get()
     } catch (error) {
@@ -192,27 +209,12 @@ export class AuthService extends Service {
     this.db.delete(schema.users).where(eq(schema.users.id, id)).run()
   }
 
-  /** An administrator sets a new password for someone, ending their sessions. */
-  async resetPassword(id: number, next: string) {
-    this.requireUser(id)
-    checkPassword(next)
-    this.db
-      .update(schema.users)
-      .set({ passwordHash: await hashPassword(next) })
-      .where(eq(schema.users.id, id))
-      .run()
-    this.endSessions(id)
-  }
-
-  async verify(username: string, password: string) {
-    const user = this.db
+  userByName(username: string) {
+    return this.db
       .select()
       .from(schema.users)
       .where(eq(schema.users.username, username.trim()))
       .get()
-    // hash anyway so a wrong username takes as long as a wrong password
-    const ok = await verifyPassword(password, user?.passwordHash ?? 'scrypt$AAAA$AAAA')
-    return ok ? user : undefined
   }
 
   /** Records a login. */
@@ -224,18 +226,147 @@ export class AuthService extends Service {
       .run()
   }
 
-  /** Changes your own password and ends your other sessions. */
-  async changePassword(userId: number, current: string, next: string, keepSession?: string) {
-    const user = this.user(userId)
-    if (!user || !(await verifyPassword(current, user.passwordHash)))
-      throw new Error('the current password is wrong')
-    checkPassword(next)
-    this.db
-      .update(schema.users)
-      .set({ passwordHash: await hashPassword(next) })
-      .where(eq(schema.users.id, userId))
-      .run()
-    this.endSessions(userId, keepSession)
+  // ---- identity providers
+
+  /**
+   * The user for someone a provider has authenticated, or `undefined` if they may not
+   * come in. A user already linked to `subject` is found; otherwise one is matched by
+   * name or made, if the provider allows it.
+   */
+  resolveExternal(login: ExternalLogin) {
+    const now = Date.now()
+    const link = this.db
+      .select()
+      .from(schema.identities)
+      .where(
+        and(
+          eq(schema.identities.provider, login.provider),
+          eq(schema.identities.subject, login.subject),
+        ),
+      )
+      .get()
+    let user = link && this.user(link.userId)
+    if (!user && !link) {
+      const existing = login.matchUsername ? this.userByName(login.username) : undefined
+      // a user already tied to a different identity at this provider is not handed over
+      const taken =
+        existing &&
+        this.db
+          .select({ id: schema.identities.id })
+          .from(schema.identities)
+          .where(
+            and(
+              eq(schema.identities.userId, existing.id),
+              eq(schema.identities.provider, login.provider),
+            ),
+          )
+          .get()
+      if (existing && !taken) user = existing
+      else if (!existing && login.create)
+        user = this.insertUser(this.freeName(login.username), login.create.role)
+      if (user) {
+        this.db
+          .insert(schema.identities)
+          .values({
+            provider: login.provider,
+            subject: login.subject,
+            userId: user.id,
+            createdAt: now,
+          })
+          .run()
+      }
+    }
+    if (!user) return
+    if (link) {
+      this.db
+        .update(schema.identities)
+        .set({ lastLoginAt: now })
+        .where(eq(schema.identities.id, link.id))
+        .run()
+    }
+    if (login.role && user.role !== login.role && isRole(login.role)) {
+      try {
+        this.updateUser(user.id, { role: login.role })
+        user = this.user(user.id)!
+      } catch (error) {
+        // e.g. the provider would demote the last administrator
+        this.ctx.logger.warn(
+          'could not set the role of %s: %s',
+          user.username,
+          (error as Error).message,
+        )
+      }
+    }
+    return user
+  }
+
+  /** `username`, or that with a number added if someone has it. */
+  private freeName(username: string) {
+    const base = checkUsername(username)
+    let name = base
+    for (let n = 2; this.userByName(name); n++) name = `${base}-${n}`
+    return name
+  }
+
+  /** Starts a session for a user who has authenticated, and sends the browser on. */
+  signIn(req: Request, res: Response, user: schema.User, next: string) {
+    if (user.disabled) return this.loginFailed(res, 'this account is switched off', next)
+    this.markLogin(user.id)
+    this.startSession(req, res, user.id)
+    redirect(res, next)
+  }
+
+  /** Sends the browser back to the login page with a message. */
+  loginFailed(res: Response, error: string, next: string) {
+    redirect(res, `/login?error=${encodeURIComponent(error)}&next=${encodeURIComponent(next)}`)
+  }
+
+  private startSession(req: Request, res: Response, userId: number) {
+    const value = this.createSession(userId, {
+      address: this.clientAddress(req),
+      userAgent: req.headers.get('user-agent') ?? undefined,
+    })
+    const secure =
+      this.config.trustProxy && req.headers.get('x-forwarded-proto') === 'https' ? '; Secure' : ''
+    res.headers.append(
+      'set-cookie',
+      `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${this.config.sessionDays * 86_400}${secure}`,
+    )
+    return value
+  }
+
+  /** The caller's address; behind a trusted proxy, the one it reports. */
+  clientAddress(req: Request) {
+    if (this.config.trustProxy) {
+      const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      if (forwarded) return forwarded
+    }
+    return req._req.socket.remoteAddress ?? ''
+  }
+
+  /** This Magpie's address as the caller sees it, e.g. `https://magpie.home`. */
+  origin(req: Request) {
+    const proxied = this.config.trustProxy
+    const protocol =
+      (proxied && req.headers.get('x-forwarded-proto')) ||
+      ((req._req.socket as { encrypted?: boolean }).encrypted ? 'https' : 'http')
+    const host = (proxied && req.headers.get('x-forwarded-host')) || req.headers.get('host')
+    return `${protocol}://${host}`
+  }
+
+  /**
+   * Signs in a request that proves who it is without a form, through a provider that
+   * can (a trusted proxy's header). Starts a session, so the next request needs no proof.
+   */
+  autoLogin(req: Request, res: Response): Identity | undefined {
+    for (const provider of this.providers.list()) {
+      const login = provider.authenticate?.(req)
+      const user = login && this.resolveExternal(login)
+      if (!user || user.disabled) continue
+      this.markLogin(user.id)
+      const value = this.startSession(req, res, user.id)
+      return this.session(value)
+    }
   }
 
   private requireUser(id: number) {
@@ -448,8 +579,9 @@ export class AuthService extends Service {
   }
 }
 
-function toInfo(u: schema.User): UserInfo {
+function toInfo(u: schema.User, methods: string[]): UserInfo {
   return {
+    methods,
     id: u.id,
     username: u.username,
     role: isRole(u.role) ? u.role : 'viewer',
@@ -470,11 +602,6 @@ function checkUsername(username: string) {
   if (!username) throw new Error('enter a username')
   if (username.length > 64) throw new Error('the username is too long')
   return username
-}
-
-function checkPassword(password: string) {
-  if (password.length < MIN_PASSWORD)
-    throw new Error(`the password needs at least ${MIN_PASSWORD} characters`)
 }
 
 export default AuthService

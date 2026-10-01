@@ -41,6 +41,7 @@ describe('start', () => {
   it('writes a default magpie.yml with the web console in the requested mode', () => {
     const entries = defaultConfig({ configDir: '.', dev: true, port: 1234 })
     expect(entries.map((e) => e.name)).toContain('@magpiejs/webui')
+    expect(entries.map((e) => e.name)).toContain('@magpiejs/auth-local')
     expect(entries.find((e) => e.name === '@magpiejs/webui')?.config).toEqual({ devMode: true })
     expect(entries.find((e) => e.name === '@cordisjs/plugin-server')!.config).toMatchObject({
       port: 1234,

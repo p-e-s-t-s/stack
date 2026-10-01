@@ -1,25 +1,20 @@
 // The server side of auth: the guard that every request and WebSocket passes, and the
-// login routes. Everything except the login page needs a session cookie or, under /api/,
-// an API key.
+// login page. Everything except the login page and the identity providers' own routes
+// (under /auth/) needs a session cookie or, under /api/, an API key.
 
-import type { Request, Response } from '@cordisjs/plugin-server'
 import type { Context } from 'cordis'
 import type AuthService from './index'
-import { FailureLimiter } from './limiter'
 import { loginPage } from './login'
 import { allowUpgrade } from './policy'
+import { COOKIE, html, readCookie, redirect, safeNext } from './web'
 
-export const COOKIE = 'magpie_session'
-
-/** Failed logins allowed per address, and per username, in a window before a wait. */
-const MAX_FAILURES = 10
-const FAILURE_WINDOW = 15 * 60_000
+export { COOKIE, readCookie } from './web'
 
 export function installGuard(ctx: Context, auth: AuthService) {
   const open = (path: string) => path === '/login' || path.startsWith('/auth/')
   ctx.server.use(async (req, res, next) => {
     if (open(req.path)) return next()
-    const who = auth.authenticate(req)
+    const who = auth.authenticate(req) ?? auth.autoLogin(req, res)
     if (who) {
       auth.remember(req, who)
       return next()
@@ -52,20 +47,28 @@ export function installGuard(ctx: Context, auth: AuthService) {
 
 export function installRoutes(ctx: Context, auth: AuthService) {
   const server = ctx.server
-  const addresses = new FailureLimiter(MAX_FAILURES, FAILURE_WINDOW)
-  const usernames = new FailureLimiter(MAX_FAILURES, FAILURE_WINDOW)
-
-  const loginFailed = (res: Response, error: string, next: string) =>
-    redirect(res, `/login?error=${encodeURIComponent(error)}&next=${encodeURIComponent(next)}`)
 
   server.get('/login', async (req, res) => {
-    if (auth.authenticate(req)) return redirect(res, safeNext(req.query.get('next')))
+    const next = safeNext(req.query.get('next'))
+    if (auth.authenticate(req) ?? auth.autoLogin(req, res)) return redirect(res, next)
+    const view = {
+      next,
+      error: req.query.get('error') ?? undefined,
+      setup: !auth.hasUsers(),
+    }
+    const providers = auth.providers.list()
+    // with no user yet, a provider that can create the first one takes the page
+    const setup = view.setup ? providers.flatMap((p) => p.setup?.(view) ?? []) : []
+    const sections = setup.length ? setup : providers.flatMap((p) => p.login?.(view) ?? [])
     html(
       res,
       loginPage({
-        setup: !auth.hasUsers(),
-        next: safeNext(req.query.get('next')),
-        error: req.query.get('error') ?? undefined,
+        title: setup.length ? 'Create your account' : 'Log in',
+        intro: setup.length
+          ? 'This is the first start. Choose the login for this Magpie.'
+          : undefined,
+        error: sections.length ? view.error : 'No sign-in method is enabled.',
+        sections,
       }),
     )
   })
@@ -76,42 +79,6 @@ export function installRoutes(ctx: Context, auth: AuthService) {
     res.json({ authenticated: !!who, setup: !auth.hasUsers() })
   })
 
-  server.post('/auth/setup', async (req, res) => {
-    const form = await readForm(req)
-    const next = safeNext(form.get('next'))
-    const password = form.get('password') ?? ''
-    if (password !== form.get('confirm')) return loginFailed(res, 'the passwords differ', next)
-    try {
-      const user = await auth.setup(form.get('username') ?? '', password)
-      ctx.logger.info('created the administrator login for %s', user.username)
-      startSession(auth, req, res, user.id, next)
-    } catch (error) {
-      loginFailed(res, (error as Error).message, next)
-    }
-  })
-
-  server.post('/auth/login', async (req, res) => {
-    const form = await readForm(req)
-    const next = safeNext(form.get('next'))
-    const address = clientAddress(auth, req)
-    const username = (form.get('username') ?? '').trim().toLowerCase()
-    if (addresses.blocked(address) || usernames.blocked(username)) {
-      return loginFailed(res, 'too many failed attempts; try again in a few minutes', next)
-    }
-    const user = await auth.verify(form.get('username') ?? '', form.get('password') ?? '')
-    if (!user) {
-      addresses.fail(address)
-      usernames.fail(username)
-      ctx.logger.warn('failed login for %s from %s', username, address)
-      return loginFailed(res, 'wrong username or password', next)
-    }
-    if (user.disabled) return loginFailed(res, 'this account is switched off', next)
-    addresses.clear(address)
-    usernames.clear(username)
-    auth.markLogin(user.id)
-    startSession(auth, req, res, user.id, next)
-  })
-
   server.post('/auth/logout', async (req, res) => {
     const cookie = readCookie(req.headers.get('cookie'), COOKIE)
     if (cookie) auth.endSession(cookie)
@@ -120,69 +87,10 @@ export function installRoutes(ctx: Context, auth: AuthService) {
   })
 }
 
-function startSession(
-  auth: AuthService,
-  req: Request,
-  res: Response,
-  userId: number,
-  next: string,
-) {
-  const value = auth.createSession(userId, {
-    address: clientAddress(auth, req),
-    userAgent: req.headers.get('user-agent') ?? undefined,
-  })
-  const secure =
-    auth.config.trustProxy && req.headers.get('x-forwarded-proto') === 'https' ? '; Secure' : ''
-  res.headers.append(
-    'set-cookie',
-    `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${auth.config.sessionDays * 86_400}${secure}`,
-  )
-  redirect(res, next)
-}
-
-/** The caller's address; behind a trusted proxy, the one it reports. */
-function clientAddress(auth: AuthService, req: Request) {
-  if (auth.config.trustProxy) {
-    const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    if (forwarded) return forwarded
-  }
-  return req._req.socket.remoteAddress ?? ''
-}
-
-export function readCookie(header: string | null, name: string) {
-  for (const part of header?.split(';') ?? []) {
-    const [key, ...value] = part.trim().split('=')
-    if (key === name) return value.join('=') || undefined
-  }
-}
-
-async function readForm(req: Request) {
-  return new URLSearchParams(await req.text())
-}
-
-/** Only same-site paths, so the login page can't be used to send people elsewhere. */
-function safeNext(next: string | null | undefined) {
-  return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\')
-    ? next
-    : '/'
-}
-
 function safeHost(url: string) {
   try {
     return new URL(url).host
   } catch {
     return undefined
   }
-}
-
-function redirect(res: Response, location: string) {
-  res.status = 303
-  res.headers.set('location', location)
-}
-
-function html(res: Response, body: string) {
-  res.status = 200
-  res.headers.set('content-type', 'text/html; charset=utf-8')
-  res.headers.set('cache-control', 'no-store')
-  res.body = body
 }

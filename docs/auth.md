@@ -1,8 +1,8 @@
 # Users, roles and access
 
 How `@magpiejs/auth` decides who may do what. Phase 3's single login ([phase-3.md](phase-3.md) §4.5)
-became several users with roles; identity providers (OIDC, trusted-header) are the next step and
-will register into this core.
+became several users with roles, and how people prove who they are moved into identity-provider
+plugins that register with the core.
 
 ## Roles
 
@@ -26,13 +26,63 @@ ending a session also closes that session's open console sockets.
 
 ## Who is calling
 
-- **Session**: the `magpie_session` cookie from the login page. Used by the console and its WebSocket.
+- **Session**: the `magpie_session` cookie, started by any identity provider's login. Used by the
+  console and its WebSocket.
 - **API key**: `X-Api-Key` (or `?apikey=`), only under `/api/`. A key is a `viewer` or a `manager`,
-  never an `admin`, and never outranks the user who made it. Keys made before roles existed have no
-  owner and became `manager` keys.
+  never an `admin`, and never outranks the user who made it.
 
-The first account, made on the login page at first start, is an administrator. Accounts that
-existed before roles became administrators too (migration `0001_roles`).
+## Identity providers
+
+`@magpiejs/auth` owns users, roles, sessions and API keys. It does not check passwords or talk to
+login services: **identity providers** are separate plugins that do, and register with
+`ctx.auth.providers` (`IdentityProvider` in `plugins/auth/src/providers.ts`). Several can be loaded
+at once; the login page shows a section from each.
+
+| Plugin                 | How people prove who they are                                       | Own tables                            |
+| ---------------------- | ------------------------------------------------------------------- | ------------------------------------- |
+| `@magpiejs/auth-local` | a username and password; makes the first account                    | `authlocal_credentials`               |
+| `@magpiejs/auth-oidc`  | an OpenID Connect provider (Authelia, Authentik, Keycloak, Google…) | none (links are in `auth_identities`) |
+| `@magpiejs/auth-proxy` | a header set by a reverse proxy that already logged them in         | none                                  |
+
+A provider can contribute: `login(view)` (HTML for the login page), `setup(view)` (HTML that makes
+the first user, shown while there are none), `authenticate(req)` (sign in a request that carries its
+own proof, like a proxy header), `password` (so the account and Users pages can set and change
+passwords) and `knows(userId)` (shown under "Signs in with"). A provider that learns who someone is
+from outside hands auth an `ExternalLogin`, and `auth.resolveExternal()` returns the user:
+
+- A user already linked to that provider's `subject` is found (`auth_identities`).
+- Otherwise `matchUsername` signs in as the existing user with that name, and `create` makes a
+  new one with the given role. **A matching name alone never gives anyone an existing user**: the
+  stranger becomes `amy-2`. `matchUsername` is off by default and only for providers whose names
+  can be trusted. A user already tied to a different identity at that provider is not handed over.
+- `role` sets the user's role on every login, so the provider decides it. The last active
+  administrator is never demoted.
+
+Providers that map groups to roles share `adminGroups`, `managerGroups` and `defaultRole`
+(`plugins/auth/src/mapping.ts`): the highest role a person's groups earn, else the default.
+`defaultRole: none` lets in only people in those groups.
+
+Add `@magpiejs/auth-local` to `magpie.yml` for password login (a new install's default file has it).
+Without any provider the login page says no sign-in method is enabled, so keep at least one.
+
+### auth-oidc
+
+Authorization code flow with PKCE. Fill in `issuer`, `clientId` (and `clientSecret` if the provider
+has one), register `<Magpie's address>/auth/oidc/callback` with the provider, and set the groups
+that map to roles. Its default `defaultRole` is `none`: nobody gets in until you name a group or
+choose a role. `groupsClaim` (default `groups`) is read from the ID token, or from userinfo if the
+token leaves it out. New users are named from `usernameClaim`, else the email's first part, else the
+subject. The issuer must be https (a loopback address is allowed for testing). The ID token comes
+straight from the provider's token endpoint over TLS, which OpenID Connect accepts in place of
+checking its signature; its issuer, audience, expiry and nonce are checked. Each login attempt's
+state works once, only in the browser that started it.
+
+### auth-proxy
+
+Reads `Remote-User` (and `Remote-Groups`, comma separated) set by a proxy such as Authelia or
+oauth2-proxy. Anyone who can reach Magpie directly could send those headers, so they are believed
+only on connections from `trustedProxies` (addresses or IPv4 ranges). **With none listed nothing is
+trusted.** Do not expose Magpie's port in a way that lets people skip the proxy.
 
 ## Declaring what a route or console action needs
 
@@ -92,9 +142,18 @@ That is only politeness for entries that mix pages: the server has already refus
 
 Failed logins are limited per address and per username (10 in 15 minutes each).
 
+## Upgrading
+
+Migration `0002_identities` removes `auth_users.password_hash`: passwords now live in
+`authlocal_credentials`, which starts empty, so passwords from before the split are not carried
+over. Add `@magpiejs/auth-local` to an existing `magpie.yml`, clear the old accounts (their rows are
+kept, but they have no password) and make the first account again on the login page.
+
 ## Known gaps
 
 - Hiding is per top-level key. Data that mixes library and settings values under one key has to be
   split into two keys before it can be hidden.
-- Identity is still local passwords only. Next: split identity into provider plugins
-  (`auth-local`, `auth-oidc`, `auth-proxy`) that map an outside identity to a user and role.
+- An OpenID login can't be linked to an existing user except by `matchUsername`; there is no
+  "link this account" step for a logged-in user yet.
+- Sessions made by a provider are not tied to it: removing a provider does not end sessions that
+  provider started.

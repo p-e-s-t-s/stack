@@ -5,7 +5,9 @@ import { readMigrations } from '@magpiejs/database/runner'
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
+import * as AuthLocal from '@magpiejs/auth-local'
 import AuthService, { roleCan, ROLES } from '../src'
+import { makeUser } from './helpers'
 
 let ctx: Context
 let base: string
@@ -14,6 +16,7 @@ beforeEach(async () => {
   await ctx.plugin(Server, { host: '127.0.0.1', port: 0 })
   await ctx.plugin(DatabaseService, { path: ':memory:' })
   await ctx.plugin(AuthService)
+  await ctx.plugin(AuthLocal)
   ctx.server.get('/api/v1/ping', async (_req, res) => void res.json({ pong: true }))
   ctx.server.get('/', async (_req, res) => void res.text('console'))
   ctx.server.ws('/ws')
@@ -33,7 +36,7 @@ const post = (path: string, form: Record<string, string>, headers: Record<string
 const cookieOf = (res: globalThis.Response) => res.headers.get('set-cookie')!.split(';')[0]!
 
 async function setup() {
-  const res = await post('/auth/setup', {
+  const res = await post('/auth/local/setup', {
     username: 'admin',
     password: 'correct horse',
     confirm: 'correct horse',
@@ -54,7 +57,7 @@ describe('auth', () => {
     const cookie = await setup()
     expect(await (await get('/', { cookie })).text()).toBe('console')
     // only one first-start setup
-    const again = await post('/auth/setup', {
+    const again = await post('/auth/local/setup', {
       username: 'x',
       password: '12345678',
       confirm: '12345678',
@@ -65,10 +68,10 @@ describe('auth', () => {
 
   it('logs in and out, and refuses wrong passwords and outside redirects', async () => {
     await setup()
-    const wrong = await post('/auth/login', { username: 'admin', password: 'nope' })
+    const wrong = await post('/auth/local/login', { username: 'admin', password: 'nope' })
     expect(wrong.headers.get('location')).toMatch(/error=wrong/)
 
-    const ok = await post('/auth/login', {
+    const ok = await post('/auth/local/login', {
       username: 'admin',
       password: 'correct horse',
       next: '//evil.example',
@@ -145,12 +148,12 @@ describe('users', () => {
     await setup()
     const [admin] = ctx.auth.users()
     expect(admin).toMatchObject({ username: 'admin', role: 'admin', disabled: false })
-    const viewer = await ctx.auth.createUser('sam', 'long enough', 'viewer')
+    const viewer = await makeUser(ctx, 'sam', 'viewer')
     expect(viewer.role).toBe('viewer')
-    await expect(ctx.auth.createUser('sam', 'long enough', 'viewer')).rejects.toThrow(/taken/)
-    await expect(ctx.auth.createUser('kim', 'short', 'viewer')).rejects.toThrow(/8 characters/)
-    await expect(ctx.auth.createUser('kim', 'long enough', 'root' as 'admin')).rejects.toThrow(
-      /role/,
+    expect(() => ctx.auth.createUser('sam', 'viewer')).toThrow(/taken/)
+    expect(() => ctx.auth.createUser('kim', 'root' as 'admin')).toThrow(/role/)
+    await expect(ctx.auth.providers.password()!.reset(viewer.id, 'short')).rejects.toThrow(
+      /8 characters/,
     )
     expect(ctx.auth.users().map((u) => u.username)).toEqual(['admin', 'sam'])
   })
@@ -161,7 +164,7 @@ describe('users', () => {
     expect(() => ctx.auth.updateUser(admin!.id, { role: 'manager' })).toThrow(/administrator/)
     expect(() => ctx.auth.updateUser(admin!.id, { disabled: true })).toThrow(/administrator/)
     expect(() => ctx.auth.deleteUser(admin!.id)).toThrow(/administrator/)
-    const second = await ctx.auth.createUser('ann', 'long enough', 'admin')
+    const second = await makeUser(ctx, 'ann', 'admin')
     ctx.auth.updateUser(admin!.id, { role: 'manager' })
     // now ann is the only one
     expect(() => ctx.auth.deleteUser(second.id)).toThrow(/administrator/)
@@ -170,16 +173,16 @@ describe('users', () => {
 
   it('ends sessions when a user is switched off or gets a new password', async () => {
     await setup()
-    const sam = await ctx.auth.createUser('sam', 'long enough', 'manager')
+    const sam = await makeUser(ctx, 'sam', 'manager')
     const login = async (password = 'long enough') =>
-      cookieOf(await post('/auth/login', { username: 'sam', password }))
+      cookieOf(await post('/auth/local/login', { username: 'sam', password }))
     const first = await login()
     const second = await login()
     expect((await get('/auth/status', { cookie: first })).status).toBe(200)
 
     ctx.auth.updateUser(sam.id, { disabled: true })
     expect((await get('/auth/status', { cookie: first })).status).toBe(401)
-    const refused = await post('/auth/login', { username: 'sam', password: 'long enough' })
+    const refused = await post('/auth/local/login', { username: 'sam', password: 'long enough' })
     expect(refused.headers.get('location')).toMatch(/switched%20off/)
 
     ctx.auth.updateUser(sam.id, { disabled: false })
@@ -187,16 +190,17 @@ describe('users', () => {
     expect((await get('/auth/status', { cookie: third })).status).toBe(200)
     expect((await get('/auth/status', { cookie: second })).status).toBe(401)
 
-    await ctx.auth.resetPassword(sam.id, 'a new password')
+    await ctx.auth.providers.password()!.reset(sam.id, 'a new password')
+    ctx.auth.endSessions(sam.id)
     expect((await get('/auth/status', { cookie: third })).status).toBe(401)
     expect((await login('a new password').then(Boolean)) && true).toBe(true)
   })
 
   it("lists and revokes a user's own sessions only", async () => {
     const cookie = await setup()
-    const sam = await ctx.auth.createUser('sam', 'long enough', 'viewer')
+    const sam = await makeUser(ctx, 'sam', 'viewer')
     const samCookie = cookieOf(
-      await post('/auth/login', { username: 'sam', password: 'long enough' }),
+      await post('/auth/local/login', { username: 'sam', password: 'long enough' }),
     )
     const [admin] = ctx.auth.users()
     const mine = ctx.auth.sessions(admin!.id)
@@ -211,8 +215,12 @@ describe('users', () => {
 
   it('limits failed logins per username as well as per address', async () => {
     await setup()
-    for (let i = 0; i < 10; i++) await post('/auth/login', { username: 'admin', password: 'nope' })
-    const blocked = await post('/auth/login', { username: 'admin', password: 'correct horse' })
+    for (let i = 0; i < 10; i++)
+      await post('/auth/local/login', { username: 'admin', password: 'nope' })
+    const blocked = await post('/auth/local/login', {
+      username: 'admin',
+      password: 'correct horse',
+    })
     expect(blocked.headers.get('location')).toMatch(/too%20many/)
   })
 })
@@ -220,7 +228,7 @@ describe('users', () => {
 describe('API keys', () => {
   it('never rank above admin-free roles or the person who made them', async () => {
     await setup()
-    const ann = await ctx.auth.createUser('ann', 'long enough', 'manager')
+    const ann = await makeUser(ctx, 'ann', 'manager')
     expect(() => ctx.auth.createApiKey('x', { role: 'admin' as 'manager' })).toThrow(/viewer or/)
     const { key } = ctx.auth.createApiKey('Home Assistant', { role: 'manager', userId: ann.id })
     expect(ctx.auth.checkApiKey(key)?.role).toBe('manager')
