@@ -59,9 +59,9 @@ data)`. `data` is **shared by every connected client**, so it cannot carry per-u
                         │  router.views slots + chain   │  chain: user pref → extends… → default
                         │  parts + styles, per theme    │
                         └───┬──────────────┬────────────┘
-                 <themed name="…">     tokens / CSS layer
+                 themed(part) · regions    tokens / CSS layer
                             │
-        shell · settings-layout · media-list · media-detail · media-add · home
+        shell · settings.layout · media.* · page.header · home   + regions
                             ▲
               kind plugins render these through console-kit, never a theme directly
 ```
@@ -79,27 +79,84 @@ plugin, disabling it would leave a blank page. Non-default themes are plugins na
 
 ## 4. Design
 
-### 4.1 Theme parts (the contract)
+### 4.1 Three levels of customisation
 
-A **part** is a named, replaceable component with a fixed props/slots contract. v1 list,
-deliberately short because it becomes public API:
+One flat list of component names is not enough for "completely different layouts", so a theme
+customises at three levels, cheapest first. A theme may use any of them.
+
+**Level 1: tokens and CSS.** Colours, fonts, radius, spacing, density. Most "themes" stop here.
+No names to agree on beyond the `--mp-*` custom properties and the `.mp-*` classes that
+already exist (§4.5).
+
+**Level 2: parts.** A part is a named component a theme can replace, with a fixed
+props/slots contract. Names are `domain.role`, and the set is **typed by module
+augmentation**, the way Cordis types `Context`:
+
+```ts
+// console-kit declares the core parts…
+declare module '@magpiejs/console-kit/theme' {
+  interface ThemeParts {
+    shell: ShellProps
+    'settings.layout': SettingsLayoutProps
+    home: {}
+    'media.list': MediaListProps
+    'media.detail': MediaDetailProps
+    'media.add': MediaAddProps
+    'media.card': MediaCardProps
+    'page.header': PageHeaderProps
+  }
+}
+// …and a plugin with its own overridable component adds more the same way.
+```
+
+`registerTheme(ctx, { parts })` is checked against `ThemeParts`, so a typo or a wrong prop
+type is a compile error, and the full list is discoverable by completion. The authoring doc's
+parts table is generated from this interface so it cannot drift.
+
+v1 parts, deliberately few because each one is public API:
 
 | Part              | Replaces                                          | Receives                                          |
 | ----------------- | ------------------------------------------------- | ------------------------------------------------- |
 | `shell`           | `root.vue`: nav, header, drawer, routed page area | `useNavigation()`, default slot = the routed page |
-| `settings-layout` | settings heading + settings nav + page frame      | `useNavigation()`, default slot                   |
+| `settings.layout` | settings heading + settings nav + page frame      | `useNavigation()`, default slot                   |
 | `home`            | `home.vue`                                        | —                                                 |
-| `media-list`      | `MediaCardGrid` (library lists)                   | same props/slots `MediaCardGrid` has today        |
-| `media-detail`    | `MediaDetailShell`                                | same props/slots `MediaDetailShell` has today     |
-| `media-add`       | `AddMediaFlow` (search → pick → configure → add)  | same props/slots `AddMediaFlow` has today         |
+| `media.list`      | `MediaCardGrid` (library lists)                   | same props/slots `MediaCardGrid` has today        |
+| `media.detail`    | `MediaDetailShell`                                | same props/slots `MediaDetailShell` has today     |
+| `media.add`       | `AddMediaFlow` (search → pick → configure → add)  | same props/slots `AddMediaFlow` has today         |
+| `media.card`      | one poster tile inside `MediaCardGrid`            | item image, title, href, `#meta` slot             |
+| `page.header`     | the `.mp-head` title + actions row                | title, summary, `#actions` slot                   |
 
-Rules for parts:
+**Parts compose.** The default `media.list` is built from `page.header` and a grid of
+`media.card`, so a theme can override at either granularity: replace `media.list` for a whole
+new layout, or only `media.card` and every library list changes. This is what keeps a short
+list from being all-or-nothing. Add a part only when a real second theme needs it: adding is
+non-breaking, changing or removing needs an `apiVersion` bump.
+
+**Level 3: regions.** Parts say _what_ renders; regions say _where things go_. The shell
+exposes named regions that plugins contribute small widgets to; the theme's shell decides where
+each region sits, or whether it shows at all.
+
+| Region           | Default contents                                       |
+| ---------------- | ------------------------------------------------------ |
+| `shell.brand`    | wordmark and caption                                   |
+| `shell.topbar`   | (empty by default; room for a health badge, user menu) |
+| `shell.nav-foot` | Settings link, **Log out** (contributed by `auth`)     |
+| `shell.notices`  | the offline banner; any plugin banners                 |
+
+A contribution is `registerRegion(ctx, 'shell.nav-foot', Component, { order })`, a thin wrapper
+over `router.slot({ type: 'region:shell.nav-foot', … })`; the shell renders
+`<k-slot name="region:shell.nav-foot" />` **without** `single`, so every contribution shows,
+in order. Two payoffs: a custom shell gets logout, notices and the settings link without
+re-implementing them (and so keeps their `data-testid`s and ARIA), and `webui` no longer hard
+codes the auth plugin's logout form: `auth` contributes it.
+
+Rules for parts and regions:
 
 - A part's props/slots are the console-kit component's existing ones. Kind plugins already
   pass them; the contract is "what `MediaCardGrid` takes", not a new design.
 - A part must keep the `data-testid`s and ARIA landmarks the default has (`#mp-main`, skip
-  link, `aria-current`). Shared helpers (§4.2) make this easy; the part list in code carries
-  a short "must preserve" note per part.
+  link, `aria-current`). Shared helpers (§4.2) and regions (above) make this easy, and the
+  conformance tests (§6, step 3) check it.
 - The contract is versioned: `theme.apiVersion` (integer). Registering a theme with a newer
   version than the engine knows is refused with a clear error; an older one still works until
   support is dropped.
@@ -114,6 +171,8 @@ navigate(event, path) }`. Themes draw navigation; they do not compute it.
 - `useDrawer()`: the open/close, focus-trap and Escape logic currently inline in `root.vue`,
   so a custom shell gets the same accessibility without copying it.
 - `useConnection()`: `{ ready, connected }` for an offline banner.
+- `useBreakpoint()`: the same mobile/desktop switch the default shell uses (`min-width: 721px`),
+  so themes agree on what "mobile" is.
 
 ### 4.3 Server: the `theme` service (`@magpiejs/themes`)
 
@@ -171,8 +230,8 @@ instead of a registry of our own:
   keyed on a dark/light preference kept in client settings. It cannot express a per-user
   server-side choice or inheritance, so Magpie registers slots directly and does not use it.
 
-A **part** is a slot type (`media-list`, `shell`, …). A theme registers its parts like this,
-in its client entry:
+A **part** is a slot type (`media.list`, `shell`, …); a **region** is a slot type prefixed
+`region:`. A theme registers its parts like this, in its client entry:
 
 ```ts
 // plugins/theme-tv/client/index.ts
@@ -182,7 +241,10 @@ import MediaList from './MediaList.vue'
 import './tokens.css?inline'
 
 export default function (ctx: Context) {
-  registerTheme(ctx, { id: 'tv', parts: { shell: Shell, 'media-list': MediaList } })
+  registerTheme(ctx, {
+    id: 'tv',
+    parts: { shell: Shell, 'media.list': MediaList, 'media.card': TvCard },
+  })
 }
 ```
 
@@ -217,11 +279,11 @@ export function themed(name: string, Default: Component) {
     },
   })
 }
-// MediaCardGrid.vue's exported component = themed('media-list', DefaultMediaCardGrid)
+// MediaCardGrid.vue's exported component = themed('media.list', DefaultMediaCardGrid)
 ```
 
 `movie-list.vue` keeps importing `MediaCardGrid` and passing the same props and slots; if a
-theme registered `media-list`, that is what renders, with the same props and slots. (The
+theme registered `media.list`, that is what renders, with the same props and slots. (The
 helper resolves the slot itself rather than using `<k-slot>`, because `<k-slot>` forwards
 only its own slots to the chosen component, which would drop the `#meta`/`#actions` slots the
 kind plugins pass.)
@@ -284,10 +346,10 @@ the Appearance page and the user falls back to the default (no error).
 - **Use for me** / **Follow instance default**, and **Use as instance default**.
 - Preview-on-hover is out of scope; applying is instant and reversible.
 
-### 5.3 Per-page overrides (last)
+### 5.3 Scoped overrides (last)
 
-Part lookup tries a scoped name first: `media-list:movies`, then `media-list`. Kind plugins
-pass a `scope` to `<themed>`. A theme may then restyle only the movies list. Not needed for
+Part lookup tries a scoped name first: `media.list:movies`, then `media.list`. Kind plugins
+pass a `scope` to the wrapper. A theme may then restyle only the movies list. Not needed for
 v1; the resolver reserves the syntax so adding it changes no existing theme.
 
 ### 5.4 Failure and edge cases
@@ -300,6 +362,29 @@ v1; the resolver reserves the syntax so adding it changes no existing theme.
 | `extends` loop                           | Refused at registration                                 |
 | Not logged in (login page)               | Login is server-rendered and not themed in v1           |
 | Instance default theme uninstalled       | Reverts to `default`; stored id kept in case it returns |
+
+### 5.4a Safe mode
+
+A theme can make the console unusable (a shell with no nav). Two escapes, neither needing
+the broken UI:
+
+- `?theme=default` on any URL uses the default theme for that tab, without saving anything.
+- `/settings/appearance` is always routable by URL, and the default `settings.layout` is
+  always present even if the theme's shell hides navigation to it.
+
+Each part is wrapped in an error boundary (`onErrorCaptured`), so a part that throws at
+render time, not only at load time, falls through to the next theme in the chain.
+
+### 5.4b Mode, custom CSS and previews
+
+- **Colour mode is separate from the theme.** A theme supplies light and dark token sets; the
+  user's light/dark/auto choice (stored beside the preference) picks between them. Today's
+  `prefers-color-scheme` override stays the default for "auto".
+- **Custom CSS layer.** Each user can add their own CSS, injected last (after the `theme`
+  layer). It is a few lines on the Appearance page and covers many "I just want this one
+  thing different" cases without writing a plugin. It only styles that user's own console.
+- **Real previews.** The Appearance page renders parts with fixture props instead of showing
+  only colour swatches. The same fixtures drive the conformance tests (§6, step 3).
 
 ### 5.5 Variants as plugin instances, and theme options
 
@@ -331,21 +416,27 @@ user sees until step 3.
 1. **CSS layers.** `@layer base, kind, theme`; wrap all stylesheets. No visual change.
 2. **Contract extraction.** Move the navigation model and its tests to `console-kit`; add
    `useNavigation`, `useDrawer`, `useConnection`; rebuild `root.vue` on them.
-3. **`registerTheme` and `themed`.** The chain-to-`disabled`/`order` helper, lazy parts,
+3. **`registerTheme`, `registerRegion` and `themed`.** The chain-to-`disabled`/`order` helper, lazy parts,
    failure fall-through (the chain logic as a pure function, unit-tested with vitest). The
    shell's `root` slot resolves through `themed('shell', …)`; the `console-kit` list, detail
    and add components become `themed(...)` wrappers. Default parts are the existing
-   components, so kind plugins are untouched.
+   components, so kind plugins are untouched. Regions: move logout, the settings link and the
+   offline banner into `shell.*` regions (`auth` contributes logout). Add the typed
+   `ThemeParts` interface, per-part error boundaries and safe mode. **Conformance tests:**
+   `@magpiejs/testing` gets fixture props for each part and a harness that mounts any
+   registered theme's parts, checking they render, keep the required `data-testid`s and ARIA
+   landmarks, and expose the regions they are meant to.
 4. **Server `theme` service.** `@magpiejs/themes`: service, schema + migration, REST, events,
    tests (register/dispose, chain with unknown ids, cycle refusal, preference cascade on user
    delete, default fallback).
 5. **Appearance page and per-user selection**, including the `localStorage` mirror.
 6. **Proof themes.** One partial theme (tokens + fonts only, to prove inheritance) and one
-   deliberately different full theme (top-nav `shell`, table `media-list`) to stress the
+   deliberately different full theme (top-nav `shell`, table `media.list`) to stress the
    contract. Fix the contract, not the themes, when something is awkward.
 7. **Author docs** (`docs/theme-authoring.md`): parts table, composables, "must preserve" list,
    a minimal theme skeleton.
-8. **Later:** per-page overrides (§5.3), theme options, login-page theming.
+8. **Later:** scoped overrides (§5.3), per-user theme options, the custom CSS layer and colour
+   mode if not done in step 5, login-page tokens (§7).
 
 ## 7. Risks and open questions
 
@@ -359,5 +450,9 @@ user sees until step 3.
   Decide whether that is acceptable or whether the first user is treated as admin.
 - **Module-level state in `console-kit`** would silently split across entries (§4.6). Keep
   it stateless; a lint rule or review note is enough.
-- **Login page** is server-rendered (`auth/src/login.ts`) and outside the theme system; it
-  will look un-themed until it gets a token-only treatment.
+- **Login page** is server-rendered (`auth/src/login.ts`) and outside the client slot system.
+  Cheap fix: a theme's tokens are also a plain CSS file the themes plugin serves
+  (`/themes/<id>/tokens.css`, public); the login page links the instance default's, since the
+  user is not known yet.
+- **Theme assets.** Fonts and images ship inside the theme plugin and are served by Magpie,
+  not from a CDN, since Magpie is self-hosted and often offline or behind a proxy.
