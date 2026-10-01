@@ -303,13 +303,22 @@ export function apply(ctx: Context, config: Config) {
       return episodes
     },
 
-    async mapIds(ids) {
-      if (ids.tmdb || !ids.imdb) return ids
-      const found = await get<{ movie_results: TmdbMovie[] }>(`/find/${ids.imdb}`, {
-        external_source: 'imdb_id',
-      })
-      const movie = found.movie_results[0]
-      return movie ? { ...ids, tmdb: String(movie.id) } : ids
+    async mapIds(ids, kind) {
+      if (ids.tmdb) return ids
+      const source = ids.imdb
+        ? { id: ids.imdb, external: 'imdb_id' }
+        : ids.tvdb
+          ? { id: ids.tvdb, external: 'tvdb_id' }
+          : undefined
+      if (!source) return ids
+      const found = await get<{ movie_results: TmdbMovie[]; tv_results: { id: number }[] }>(
+        `/find/${source.id}`,
+        { external_source: source.external },
+      )
+      // a tvdb id is always a show; an imdb id is whichever type the caller expects
+      const series = kind ? kind === 'series' : !ids.imdb
+      const hit = series ? found.tv_results[0] : found.movie_results[0]
+      return hit ? { ...ids, tmdb: String(hit.id) } : ids
     },
   }
 

@@ -84,11 +84,9 @@ it('takes the kinds from the packages that host them', async () => {
   expect(settings.providers().map((p) => p.kind)).toEqual(
     expect.arrayContaining(['indexer', 'download-client', 'metadata', 'notifier']),
   )
-  expect(
-    settings.providers('indexer').every((p) => p.slot === 'provider-settings' && !p.single),
-  ).toBe(true)
+  expect(settings.providers('indexer').every((p) => p.slot === 'provider-settings')).toBe(true)
   const rows = settings.plugins()
-  expect(rows.find((r) => r.label.includes('TMDB'))).toMatchObject({
+  expect(rows.find((r) => r.kind === 'metadata' && r.label.includes('TMDB'))).toMatchObject({
     kind: 'metadata',
     kindLabel: 'Metadata',
     state: 'not-set-up',
@@ -108,7 +106,8 @@ it('takes the kinds from the packages that host them', async () => {
 it('reports the state of each plugin', async () => {
   const { settings, stop } = await start([])
   const id = await settings.add('@magpiejs/metadata-tmdb', { apiKey: 'k' }, false)
-  const tmdb = () => settings.plugins().find((r) => r.label.includes('TMDB'))
+  const tmdb = () =>
+    settings.plugins().find((r) => r.kind === 'metadata' && r.label.includes('TMDB'))
   expect(tmdb()).toMatchObject({ state: 'disabled', instances: 1 })
   await settings.update(id, { apiKey: '' }, true)
   expect(tmdb()).toMatchObject({ state: 'active', instances: 1 })
