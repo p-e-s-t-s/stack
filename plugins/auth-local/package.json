@@ -1,0 +1,30 @@
+{
+  "name": "@magpiejs/auth-local",
+  "version": "0.0.0",
+  "description": "Password login for Magpie: the first-run account, logging in, and changing passwords",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "magpie": {
+    "namespace": "authlocal"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@cordisjs/plugin-server": "1.7.0",
+    "@magpiejs/auth": "0.0.0",
+    "@magpiejs/database": "0.0.0",
+    "drizzle-orm": "1.0.0-rc.4",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "1.0.0-rc.4"
+  }
+}

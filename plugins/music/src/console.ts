@@ -296,6 +296,11 @@ export default function console_(ctx: Context, music: MusicService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: {
+        view: 'library.read',
+        call: 'library.write',
+        methods: { albums: 'library.read', album: 'library.read' },
+      },
       routes: ['/music', '/music/add', '/music/:id', '/music/:id/:albumId'],
     },
     data,

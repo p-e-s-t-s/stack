@@ -16,18 +16,8 @@ beforeEach(async () => {
   await ctx.plugin(AuthService)
   await ctx.plugin(ThemesService)
   base = ctx.server.baseUrl
-  const res = await fetch(base + '/auth/setup', {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      username: 'admin',
-      password: 'correct horse',
-      confirm: 'correct horse',
-      next: '/',
-    }),
-    redirect: 'manual',
-  })
-  cookie = res.headers.get('set-cookie')!.split(';')[0]!
+  const admin = ctx.auth.createFirstAdmin('admin')
+  cookie = `magpie_session=${ctx.auth.createSession(admin.id)}`
   return () => void ctx.server._http.close()
 })
 
@@ -153,6 +143,22 @@ describe('HTTP', () => {
     expect((await put('/themes/me', { id: null })).status).toBe(200)
     const all = await put('/themes/default', { id: 'compact' })
     expect((await json(all)).chain).toEqual(['compact', 'default'])
+  })
+
+  it('lets anyone choose their own theme but only an administrator the default', async () => {
+    ctx.theme.register(def('compact'))
+    const viewer = ctx.auth.createUser('vic', 'viewer')
+    const as = {
+      cookie: `magpie_session=${ctx.auth.createSession(viewer.id)}`,
+      'content-type': 'application/json',
+    }
+    const call = (path: string) =>
+      fetch(base + path, { method: 'PUT', headers: as, body: JSON.stringify({ id: 'compact' }) })
+    expect((await call('/themes/me')).status).toBe(200)
+    const refused = await call('/themes/default')
+    expect(refused.status).toBe(403)
+    expect((await json(refused)).error).toMatch(/administrator/)
+    expect((await json(await get('/themes'))).default).toBe('default')
   })
 
   it('answers bad requests with a message', async () => {

@@ -61,6 +61,7 @@ export function apply(ctx: Context) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'system.admin' },
       routes: ['/system'],
     },
     { startedAt, ...snapshot() } satisfies SystemData,

@@ -21,5 +21,7 @@ export function apply(ctx: Context) {
     source: '../client/index.ts',
     manifest: '../dist/manifest.json',
     routes: [],
+    // a theme's styles are for everyone, whatever their role
+    access: { view: 'account.self' },
   })
 }

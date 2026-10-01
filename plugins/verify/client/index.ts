@@ -7,6 +7,7 @@ export default function (ctx: Context) {
   registerPage(ctx, {
     navigation: { group: 'configuration', icon: 'other' },
     path: '/settings/import-checks',
+    permission: 'settings.manage',
     name: 'Import checks',
     order: 96,
     component: ImportChecks,

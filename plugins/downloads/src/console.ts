@@ -95,6 +95,12 @@ export default function console_(ctx: Context, downloads: DownloadsService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: {
+        view: 'library.read',
+        call: 'settings.manage',
+        methods: { remove: 'downloads.manage', unblock: 'downloads.manage' },
+        data: { clients: 'settings.manage' },
+      },
       routes: ['/activity', '/settings/clients'],
     },
     data,

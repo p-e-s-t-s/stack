@@ -22,7 +22,8 @@
     "./theme": "./client/theme/index.ts",
     "./defaults/MediaCardGrid.vue": "./src/defaults/MediaCardGrid.vue",
     "./defaults/MediaDetailShell.vue": "./src/defaults/MediaDetailShell.vue",
-    "./defaults/AddMediaFlow.vue": "./src/defaults/AddMediaFlow.vue"
+    "./defaults/AddMediaFlow.vue": "./src/defaults/AddMediaFlow.vue",
+    "./access": "./client/access.ts"
   },
   "dependencies": {
     "@magpiejs/types": "0.0.0"

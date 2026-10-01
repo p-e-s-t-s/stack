@@ -23,7 +23,7 @@ export default function console_(ctx: Context, s: SubtitlesService) {
     toolHealth:()=>s.toolHealth(),
     saveTools:(input:unknown)=>s.saveTools(input),
   }
-  const entry = ctx.webui.addEntry({baseUrl:import.meta.url,source:'../client/index.ts',manifest:'../dist/manifest.json',routes:['/subtitles','/settings/subtitles','/movies','/series']},data)
+  const entry = ctx.webui.addEntry({baseUrl:import.meta.url,source:'../client/index.ts',manifest:'../dist/manifest.json',access:{view:'library.read',call:'library.write',methods:{saveProfile:'settings.manage',removeProfile:'settings.manage',saveTools:'settings.manage',setDefault:'settings.manage'},data:{providers:'settings.manage',tools:'settings.manage'}},routes:['/subtitles','/settings/subtitles','/movies','/series']},data)
   ctx.on('subtitles/changed',()=>entry.mutate(d=>Object.assign(d,snapshot())))
 }
 export interface SubtitlesData {

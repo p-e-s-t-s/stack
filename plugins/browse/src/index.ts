@@ -43,6 +43,7 @@ export class BrowseService extends Service {
           baseUrl: import.meta.url,
           source: '../client/index.ts',
           manifest: '../dist/manifest.json',
+          access: { view: 'library.read' },
           routes: ['/browse'],
         },
         {

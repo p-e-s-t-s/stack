@@ -26,9 +26,13 @@ export function apply(ctx: Context) {
     source: '../client/index.ts',
     manifest: '../dist/manifest.json',
     routes: [],
+    access: { view: 'account.self' }, // every logged-in user gets the theme, whatever their role
   })
 }
 ```
+
+An entry that declares no `access` is sent to administrators only (docs/auth.md), so a theme
+without that line would look different to everyone else.
 
 `register` lasts as long as the plugin. It throws for a reserved or duplicate id, a newer
 `apiVersion` than Magpie knows, or a loop in `extends`. Add the package to the app's plugin

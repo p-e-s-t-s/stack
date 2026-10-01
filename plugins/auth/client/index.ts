@@ -3,6 +3,7 @@ import type { Context } from '@cordisjs/client'
 import { registerRegion } from '@magpiejs/console-kit/theme'
 import General from './general.vue'
 import Logout from './logout.vue'
+import Users from './users.vue'
 
 export default function (ctx: Context) {
   // the console's Log out button: the shell lays out `shell.nav-foot`, auth fills it
@@ -13,5 +14,13 @@ export default function (ctx: Context) {
     name: 'General',
     order: 10,
     component: General,
+  })
+  registerPage(ctx, {
+    navigation: { group: 'configuration', icon: 'settings' },
+    path: '/settings/users',
+    name: 'Users',
+    order: 11,
+    permission: 'users.manage',
+    component: Users,
   })
 }

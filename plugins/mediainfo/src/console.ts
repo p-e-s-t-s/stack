@@ -47,6 +47,11 @@ export default function console_(ctx: Context, mediainfo: MediaInfoService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: {
+        view: 'library.read',
+        call: 'library.write',
+        methods: { forMedia: 'library.read' },
+      },
       routes: [],
     },
     {

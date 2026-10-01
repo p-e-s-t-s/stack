@@ -26,6 +26,8 @@ export default function console_(ctx: Context, themes: ThemesService) {
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
       routes: ['/settings/appearance'],
+      // everyone picks their own theme, and every tab follows the chain the server gives it
+      access: { view: 'account.self' },
     },
     snapshot(),
   )

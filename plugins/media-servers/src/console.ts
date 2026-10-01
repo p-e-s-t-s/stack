@@ -19,6 +19,7 @@ export default function console_(ctx: Context, servers: MediaServersService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'settings.manage' },
       routes: ['/settings/media-servers'],
     },
     {

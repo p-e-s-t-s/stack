@@ -44,6 +44,17 @@ export default function console_(ctx: Context, verify: VerifyService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: {
+        view: 'library.read',
+        call: 'settings.manage',
+        methods: { forGrab: 'library.read' },
+        data: {
+          checks: 'settings.manage',
+          durationTolerance: 'settings.manage',
+          tools: 'settings.manage',
+          recent: 'settings.manage',
+        },
+      },
       routes: ['/settings/import-checks'],
     },
     {

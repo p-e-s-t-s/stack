@@ -203,6 +203,9 @@ export class ThemesService extends Service {
       if (res.status === 200) res.json({ ok: true, chain: this.resolve(userId) })
     })
     server.put('/themes/default', async (req, res) => {
+      // the default is what everyone who has not chosen sees, so it is a setting
+      if (!this.ctx.auth.can(this.ctx.auth.identity(req), 'settings.manage'))
+        return fail(res, 403, 'only an administrator can change the default theme')
       await this.change(req, res, (id) => this.setDefault(id))
       if (res.status === 200) res.json({ ok: true, chain: this.resolve(this.userId(req)) })
     })

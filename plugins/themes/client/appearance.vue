@@ -39,6 +39,7 @@
             Use for me
           </button>
           <button
+            v-if="can('settings.manage')"
             class="small"
             :disabled="busy || !theme.available || theme.id === state.default"
             @click="save('/themes/default', theme.id === 'default' ? null : theme.id)"
@@ -59,6 +60,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useContext, useRpc } from '@cordisjs/client'
+import { can } from '@magpiejs/console-kit/access'
 import type { ThemesData } from '../src/console'
 import { choose, fetchThemes, type ThemesState } from './sync'
 

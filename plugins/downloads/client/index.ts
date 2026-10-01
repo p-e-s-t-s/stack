@@ -15,6 +15,7 @@ export default function (ctx: Context) {
   registerPage(ctx, {
     navigation: { group: 'configuration', icon: 'activity' },
     path: '/settings/clients',
+    permission: 'settings.manage',
     name: 'Download clients',
     order: 50,
     component: Clients,

@@ -342,13 +342,14 @@ function routes(ctx: Context, backup: BackupService) {
       throw new ApiError(404, error instanceof Error ? error.message : String(error))
     }
   }
-  ctx.api.get('/backups', () => ({
+  const admin = ctx.api.as('system.admin')
+  admin.get('/backups', () => ({
     settings: backup.settings(),
     backups: backup.list(),
     staged: backup.staged(),
   }))
-  ctx.api.post('/backups', async () => backup.create('manual'))
-  ctx.api.get('/backups/:name', async ({ params }) => {
+  admin.post('/backups', async () => backup.create('manual'))
+  admin.get('/backups/:name', async ({ params }) => {
     const file = guard(() => backup.path(params.name!))
     return new Response(await readFile(file), {
       headers: {
@@ -357,8 +358,8 @@ function routes(ctx: Context, backup: BackupService) {
       },
     })
   })
-  ctx.api.delete('/backups/:name', ({ params }) => void guard(() => backup.remove(params.name!)))
-  ctx.api.post('/backups/:name/restore', async ({ params, body }) => {
+  admin.delete('/backups/:name', ({ params }) => void guard(() => backup.remove(params.name!)))
+  admin.post('/backups/:name/restore', async ({ params, body }) => {
     guard(() => backup.path(params.name!))
     try {
       return await backup.restore(params.name!, { config: !!body?.config })
@@ -366,7 +367,7 @@ function routes(ctx: Context, backup: BackupService) {
       throw new ApiError(400, error instanceof Error ? error.message : String(error))
     }
   })
-  ctx.api.delete('/restore', () => void backup.cancelRestore())
+  admin.delete('/restore', () => void backup.cancelRestore())
 }
 
 export default BackupService
