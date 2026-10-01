@@ -1,33 +1,36 @@
 /* Layout specific to the podcast pages; the grid, hero, results, edit form, tabs and
    episode table come from the shell (.mp-grid, .mp-hero, .mp-result, .mp-edit, .mp-tabs,
    .mp-table.episodes…). */
+@layer base, kind, theme, user;
 
-.pc .poster {
-  aspect-ratio: 1;
-}
+@layer kind {
+  .pc .poster {
+    aspect-ratio: 1;
+  }
 
-/* OPML feed-url preview, before it's added */
-.pc .preview {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-.pc .preview .poster {
-  width: 90px;
-  flex-shrink: 0;
-}
+  /* OPML feed-url preview, before it's added */
+  .pc .preview {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .pc .preview .poster {
+    width: 90px;
+    flex-shrink: 0;
+  }
 
-/* episodes: length and description columns aren't in the shared episode table */
-.pc .episodes td.len {
-  width: 70px;
-  white-space: nowrap;
-}
-.pc .episodes .desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.pc .more {
-  margin-top: 12px;
+  /* episodes: length and description columns aren't in the shared episode table */
+  .pc .episodes td.len {
+    width: 70px;
+    white-space: nowrap;
+  }
+  .pc .episodes .desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .pc .more {
+    margin-top: 12px;
+  }
 }

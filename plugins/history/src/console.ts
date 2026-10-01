@@ -37,6 +37,7 @@ export default function console_(ctx: Context, history: HistoryService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'library.read' },
       routes: ['/history'],
     },
     { events: snapshot() } satisfies HistoryData,

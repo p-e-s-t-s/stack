@@ -37,9 +37,9 @@
 // the results. The kind supplies the lookup (it owns `term`, `results` and `searching`),
 // the option fields (`options`), and the button on each result (`action`). When the kind has
 // no library folder yet, the options are replaced by a notice pointing at the setting.
-import LocationNotice from './LocationNotice.vue'
-import LookupResult from './LookupResult.vue'
-import SearchBox from './SearchBox.vue'
+import LocationNotice from '../LocationNotice.vue'
+import LookupResult from '../LookupResult.vue'
+import SearchBox from '../SearchBox.vue'
 
 withDefaults(
   defineProps<{

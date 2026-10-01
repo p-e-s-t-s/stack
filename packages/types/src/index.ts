@@ -300,3 +300,24 @@ export interface Notifier {
 }
 
 export * from './subtitles'
+
+// Access control. The role → permission table lives in @magpiejs/auth; plugins only name
+// the permission a route or console action needs.
+
+/**
+ * What a caller may do. `account.self`: their own password and sessions. `library.read`:
+ * see media, calendar, queue and history. `library.write`: add, edit, search and remove
+ * media. `downloads.manage`: act on the download queue and blocklist. `settings.manage`:
+ * indexers, clients, profiles, naming, notifications and other configuration.
+ * `system.admin`: backups, health, jobs and the system page. `users.manage`: users and API keys.
+ */
+export type Permission =
+  | 'account.self'
+  | 'library.read'
+  | 'library.write'
+  | 'downloads.manage'
+  | 'settings.manage'
+  | 'system.admin'
+  | 'users.manage'
+
+export type Role = 'admin' | 'manager' | 'viewer'

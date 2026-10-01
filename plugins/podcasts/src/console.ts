@@ -204,6 +204,11 @@ export default function console_(ctx: Context, podcasts: PodcastsService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: {
+        view: 'library.read',
+        call: 'library.write',
+        methods: { episodes: 'library.read', exportOpml: 'library.read' },
+      },
       routes: ['/podcasts', '/podcasts/add', '/podcasts/:id'],
     },
     data,

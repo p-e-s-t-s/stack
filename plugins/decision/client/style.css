@@ -1,112 +1,115 @@
 /* Layout for the decision pages; buttons, inputs and tables come from the shell. */
+@layer base, kind, theme, user;
 
-.dc-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin: 10px 0;
-}
-.dc-row label {
-  color: var(--mp-muted);
-  font-size: 13px;
-}
-.dc textarea {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 13px;
-}
-.dc .name {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 13px;
-  word-break: break-all;
-}
-.dc .tag {
-  display: inline-block;
-  padding: 1px 8px;
-  margin: 2px;
-  border-radius: 999px;
-  background: var(--mp-surface-2);
-  font-size: 12px;
-}
-.dc .ok {
-  color: var(--mp-ok);
-  font-weight: 600;
-}
-.dc .no {
-  color: var(--mp-bad);
-  font-weight: 600;
-}
-.dc .muted {
-  color: var(--mp-muted);
-  font-size: 13px;
-}
-.dc .profile,
-.dc .mp-card {
-  max-width: 820px;
-}
-.dc .more,
-.dc .global {
-  margin-top: 12px;
-}
-.dc .more summary,
-.dc .global summary {
-  cursor: pointer;
-  color: var(--mp-muted);
-  padding: 6px 0;
-}
-.dc .global {
-  margin-top: 36px;
-  border-top: 1px solid var(--mp-border);
-  padding-top: 12px;
-}
-.dc .qualities tr.off td {
-  color: var(--mp-muted);
-}
-.dc .score {
-  width: 90px;
-}
-.dc .save {
-  margin-top: 20px;
-}
+@layer kind {
+  .dc-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .dc-row label {
+    color: var(--mp-muted);
+    font-size: 13px;
+  }
+  .dc textarea {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 13px;
+  }
+  .dc .name {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 13px;
+    word-break: break-all;
+  }
+  .dc .tag {
+    display: inline-block;
+    padding: 1px 8px;
+    margin: 2px;
+    border-radius: 999px;
+    background: var(--mp-surface-2);
+    font-size: 12px;
+  }
+  .dc .ok {
+    color: var(--mp-ok);
+    font-weight: 600;
+  }
+  .dc .no {
+    color: var(--mp-bad);
+    font-weight: 600;
+  }
+  .dc .muted {
+    color: var(--mp-muted);
+    font-size: 13px;
+  }
+  .dc .profile,
+  .dc .mp-card {
+    max-width: 820px;
+  }
+  .dc .more,
+  .dc .global {
+    margin-top: 12px;
+  }
+  .dc .more summary,
+  .dc .global summary {
+    cursor: pointer;
+    color: var(--mp-muted);
+    padding: 6px 0;
+  }
+  .dc .global {
+    margin-top: 36px;
+    border-top: 1px solid var(--mp-border);
+    padding-top: 12px;
+  }
+  .dc .qualities tr.off td {
+    color: var(--mp-muted);
+  }
+  .dc .score {
+    width: 90px;
+  }
+  .dc .save {
+    margin-top: 20px;
+  }
 
-/* parse tester: colors for the parts of a release name */
-.sp-title {
-  background: #cfe3ff66;
-}
-.sp-year {
-  background: #ffe0a866;
-}
-.sp-episodes {
-  background: #d6f5d666;
-}
-.sp-resolution,
-.sp-source,
-.sp-modifier {
-  background: #f5d6f566;
-}
-.sp-videoCodec,
-.sp-hdr,
-.sp-bitDepth {
-  background: #d6f0f566;
-}
-.sp-audio,
-.sp-audioChannels,
-.sp-atmos {
-  background: #f5ecd666;
-}
-.sp-group {
-  background: #e0e0e066;
-}
-.sp-language,
-.sp-multiAudio {
-  background: #ffd6d666;
-}
-.sp-edition,
-.sp-streamingService,
-.sp-revision {
-  background: #e6d6ff66;
-}
+  /* parse tester: colors for the parts of a release name */
+  .sp-title {
+    background: #cfe3ff66;
+  }
+  .sp-year {
+    background: #ffe0a866;
+  }
+  .sp-episodes {
+    background: #d6f5d666;
+  }
+  .sp-resolution,
+  .sp-source,
+  .sp-modifier {
+    background: #f5d6f566;
+  }
+  .sp-videoCodec,
+  .sp-hdr,
+  .sp-bitDepth {
+    background: #d6f0f566;
+  }
+  .sp-audio,
+  .sp-audioChannels,
+  .sp-atmos {
+    background: #f5ecd666;
+  }
+  .sp-group {
+    background: #e0e0e066;
+  }
+  .sp-language,
+  .sp-multiAudio {
+    background: #ffd6d666;
+  }
+  .sp-edition,
+  .sp-streamingService,
+  .sp-revision {
+    background: #e6d6ff66;
+  }
 
-.dc .families {
-  margin-bottom: 4px;
+  .dc .families {
+    margin-bottom: 4px;
+  }
 }

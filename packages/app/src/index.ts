@@ -25,6 +25,18 @@ export function defaultConfig(options: StartOptions) {
     },
     { name: '@magpiejs/database' },
     { name: '@magpiejs/auth' },
+    // logging in with a password, and making the first account; turn off only if another
+    // identity provider below is enabled
+    { name: '@magpiejs/auth-local' },
+    // log in with an OpenID Connect provider (Authelia, Authentik, Keycloak…); fill in the
+    // provider's address, client id and the groups that map to roles, then enable
+    {
+      name: '@magpiejs/auth-oidc',
+      disabled: true,
+      config: { issuer: '', clientId: '', clientSecret: '', adminGroups: [], managerGroups: [] },
+    },
+    // trust a reverse proxy's user header; list the proxy's address first, then enable
+    { name: '@magpiejs/auth-proxy', disabled: true, config: { trustedProxies: [] } },
     { name: '@magpiejs/api' },
     { name: '@magpiejs/jobs' },
     { name: '@magpiejs/decision' },
@@ -68,6 +80,11 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/health' },
     { name: '@magpiejs/backup' },
     { name: '@magpiejs/settings' },
+    // swappable console themes; installed themes appear in Settings → Appearance
+    { name: '@magpiejs/themes' },
+    // two sample themes: Slate (colours and type) and Dock (top bar, table list; builds on Slate)
+    { name: '@magpiejs/theme-slate' },
+    { name: '@magpiejs/theme-dock' },
   ]
 }
 

@@ -14,6 +14,7 @@ export default function console_(ctx: Context, metadata: MetadataService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'settings.manage' },
       routes: ['/settings/metadata'],
     },
     { providers: metadata.list() } satisfies MetadataData,

@@ -74,6 +74,7 @@ export default function console_(ctx: Context, library: LibraryService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'settings.manage' },
       routes: ['/settings/media'],
     },
     data,

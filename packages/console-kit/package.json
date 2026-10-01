@@ -13,18 +13,24 @@
     "./LocationNotice.vue": "./src/LocationNotice.vue",
     "./TabBar.vue": "./src/TabBar.vue",
     "./CollapsibleSection.vue": "./src/CollapsibleSection.vue",
-    "./MediaCardGrid.vue": "./src/MediaCardGrid.vue",
-    "./MediaDetailShell.vue": "./src/MediaDetailShell.vue",
+    "./MediaCardGrid.vue": "./client/themed/MediaCardGrid.ts",
+    "./MediaDetailShell.vue": "./client/themed/MediaDetailShell.ts",
     "./SearchBox.vue": "./src/SearchBox.vue",
     "./LookupResult.vue": "./src/LookupResult.vue",
     "./ProfileFolderFields.vue": "./src/ProfileFolderFields.vue",
-    "./AddMediaFlow.vue": "./src/AddMediaFlow.vue"
+    "./AddMediaFlow.vue": "./client/themed/AddMediaFlow.ts",
+    "./theme": "./client/theme/index.ts",
+    "./defaults/MediaCardGrid.vue": "./src/defaults/MediaCardGrid.vue",
+    "./defaults/MediaDetailShell.vue": "./src/defaults/MediaDetailShell.vue",
+    "./defaults/AddMediaFlow.vue": "./src/defaults/AddMediaFlow.vue",
+    "./access": "./client/access.ts"
   },
   "dependencies": {
     "@magpiejs/types": "0.0.0"
   },
   "peerDependencies": {
-    "@cordisjs/client": "0.8.2"
+    "@cordisjs/client": "0.8.2",
+    "vue": "^3.5.33"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.9",

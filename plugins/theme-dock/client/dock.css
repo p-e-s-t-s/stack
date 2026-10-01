@@ -1,0 +1,76 @@
+/* Dock: a top bar instead of a sidebar, and a table for library lists. */
+.dock {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.dock-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  height: 52px;
+  background: var(--mp-surface);
+  border-bottom: 1px solid var(--mp-border);
+}
+.dock-links {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  overflow-x: auto;
+}
+a:where(.dock-links *, .dock-foot *) {
+  text-decoration: none;
+}
+.dock-links a {
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--mp-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.dock-links a.active {
+  background: var(--mp-accent-soft);
+  color: var(--mp-accent);
+}
+.dock-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dock-foot a,
+.dock-foot .mp-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.dock-foot a.active {
+  color: var(--mp-accent);
+}
+.dock-main {
+  min-height: 0;
+}
+.dock-table {
+  display: table; /* the built-in stylesheet makes tables scroll blocks */
+  width: 100%;
+}
+.dock-thumb {
+  width: 44px;
+}
+.dock-thumb img {
+  display: block;
+  width: 36px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.dock-meta {
+  text-align: right;
+  white-space: nowrap;
+}
+.dock-meta > * + * {
+  margin-left: 10px;
+}

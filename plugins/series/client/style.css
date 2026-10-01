@@ -1,13 +1,16 @@
 /* Layout specific to the series pages; the grid, hero, results, edit form, seasons and episode
    table come from the shell (.mp-grid, .mp-hero, .mp-result, .mp-edit, .mp-section,
    .mp-table.episodes…). */
+@layer base, kind, theme, user;
 
-.sr .poster {
-  aspect-ratio: 2 / 3;
-}
+@layer kind {
+  .sr .poster {
+    aspect-ratio: 2 / 3;
+  }
 
-/* episode number column, alongside the shared mon/date/actions columns */
-.sr .episodes td.num {
-  width: 48px;
-  color: var(--mp-muted);
+  /* episode number column, alongside the shared mon/date/actions columns */
+  .sr .episodes td.num {
+    width: 48px;
+    color: var(--mp-muted);
+  }
 }

@@ -62,13 +62,19 @@
     "@magpiejs/notifier-ntfy": "0.0.0",
     "@magpiejs/notifier-webhook": "0.0.0",
     "@magpiejs/subtitles": "0.0.0",
+    "@magpiejs/theme-dock": "0.0.0",
+    "@magpiejs/theme-slate": "0.0.0",
+    "@magpiejs/themes": "0.0.0",
     "@magpiejs/verify": "0.0.0",
     "@magpiejs/subtitles-opensubtitles": "0.0.0",
     "@magpiejs/subtitles-subdl": "0.0.0",
     "@magpiejs/webui": "0.0.0",
     "cordis": "4.0.0-rc.10",
     "undici": "^8.11.0",
-    "@magpiejs/browse": "0.0.0"
+    "@magpiejs/browse": "0.0.0",
+    "@magpiejs/auth-local": "0.0.0",
+    "@magpiejs/auth-oidc": "0.0.0",
+    "@magpiejs/auth-proxy": "0.0.0"
   },
   "devDependencies": {
     "@magpiejs/testing": "0.0.0"

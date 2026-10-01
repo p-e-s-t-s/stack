@@ -155,6 +155,7 @@ export default function console_(ctx: Context, decision: DecisionService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'settings.manage' },
       routes: ['/system/parse', '/settings/profiles', '/settings/formats'],
     },
     data,

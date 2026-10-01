@@ -39,6 +39,7 @@ export default function console_(ctx: Context, calendar: CalendarService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'library.read' },
       routes: ['/calendar'],
     },
     data,

@@ -95,7 +95,7 @@ export class NotificationsService extends Service {
     })
     this.ctx.on('downloads/failed', (grab) => this.onDownload('download.failed', grab))
     this.ctx.on('downloads/grabbed', (grab) => this.onDownload('download.grabbed', grab))
-    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+    this.ctx.inject(['webui', 'timer'], (ctx) => void ctx.plugin(console_, this))
   }
 
   // ---- destinations

@@ -1,15 +1,18 @@
 /* Layout for the Activity page; tables, badges and buttons come from the shell. */
+@layer base, kind, theme, user;
 
-.dl .release {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 12px;
-  word-break: break-all;
-  color: var(--mp-muted);
-}
-.dl .progress-head {
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-.dl .hint {
-  margin-top: 12px;
+@layer kind {
+  .dl .release {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 12px;
+    word-break: break-all;
+    color: var(--mp-muted);
+  }
+  .dl .progress-head {
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .dl .hint {
+    margin-top: 12px;
+  }
 }

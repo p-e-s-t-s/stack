@@ -1,0 +1,22 @@
+{
+  "name": "@magpiejs/auth-proxy",
+  "version": "0.0.0",
+  "description": "Log in through a reverse proxy that has already authenticated the user (Authelia, Authentik, oauth2-proxy)",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/auth": "0.0.0",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@cordisjs/plugin-server": "1.7.0",
+    "@magpiejs/database": "0.0.0",
+    "cordis": "4.0.0-rc.10"
+  }
+}

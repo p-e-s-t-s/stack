@@ -1,0 +1,21 @@
+{
+  "name": "@magpiejs/theme-slate",
+  "version": "0.0.0",
+  "description": "Slate: a cool, softer palette for the web console (colours and type only)",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@magpiejs/console-kit": "0.0.0",
+    "@magpiejs/themes": "0.0.0",
+    "@magpiejs/webui": "0.0.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "cordis": "4.0.0-rc.10"
+  }
+}
