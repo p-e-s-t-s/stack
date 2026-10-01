@@ -91,27 +91,19 @@ Two layers, owned by different parties:
 Today `root.vue` is both. Splitting them is what makes a theme safe to install: a broken
 `shell` falls back to the default `shell` and the safety net in `root` stays intact.
 
-**`root` cannot be overridden.** The slot system itself would allow it (highest `order` wins
-under `single`), so the engine enforces it:
+**`root` is not an extension point.** The slot system would technically allow overriding it
+(highest `order` wins under `single`), and we do not fight that, only make it unattractive
+and unnecessary:
 
-1. **Pinned.** `webui` registers `root` at `Number.MAX_SAFE_INTEGER`, so nothing outranks it.
-2. **Guarded.** An effect in `webui` watches `ctx.client.router.views.root` and, for any item
-   that is not its own, sets `disabled = () => true` and logs an error naming the offending
-   plugin. (Mutating another registration is a last resort, but it is the only place the
-   guarantee can live; the spike, §6 step 0, confirms it works with the client's reactive
-   list.)
-3. **Not expressible.** `root` is not a key of `ThemeParts` and `registerRegion` rejects
-   reserved names, so the supported helpers cannot register it, and a typed theme cannot
-   try.
-4. **Linted.** An ESLint `no-restricted-syntax` rule forbids `type: 'root'` (and the reserved
-   region prefix for engine slots) outside `plugins/webui`, so an accidental override fails
-   CI.
+1. **Pinned.** `webui` registers `root` at `Number.MAX_SAFE_INTEGER`, so a stray registration
+   at a normal `order` never wins.
+2. **Not expressible.** `root` is not a key of `ThemeParts`, so the supported helpers
+   (`registerTheme`, `registerRegion`) cannot register it. Themes change the frame through
+   `shell`.
+3. **Documented.** The authoring doc says `root` is reserved and what `shell` is for.
 
-This is a **guard rail, not a security boundary**. A plugin's client code runs in the same
-page with full access and could, for example, replace the mount target. It protects users
-from honest mistakes and unfinished themes, which is the case that matters; it does not
-defend against a malicious plugin, and the doc should not claim it does. (Plugins are trusted
-code in Magpie already.)
+That is deliberately it: no runtime guard, no lint rule. Plugins are trusted code in Magpie
+and a plugin that registers `root` at `MAX_SAFE_INTEGER` on purpose gets what it asked for.
 
 ## 4. Design
 
@@ -193,7 +185,7 @@ Rules for parts and regions:
 - A part must keep the `data-testid`s and ARIA landmarks the default has (`#mp-main`, skip
   link, `aria-current`). Shared helpers (§4.2) and regions (above) make this easy, and the
   conformance tests (§6, step 3) check it.
-- `root` is not a part and is not overridable (§3.2); `shell` is the supported way to change
+- `root` is reserved, not a part (§3.2); `shell` is the supported way to change
   the frame.
 - The contract is versioned: `theme.apiVersion` (integer). Registering a theme with a newer
   version than the engine knows is refused with a clear error; an older one still works until
@@ -447,24 +439,22 @@ user sees until step 3.
 
 0. **Spike (no merged code).** Confirm in the running app: (a) whether every `addEntry`
    entry loads for every page or only for its `routes`; (b) that a slot registered from one
-   entry is seen by `ctx.client.router.views` in another; (c) that the `root` pin and
-   guard of §3.2 hold: a second `root` registration, at any `order`, never renders, and the
-   guard's `disabled` mutation works on the client's reactive slot list; (d) first-paint behaviour with the
+   entry is seen by `ctx.client.router.views` in another; (c) that a `root`
+   registered at `MAX_SAFE_INTEGER` wins over any theme registration, as §3.2 assumes; (d) first-paint behaviour with the
    `localStorage` mirror.
 1. **CSS layers.** `@layer base, kind, theme`; wrap all stylesheets. No visual change.
 2. **Contract extraction.** Move the navigation model and its tests to `console-kit`; add
    `useNavigation`, `useDrawer`, `useConnection`; rebuild `root.vue` on them.
 3. **`registerTheme`, `registerRegion` and `themed`.** The chain-to-`disabled`/`order` helper, lazy parts,
    failure fall-through (the chain logic as a pure function, unit-tested with vitest). The
-   engine `root` (pinned at the top order and guarded, §3.2) resolves through `themed('shell', …)`; the `console-kit` list, detail
+   engine `root` (pinned at the top order, §3.2) resolves through `themed('shell', …)`; the `console-kit` list, detail
    and add components become `themed(...)` wrappers. Default parts are the existing
    components, so kind plugins are untouched. Regions: move logout, the settings link and the
    offline banner into `shell.*` regions (`auth` contributes logout). Add the typed
    `ThemeParts` interface, per-part error boundaries and safe mode. **Conformance tests:**
    `@magpiejs/testing` gets fixture props for each part and a harness that mounts any
    registered theme's parts, checking they render, keep the required `data-testid`s and ARIA
-   landmarks, and expose the regions they are meant to. Add the ESLint rule that keeps
-   `type: 'root'` inside `plugins/webui`.
+   landmarks, and expose the regions they are meant to.
 4. **Server `theme` service.** `@magpiejs/themes`: service, schema + migration, REST, events,
    tests (register/dispose, chain with unknown ids, cycle refusal, preference cascade on user
    delete, default fallback).
