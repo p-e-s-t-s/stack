@@ -7,10 +7,10 @@ Status: proposal. Nothing here is built.
 Keep what works today: a plugin's settings live **on the page for what it does**
 (Indexers, Download clients, Metadata, Notifications, …), not buried in a generic plugin
 config screen. Make that a general mechanism any Magpie plugin can use, instead of a
-hard-coded list of six provider kinds. Also: show what is active or failing on the
-existing Health page, let users switch media types on and off, and group the Settings
-navigation so it stays scannable. The word "plugin" never appears in the UI. No YAML, no
-shell, no Cordis names (PLAN.md §3.1).
+hard-coded list of six provider kinds. Also: a **Plugins** page in the Settings nav that
+shows what is active or failing, let users switch media types on and off, and group the
+Settings navigation so it stays scannable. No YAML, no shell, no Cordis names (PLAN.md
+§3.1).
 
 ## Scope
 
@@ -89,17 +89,16 @@ Today only plugins with `magpie.provider` get the schema-driven form. Generalize
   nothing is forced to migrate.
 - Both use the same validation, secret masking, test hook and `settings/changed` event.
 
-### 3. Status lives on the existing Health page, not a new "Plugins" page
+### 3. A Plugins page in the Settings nav
 
-No new navigation item and no "Plugins" screen. Users think in "Indexers" and
-"Notifications", not plugins, and `/system/health` (`plugins/health`) is already where they
-look when something is wrong. `settings` exposes a read-only summary that the Health page
-renders as an **Integrations** section, each row linking to the page where it is
-configured:
+A **Settings → Plugins** page lists every plugin with its state and **links to** the page
+where it is configured, rather than hosting a second copy of its form. It is a normal
+Settings page, visible in the nav, so users can find plugins as plugins; the per-kind pages
+stay where the real configuration happens.
 
 ```ts
-interface IntegrationStatus {
-  label: string // "Torznab", "Discord", never a package name
+interface PluginStatus {
+  label: string // "Torznab", "Discord", the plugin's display name, not the package name
   kind: string // a declared kind, e.g. 'indexer'
   state: 'active' | 'not-set-up' | 'disabled' | 'failed'
   instances: number
@@ -110,13 +109,13 @@ interface IntegrationStatus {
 
 - Built from existing data: `settings.providers()/entries()` and the loader's per-entry
   error state. A failed entry also becomes a health check using the health plugin's
-  existing mechanism, so it surfaces wherever health already does.
+  existing mechanism, so it shows on the Health page too.
 - Read-only. Editing always happens on the domain page; there is no second place to
-  configure.
-- Lives in `plugins/settings` (`settings.integrations()`) and is consumed by
-  `plugins/health`; no new plugin and no new ownership entry.
+  configure. Media-type rows link to the Media types switches (§4).
+- Lives in `plugins/settings` (`settings.plugins()` plus a console entry registered with
+  `registerPage`), so no new plugin and no new ownership entry.
 
-### 4. Media types are switches, not a plugin list
+### 4. Media types are switches, not a plugin list on their own
 
 Turning Movies, TV, Music, Books or Podcasts on or off is a "which media do you use"
 decision, so it is presented that way: a **Media types** section on the existing
@@ -152,7 +151,7 @@ export interface PageNavigation {
 
 | Section         | Pages                                           |
 | --------------- | ----------------------------------------------- |
-| General (first) | General                                         |
+| General (first) | General, Plugins                                |
 | Library         | Media, Profiles, Formats                        |
 | Sources         | Indexers, Download clients, Metadata, Subtitles |
 | Connections     | Notifications, Media servers                    |
@@ -170,7 +169,7 @@ export interface PageNavigation {
 
 Each domain page already has the picker: pick a provider of that kind, fill its form.
 Keep that as the way to browse. Empty states say what's available ("No indexers yet. Add
-Torznab…"). The Health page's Integrations section gives the cross-cutting view. If user installs are ever built,
+Torznab…"). The Plugins page gives the cross-cutting view. If user installs are ever built,
 new packages would simply appear in these same pickers, so this design doesn't block them
 and doesn't depend on them.
 
@@ -193,8 +192,8 @@ and doesn't depend on them.
 3. **Settings navigation sections.** Add `section` to `PageNavigation`, tag the existing
    pages, render headings, rename the two vague pages. Independent of 1–2, so it can ship
    first.
-4. **Integrations on Health.** `settings.integrations()`, a section on the Health page,
-   failed entries reported as health checks.
+4. **Plugins page.** `settings.plugins()`, a Settings page in the nav, failed entries also
+   reported as health checks.
 5. **Media type switches.** `magpie.mediaType` opt-in, `setMediaType`, the section on
    `/settings/media`, optional `magpie.needs`.
 
@@ -205,7 +204,7 @@ With `packages/testing`:
 - Kinds come from `hosts` declarations; a provider whose kind has no host is not offered.
 - `magpie.provider` and the equivalent `magpie.settings` block produce identical forms.
 - `single` mode edits in place, rejects a second entry, masks secrets, and validates.
-- `integrations()` reports correct state and instance counts; a plugin that throws on load
+- `plugins()` reports correct state and instance counts; a plugin that throws on load
   is _Failed_ while the rest start, and produces a health check.
 - `setMediaType` toggles an entry, refuses while a dependant is enabled, and refuses a
   plugin without a `mediaType` block (core plugins can't be switched off).
@@ -223,7 +222,7 @@ model; ESM can't unload code and Magpie has no self-restart. PLAN.md reserves
 
 ## Open questions
 
-1. Should `hosts` also carry the page route, so the Integrations rows can link without a
+1. Should `hosts` also carry the page route, so the Plugins rows can link without a
    lookup? (Proposed: yes, `route`.)
 2. Final names for the two renamed pages, and whether "General" should be its own heading
    or sit unlabeled at the top.
