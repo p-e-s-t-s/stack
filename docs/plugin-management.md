@@ -1,87 +1,126 @@
-# Plugin browser and management (Magpie plugins only)
+# Plugin management: generalizing provider settings (Magpie plugins only)
 
 Status: proposal. Nothing here is built.
 
 ## Goal
 
-From **Settings → Plugins** a user can see every plugin that ships with Magpie, see which
-are active, add and configure instances of provider plugins, and turn built-in features
-on and off. No YAML, no shell, no Cordis names in the UI (same rule as PLAN.md §3.1).
+Keep what works today: a plugin's settings live **on the page for what it does**
+(Indexers, Download clients, Metadata, Notifications, …), not buried in a generic plugin
+config screen. Make that a general mechanism any Magpie plugin can use, instead of a
+hard-coded list of six provider kinds, and add a small overview for state and feature
+toggles. No YAML, no shell, no Cordis names in the UI (PLAN.md §3.1).
 
 ## Scope
 
-**This proposal does not change how plugins are installed, and adds no user installs.**
-Plugins stay npm workspaces under `plugins/*`, exported as TypeScript source and listed in
-`defaultConfig()`. There is no installer, no registry, no `<config>/plugins/` directory, no
-third-party code, and no change to how the loader resolves packages.
+**Providers do not move, and plugin installation does not change.** Plugins stay npm
+workspaces under `plugins/*`, exported as TypeScript source and listed in `defaultConfig()`.
+No installer, registry, `<config>/plugins/` directory or third-party code. No change to how
+the loader resolves packages or to the web console build.
 
-In:
-
-- Listing the built-in `@magpiejs/*` plugins with their state.
-- **Provider plugins** (indexer, download-client, metadata, subtitle, notifier, media-server):
-  the kinds `plugins/settings` already understands via `package.json → magpie.provider`.
-- Toggling built-in feature plugins (movies, podcasts, books, …) on and off.
-
-Out (see "Deferred: user installs"):
-
-- Installing, updating or removing packages. Third-party plugins. A catalog or registry.
-- Arbitrary Cordis plugins and `@cordisjs/plugin-market` (PLAN.md §1 rules these out).
-- Changes to `defaultConfig()` defaults, `package.json` `exports`, or the web console build.
+Out: installing/updating/removing packages, arbitrary Cordis plugins, and
+`@cordisjs/plugin-market` (PLAN.md §1 rules them out).
 
 ## What exists today
 
-- `plugins/settings` scans its sibling directories (`plugins/*`) for a `package.json` with
-  `magpie.provider`, imports the package's `Config` schema, renders a form from it
-  (`fields.ts`), and adds/updates/removes entries in `magpie.yml` through the loader tree
-  (`tree.create/update/remove`). That hot-loads one plugin.
-- Provider forms appear on the per-kind pages (Indexers, Download clients, Metadata,
-  Subtitles) through the `provider-settings` slot. Notifiers and media servers may have their
-  own pages; to confirm.
-- `defaultConfig()` in `packages/app/src/index.ts` is the list of built-in plugins.
+- Each domain page embeds one slot: `<k-slot name="provider-settings" :data="{ kind, status, test }" />`.
+  Used by `plugins/indexers`, `downloads` (download clients), `metadata`, `subtitles`,
+  `notifications` and `media-servers`.
+- `plugins/settings` fills that slot. It scans `plugins/*` for `package.json →
+magpie.provider`, loads each package's `Config` schema, renders a form (`fields.ts`), and
+  adds/updates/removes loader entries in `magpie.yml` (`tree.create/update/remove`), which
+  hot-loads that one plugin.
+- The set of kinds is a closed union in `settings/src/index.ts`:
+  `'indexer' | 'download-client' | 'metadata' | 'subtitle' | 'notifier' | 'media-server'`.
+- `single` (one entry only, e.g. TMDB) and `basic` (fields shown up front) already exist.
 
-So "add an instance" already works. What's missing is one place that shows all plugins and
-their state, and a way to switch features on and off without editing `magpie.yml`.
+The weak spots: a new kind means editing `settings`; only providers get this treatment;
+and nothing shows the whole picture (what's active, what failed, which features are on).
 
 ## Design
 
-### `@magpiejs/plugins` (new plugin, owns the feature)
+Three small generalizations. Existing pages and provider `package.json` files keep working
+unchanged.
 
-Own plugin so settings stays "edit entries". It declares what it owns per
-`scripts/check-ownership.ts`. It only reads existing information and calls existing
-loader/settings APIs.
+### 1. Kinds are declared by the domain plugin, not by `settings`
+
+The plugin that owns a page declares the kind it hosts, next to its code:
+
+```jsonc
+// plugins/indexers/package.json
+"magpie": {
+  "hosts": { "kind": "indexer", "label": "Indexers", "single": false }
+}
+```
+
+`settings` builds its kind list from these declarations instead of the hard-coded union
+(`ProviderKind` becomes `string`). A provider's existing `magpie.provider.kind` matches
+against it. A kind with no host plugin installed isn't shown. Adding a new kind is then:
+the domain plugin declares `hosts`, its page embeds the existing slot, providers declare
+the kind. No `settings` change.
+
+### 2. Any plugin with a `Config` can surface settings in a slot
+
+Today only plugins with `magpie.provider` get the schema-driven form. Generalize to a
+`magpie.settings` block with two modes:
+
+```jsonc
+"magpie": {
+  "settings": {
+    "slot": "provider-settings", // existing slot name; other pages may add their own
+    "kind": "indexer", // placement, matched to a host (providers: same as today)
+    "mode": "instances", // many entries (today's providers) | "single" (one config block)
+    "label": "Torznab",
+    "basic": ["name", "url", "apiKey"]
+  }
+}
+```
+
+- `instances` is exactly today's provider behavior. `magpie.provider` stays accepted as an
+  alias, so no existing package changes.
+- `single` is one config block edited in place (no "add"), for non-provider plugins that
+  have a `Config` and a natural home on an existing page, e.g. a naming scheme or a backup
+  schedule. This replaces hand-built forms only where the schema form is good enough;
+  nothing is forced to migrate.
+- Both use the same validation, secret masking, test hook and `settings/changed` event.
+
+### 3. A read-only overview, not a second place to configure
+
+A **Settings → Plugins** page that lists plugins and their state, and **links to** each
+plugin's own page rather than hosting its form:
 
 ```ts
-interface PluginsService {
-  list(): PluginInfo[] // every built-in plugin with kind, label, state
-  setFeature(name: string, enabled: boolean): Promise<void> // toggle a feature entry
-}
-
 interface PluginInfo {
-  name: string // package name
+  name: string
   label: string
-  kind: ProviderKind | 'feature'
+  kind: string // a declared kind, or 'feature'
   state: 'active' | 'not-set-up' | 'disabled' | 'failed'
-  instances: number // provider entries in magpie.yml
-  needs: string[] // plugins it depends on
+  instances: number
+  page?: string // route of the domain page, e.g. '/settings/indexers'
+  needs: string[]
   error?: string
 }
 ```
 
-Event: `plugins/changed` (mirrors `settings/changed` plus feature toggles).
+- Built from existing data: `settings.providers()/entries()`, the non-provider entries in
+  the loader tree, the loader's per-entry error state. Failures also go to the existing
+  health plugin.
+- **Features** section: toggles for built-in feature plugins (movies, podcasts, books, …),
+  setting or clearing `disabled` on the loader entry. An optional `magpie.needs` list in
+  `package.json` lets the toggle warn about dependants. Plugins marked non-optional
+  (database, auth, api, …) aren't toggleable. Disabling never deletes data (PLAN.md:
+  removal only after a backup, never automatic).
+- This lives in `plugins/settings` (`settings.overview()` plus a console entry), so no new
+  plugin and no new ownership entry.
 
-Where the data comes from:
+## The "browser" is the per-page picker
 
-- **Providers:** `settings.providers()` and `settings.entries()`. No new discovery.
-- **Features:** the entries in `magpie.yml` that aren't providers, read from the loader
-  tree the same way `settings` does.
-- **Dependencies:** a small optional `magpie.needs: ["@magpiejs/indexers"]` in each
-  plugin's `package.json`, next to the existing `magpie.provider` block. Plugins without it
-  are treated as having no dependants, and the toggle warns only when it knows. This is a
-  metadata addition only; it doesn't change how a plugin loads.
-- **Failures:** the loader's per-entry error state, shown with the message. Feeds the
-  existing health plugin rather than adding a new check mechanism.
+Each domain page already has the picker: pick a provider of that kind, fill its form.
+Keep that as the way to browse. Empty states say what's available ("No indexers yet. Add
+Torznab…"). The overview gives the cross-cutting view. If user installs are ever built,
+new packages would simply appear in these same pickers, so this design doesn't block them
+and doesn't depend on them.
 
-### Lifecycle (existing mechanisms only)
+## Lifecycle (existing mechanisms only)
 
 | Action              | How                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------- |
@@ -89,56 +128,43 @@ Where the data comes from:
 | Edit / disable      | existing `settings.update`, unchanged                                                       |
 | Remove instance     | existing `settings.remove`, unchanged                                                       |
 | Toggle feature      | set or clear `disabled` on its loader entry; refuse if an enabled plugin's `needs` lists it |
-| Failed load at boot | entry stays in `magpie.yml`, shown as **Failed** with the error. Magpie still starts        |
-
-Disabling a feature never deletes its data (PLAN.md: removal only after a backup,
-never automatic).
-
-## UI: Settings → Plugins
-
-Language follows `docs/ui-cleanup.md`: no Cordis terms.
-
-- **Providers:** every provider plugin grouped by kind, with a state chip (_Active_ with
-  n instances, _Not set up_, _Failed_) and an **Add instance** action that opens the existing
-  provider form. This is the "browser": one searchable list instead of five separate pages.
-- **Features:** toggles for built-in feature plugins with dependency warnings.
-
-Admin-only (reuse `@magpiejs/auth`). The page is a client entry of `@magpiejs/plugins`,
-built with the rest of the web console.
+| Failed load at boot | entry stays in `magpie.yml`, shown as **Failed** with the error; Magpie still starts        |
 
 ## Phasing
 
-1. `@magpiejs/plugins` with `list()` and the **Providers** tab, read-only plus "Add
-   instance" handing off to the existing form.
-2. **Features** tab with `setFeature` and the optional `magpie.needs` metadata.
-3. Failed-state reporting into the health plugin.
+1. **Declare kinds.** Add `magpie.hosts` to the six domain plugins, derive kinds in
+   `settings`, make `ProviderKind` a string. Pure refactor; pages and behavior unchanged.
+2. **`magpie.settings` with `mode`.** Accept it alongside `magpie.provider`, add the
+   `single` mode. Migrate no existing plugin.
+3. **Overview page.** `settings.overview()` read-only list with links to domain pages and
+   failed-state reporting into health.
+4. **Feature toggles** with optional `magpie.needs`.
 
 ## Testing
 
 With `packages/testing`:
 
-- `list()` reports each built-in provider with correct instance counts and state.
-- `setFeature` disables and re-enables an entry, and refuses when a dependant is enabled.
-- A provider entry that throws on load shows as _Failed_ and the others still start.
+- Kinds come from `hosts` declarations; a provider whose kind has no host is not offered.
+- `magpie.provider` and the equivalent `magpie.settings` block produce identical forms.
+- `single` mode edits in place, rejects a second entry, masks secrets, and validates.
+- `overview()` reports correct state and instance counts; a plugin that throws on load is
+  _Failed_ while the rest start.
+- `setFeature` toggles an entry and refuses while a dependant is enabled.
 
 ## Deferred: user installs
 
-Not part of this work. If it is picked up later it would need its own proposal. The things
-that make it a separate piece of work, so they aren't lost:
-
-- A way to get packages onto disk, and a second discovery location (`settings` is currently
-  hard-wired to the workspace `plugins/*` siblings).
-- Third-party plugins would have to ship compiled JS, as built-ins export `.ts`.
-- Plugin console pages are built at Magpie build time, so installed plugins couldn't add
-  pages at runtime.
-- Third-party code runs in-process with access to the database and API keys, so it needs a
-  trust model (curated registry, integrity pinning, admin-only, no install scripts).
-- ESM can't unload code, so updates and uninstalls would need a restart, and Magpie has no
-  self-restart today.
-- PLAN.md reserves `<config>/plugins/` for this.
+Not part of this work; it would need its own proposal. What makes it separate: getting
+packages onto disk and a second discovery location (`settings` is hard-wired to workspace
+`plugins/*` siblings); third-party plugins would need compiled JS (built-ins export `.ts`);
+console pages are built at Magpie build time; in-process third-party code needs a trust
+model; ESM can't unload code and Magpie has no self-restart. PLAN.md reserves
+`<config>/plugins/` for it.
 
 ## Open questions
 
-1. Should the Providers tab replace the per-kind pages, or sit beside them as an index?
-2. Which built-in features, if any, must not be toggleable (e.g. `database`, `auth`, `api`)?
-   Proposal: only plugins listed as optional can be toggled.
+1. Should `hosts` also carry the page route, so the overview can link without a lookup?
+   (Proposed: yes, `route`.)
+2. Which non-provider plugins, if any, are worth moving to `single`-mode forms? None are
+   required by this proposal.
+3. Keep `magpie.provider` as an alias forever, or deprecate it once `settings` exists
+   everywhere?
