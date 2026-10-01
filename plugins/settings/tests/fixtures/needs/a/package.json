@@ -1,0 +1,11 @@
+{
+  "name": "@magpiejs/podcasts",
+  "version": "0.0.0",
+  "private": true,
+  "magpie": {
+    "mediaType": {
+      "label": "Podcasts",
+      "summary": "Test fixture."
+    }
+  }
+}

@@ -4,7 +4,7 @@ import Indexers from './indexers.vue'
 
 export default function (ctx: Context) {
   registerPage(ctx, {
-    navigation: { group: 'configuration', icon: 'other' },
+    navigation: { group: 'configuration', section: 'sources', icon: 'other' },
     path: '/settings/indexers',
     name: 'Indexers',
     order: 60,

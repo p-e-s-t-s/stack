@@ -9,7 +9,11 @@
     "./schema": "./src/schema.ts"
   },
   "magpie": {
-    "namespace": "series"
+    "namespace": "series",
+    "mediaType": {
+      "label": "TV series",
+      "summary": "Follow shows and download new episodes."
+    }
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"

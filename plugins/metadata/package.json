@@ -17,5 +17,12 @@
   "devDependencies": {
     "@magpiejs/webui": "0.0.0",
     "cordis": "4.0.0-rc.10"
+  },
+  "magpie": {
+    "hosts": {
+      "kind": "metadata",
+      "label": "Metadata",
+      "route": "/settings/metadata"
+    }
   }
 }

@@ -2,17 +2,15 @@
   <section class="lib">
     <div class="mp-head"><h1>Media management</h1></div>
 
+    <h2>Media types</h2>
+    <k-slot name="media-types" />
+
     <h2>Root folders</h2>
     <p class="mp-lead">
       Choose one library location. Magpie creates a folder inside it for each media type.
     </p>
     <form class="mp-row add" @submit.prevent="saveRoot">
-      <input
-        v-model="path"
-        placeholder="/data/media"
-        class="path"
-        data-testid="root-path"
-      />
+      <input v-model="path" placeholder="/data/media" class="path" data-testid="root-path" />
       <button class="primary" type="submit" :disabled="!path.trim()" data-testid="save-root">
         Save location
       </button>

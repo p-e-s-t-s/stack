@@ -11,7 +11,12 @@
     "./transport": "./src/transport.ts"
   },
   "magpie": {
-    "namespace": "notifications"
+    "namespace": "notifications",
+    "hosts": {
+      "kind": "notifier",
+      "label": "Notifications",
+      "route": "/settings/notifications"
+    }
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"

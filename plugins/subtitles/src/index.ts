@@ -54,7 +54,7 @@ export class SubtitlesService extends Service {
     if (tools) {
       this.config.syncEngine = tools.syncEngine
       this.config.syncBinary = tools.syncBinary
-      // ffprobe's location used to be saved here; it now lives in Settings → Media tools
+      // ffprobe's location used to be saved here; it now lives in Settings → Video and audio tools
       if (tools.ffprobe) void this.ctx.mediaTools.adopt('ffprobe', tools.ffprobe).catch(() => {})
     }
     this.ctx.effect(() => () => { this.controller.abort(); this.tickets.clear() })

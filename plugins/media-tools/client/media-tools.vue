@@ -1,6 +1,6 @@
 <template>
   <section>
-    <div class="mp-head"><h1>Media tools</h1></div>
+    <div class="mp-head"><h1>Video and audio tools</h1></div>
     <p class="mp-lead">
       Magpie uses <b>ffprobe</b> to read what is really inside your video files (resolution, audio
       and subtitle tracks), and <b>ffmpeg</b> for optional deeper checks. Install them on the

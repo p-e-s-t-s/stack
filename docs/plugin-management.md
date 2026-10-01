@@ -1,6 +1,30 @@
 # Plugin management: generalizing provider settings (Magpie plugins only)
 
-Status: proposal. Nothing here is built.
+Status: implemented, except where "Not done" says otherwise.
+
+What shipped, and how it differs from the first draft:
+
+- **Kinds from hosts.** The six domain packages declare `magpie.hosts` (`kind`, `label`,
+  `route`); `ProviderKind` is a plain string. A provider whose kind has no host is logged
+  and not offered.
+- **`magpie.settings`** is read alongside `magpie.provider` (`slot`, `kind`, `mode`, `label`,
+  `basic`). No existing package was migrated, and no plugin uses `single`-mode outside
+  providers yet.
+- **Settings → Plugins** is a normal page in the nav (General section, right after General).
+  Rows are grouped by kind, show Running / Not set up / Off / Failed, and link to the page
+  where each is configured. A plugin that fails to start also gets a `plugins` health check.
+- **Media types** are switches on Media management, backed by `settings.setMediaType`. They
+  are declared with `magpie.mediaType` (movies, series, music, books, podcasts). Switching
+  one off hides its nav items and pages immediately and back on restores them; checked in the
+  running app. `magpie.needs` is supported, but nothing declares it yet because every plugin
+  that uses a media type already treats it as optional.
+- **Settings sections** (`PageNavigation.section`): General, Library, Sources, Connections,
+  Advanced, then System. Pages with no or an unknown section land under General.
+- **Renames:** Import checks is now Download checks, and Media tools is now Video and audio
+  tools. Routes did not change.
+
+Not done: a failed plugin's row says it could not start but not why (cordis keeps the
+error private), and the Plugins page has no test of the failed state.
 
 ## Goal
 

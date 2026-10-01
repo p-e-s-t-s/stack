@@ -13,7 +13,7 @@ export default function (ctx: Context) {
     component: Activity,
   })
   registerPage(ctx, {
-    navigation: { group: 'configuration', icon: 'activity' },
+    navigation: { group: 'configuration', section: 'sources', icon: 'activity' },
     path: '/settings/clients',
     name: 'Download clients',
     order: 50,

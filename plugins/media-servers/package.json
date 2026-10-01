@@ -23,5 +23,12 @@
     "@magpiejs/testing": "0.0.0",
     "@magpiejs/webui": "0.0.0",
     "cordis": "4.0.0-rc.10"
+  },
+  "magpie": {
+    "hosts": {
+      "kind": "media-server",
+      "label": "Media servers",
+      "route": "/settings/media-servers"
+    }
   }
 }

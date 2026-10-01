@@ -4,7 +4,7 @@ import MediaManagement from './media-management.vue'
 
 export default function (ctx: Context) {
   registerPage(ctx, {
-    navigation: { group: 'configuration', icon: 'books' },
+    navigation: { group: 'configuration', section: 'library', icon: 'books' },
     path: '/settings/media',
     name: 'Media management',
     order: 90,

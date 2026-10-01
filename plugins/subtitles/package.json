@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "exports": { ".": "./src/index.ts", "./schema": "./src/schema.ts", "./files": "./src/files.ts", "./transport": "./src/transport.ts" },
-  "magpie": { "namespace": "subtitles" },
+  "magpie": { "namespace": "subtitles", "hosts": { "kind": "subtitle", "label": "Subtitles", "route": "/settings/subtitles" } },
   "scripts": { "db:generate": "drizzle-kit generate" },
   "dependencies": {
     "@magpiejs/database": "0.0.0", "@magpiejs/library": "0.0.0", "@magpiejs/jobs": "0.0.0", "@magpiejs/media-tools": "0.0.0", "@magpiejs/mediainfo": "0.0.0", "@magpiejs/probe": "0.0.0", "@magpiejs/types": "0.0.0", "@magpiejs/http-utils": "0.0.0", "@magpiejs/console-kit": "0.0.0",
