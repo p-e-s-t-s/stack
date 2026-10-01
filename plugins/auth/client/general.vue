@@ -61,9 +61,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRpc } from '@cordisjs/client'
 import type { AuthData } from '../src/console'
+import type { SessionInfo } from '../src/index'
+import { api } from './api'
 
 const data = useRpc<AuthData>()
-type Me = Awaited<ReturnType<AuthData['me']>>
+interface Me {
+  username: string
+  role: string
+  sessions: SessionInfo[]
+}
 const me = ref<Me>()
 const current = ref('')
 const next = ref('')
@@ -73,7 +79,7 @@ const passwordOk = ref(false)
 const roleLabel = computed(() => data.value.roles.find((r) => r.id === me.value?.role)?.label)
 
 async function load() {
-  me.value = await data.value.me()
+  me.value = await api<Me>('GET', '/account')
 }
 onMounted(load)
 
@@ -105,7 +111,7 @@ function browser(userAgent: string | null) {
 
 async function changePassword() {
   try {
-    await data.value.changePassword(current.value, next.value)
+    await api('PUT', '/account/password', { current: current.value, next: next.value })
     passwordOk.value = true
     passwordMessage.value = 'Password changed. Other sessions were logged out.'
     current.value = next.value = ''
@@ -117,12 +123,12 @@ async function changePassword() {
 }
 
 async function revoke(id: string) {
-  await data.value.revokeSession(id)
+  await api('DELETE', `/account/sessions/${id}`)
   await load()
 }
 
 async function revokeOthers() {
-  await data.value.revokeOtherSessions()
+  await api('DELETE', '/account/sessions')
   await load()
 }
 </script>

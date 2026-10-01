@@ -9,9 +9,13 @@
 
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import NodeWebUI, { Client, type Entry, type WebSocket } from '@cordisjs/plugin-webui'
+import { DeltaState, type Mutation, observe } from '@cordisjs/muon'
+import NodeWebUI, { Client, Entry, type WebSocket } from '@cordisjs/plugin-webui'
 import type { Permission } from '@magpiejs/types'
 import type { Context } from 'cordis'
+import { filterMutation, omitKeys } from './filter'
+
+export { filterMutation, omitKeys } from './filter'
 
 const appDir = fileURLToPath(new URL('../app', import.meta.url))
 const distDir = fileURLToPath(new URL('../dist', import.meta.url))
@@ -24,6 +28,12 @@ export interface EntryAccess {
   call?: Permission
   /** Per-method permissions, e.g. read-only lookups next to editing actions. */
   methods?: Record<string, Permission>
+  /**
+   * Top-level keys of the entry's data that need more than `view`, e.g. a settings list
+   * on a page that otherwise shows the library. Callers without it never receive the key,
+   * not in the first snapshot and not in later changes.
+   */
+  data?: Record<string, Permission>
 }
 
 declare module '@cordisjs/plugin-webui' {
@@ -48,8 +58,6 @@ declare module '@cordisjs/plugin-webui' {
   interface WebUI {
     /** Set by auth (and unset when it goes away); with none, every socket may do everything. */
     policy?: AccessPolicy
-    /** Who the method running right now was called by. Read it before the first `await`. */
-    caller<Caller = unknown>(): Caller | undefined
   }
 }
 
@@ -68,7 +76,9 @@ class MagpieClient extends Client {
         const entries: Record<string, unknown> = {}
         for (const [id, value] of Object.entries<any>(payload.body.entries ?? {})) {
           // `null` removes an entry, which every client may be told
-          if (value === null || webui.canView(this.socket, webui.entries[id])) entries[id] = value
+          if (value === null) entries[id] = value
+          else if (webui.canView(this.socket, webui.entries[id]))
+            entries[id] = webui.snapshotFor(this, webui.entries[id]!, value)
         }
         // nothing this client may see changed
         if (!Object.keys(entries).length && Object.keys(payload.body.entries ?? {}).length) return
@@ -81,6 +91,24 @@ class MagpieClient extends Client {
   }
 }
 
+/**
+ * An entry whose data has keys only some callers may see. Its changes are sent to each
+ * client separately, with the hidden keys taken out and re-encoded for that client, because
+ * muon deltas leave out whatever repeats the delta before and so cannot be edited in place.
+ */
+class MagpieEntry<T extends object = any> extends Entry<T> {
+  override mutate(fn: (data: T) => void) {
+    const webui = this.ctx.webui as MagpieWebUI
+    if (!this.files.access?.data || !webui.policy) return super.mutate(fn)
+    // the stock Entry keeps these private
+    const state = this as unknown as { _disposed: boolean; _initialized: boolean }
+    if (state._disposed || !this.data) return
+    const mutation = observe(this.data, fn)
+    if (!mutation || !state._initialized) return
+    webui.sendMutation(this, mutation)
+  }
+}
+
 export class MagpieWebUI extends NodeWebUI {
   static override Config = NodeWebUI.Config
 
@@ -88,7 +116,8 @@ export class MagpieWebUI extends NodeWebUI {
   override policy?: AccessPolicy
   /** @internal */
   callers = new WeakMap<object, unknown>()
-  private calling?: unknown
+  /** What each client has been sent of an entry with hidden keys, to encode its changes. */
+  private views = new WeakMap<Client, Map<string, DeltaState>>()
 
   constructor(ctx: Context, config: NodeWebUI.Config) {
     super(ctx, config)
@@ -99,6 +128,7 @@ export class MagpieWebUI extends NodeWebUI {
     }
     this.root = config.devMode ? appDir : distDir
 
+    // refuse methods the caller may not call before the stock handler runs them
     const call = this.listeners['rpc:request']!
     this.listeners['rpc:request'] = function (this: Client, body) {
       const webui = this.ctx.webui as MagpieWebUI
@@ -111,19 +141,12 @@ export class MagpieWebUI extends NodeWebUI {
         })
         return
       }
-      // the method starts running inside `call`, before its first await
-      webui.calling = webui.callers.get(this.socket)
-      try {
-        return call.call(this, body)
-      } finally {
-        webui.calling = undefined
-      }
+      return call.call(this, body)
     }
   }
 
-  /** Who the method running right now was called by. Read it before the first `await`. */
-  override caller<Caller = unknown>() {
-    return this.calling as Caller | undefined
+  override addEntry<T extends object = never>(files: Entry.Files, data?: T): Entry<T> {
+    return new MagpieEntry<T>(this.ctx, files, data as T)
   }
 
   // only the shell's own route; everything else is registered by entries
@@ -165,6 +188,49 @@ export class MagpieWebUI extends NodeWebUI {
     if (!access) return this.allowed(client.socket, DEFAULT_PERMISSION)
     const needed = access.methods?.[method] ?? access.call ?? access.view
     return this.allowed(client.socket, needed)
+  }
+
+  /** The keys of an entry's data this socket's owner may not see. */
+  hiddenKeys(socket: WebSocket, entry: Entry) {
+    const rules = entry.files.access?.data
+    return new Set(
+      Object.entries(rules ?? {})
+        .filter(([, permission]) => !this.allowed(socket, permission))
+        .map(([key]) => key),
+    )
+  }
+
+  /** An entry as sent to one client: hidden keys left out, and its change cursor started. */
+  snapshotFor(client: Client, entry: Entry, json: any) {
+    if (!entry.files.access?.data) return json
+    const state = new DeltaState()
+    let views = this.views.get(client)
+    if (!views) this.views.set(client, (views = new Map()))
+    views.set(entry.id, state)
+    return {
+      ...json,
+      data: omitKeys(json.data, this.hiddenKeys(client.socket, entry)),
+      cursor: state.snapshot(),
+    }
+  }
+
+  /** Sends a change to an entry's data to each client that may see any of it. */
+  sendMutation(entry: Entry, mutation: Mutation) {
+    for (const client of Object.values(this.clients)) {
+      if (!this.canView(client.socket, entry)) continue
+      const state = this.views.get(client)?.get(entry.id)
+      if (!state) {
+        // this client was never sent the entry in a form it can follow, so send it whole
+        client.send({
+          type: 'entry:init',
+          body: { version: this.version, entries: { [entry.id]: entry.toJSON() } },
+        })
+        continue
+      }
+      const visible = filterMutation(mutation, this.hiddenKeys(client.socket, entry))
+      if (visible)
+        client.send({ type: 'entry:delta', body: { id: entry.id, ...state.dump(visible) } })
+    }
   }
 
   override broadcast(type: string, body: any) {

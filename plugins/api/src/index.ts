@@ -2,7 +2,7 @@
 // their own endpoints with `ctx.api.get(...)` etc.; @magpiejs/auth checks the caller.
 
 import type {} from '@cordisjs/plugin-server'
-import type {} from '@magpiejs/auth'
+import type { Identity } from '@magpiejs/auth'
 import type { Permission } from '@magpiejs/types'
 import { type Context, Service } from 'cordis'
 
@@ -27,6 +27,8 @@ export interface ApiRequest<P = Record<string, string>> {
   query: URLSearchParams
   /** Parsed JSON body, for methods that have one. */
   body: any
+  /** Who is calling: a logged-in session or an API key. */
+  identity: Identity
 }
 
 /** Returns JSON-able data, nothing (204), or a `Response` for other content types. */
@@ -99,6 +101,14 @@ export class ApiService extends Service {
         let body: unknown
         if (method !== 'get' && method !== 'delete') {
           const text = await req.text()
+          // a logged-in browser is sent JSON only, as another guard against forms from
+          // other sites (the session cookie is already SameSite=Lax)
+          if (
+            text &&
+            who?.type === 'session' &&
+            !req.headers.get('content-type')?.includes('application/json')
+          )
+            throw new ApiError(415, 'send the body as application/json')
           try {
             body = text ? JSON.parse(text) : undefined
           } catch {
@@ -109,6 +119,7 @@ export class ApiService extends Service {
           params: req.params as Record<string, string>,
           query: req.query,
           body,
+          identity: who!,
         })
         // a Response (e.g. a calendar file) is sent as it is
         if (result instanceof Response) return result

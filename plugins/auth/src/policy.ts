@@ -35,18 +35,24 @@ export class SocketRegistry {
   }
 }
 
-/** Upgrade requests that passed the check, by their TCP socket, until the console takes them. */
+/** Upgrade requests that passed the check, until the console takes their socket. */
 const upgrades = new WeakMap<object, SessionIdentity>()
 
 export function allowUpgrade(req: Request, who: SessionIdentity) {
-  upgrades.set(req._req.socket, who)
+  upgrades.set(req._req, who)
 }
 
 export function installPolicy(ctx: Context, auth: AuthService) {
+  // the `ws` server announces each accepted socket with the request it came from, just
+  // before the console is handed the socket
+  const owners = new WeakMap<object, SessionIdentity>()
+  const onConnection = (socket: object, incoming: object) => {
+    const who = upgrades.get(incoming)
+    if (who) owners.set(socket, who)
+  }
   const policy: AccessPolicy<Identity> = {
     identify(socket) {
-      // `ws` keeps the TCP socket of the upgrade it accepted
-      const who = upgrades.get((socket as unknown as { _socket?: object })._socket ?? {})
+      const who = owners.get(socket)
       if (!who) return
       auth.sockets.add({ userId: who.user.id, sessionId: who.sessionId, socket })
       return who
@@ -62,8 +68,10 @@ export function installPolicy(ctx: Context, auth: AuthService) {
     },
   }
   ctx.effect(() => {
+    ctx.server._ws.on('connection', onConnection)
     ctx.webui.policy = policy as AccessPolicy
     return () => {
+      ctx.server._ws.off('connection', onConnection)
       if (ctx.webui.policy === policy) ctx.webui.policy = undefined
     }
   }, 'auth: console access policy')

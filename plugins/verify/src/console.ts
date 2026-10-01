@@ -48,6 +48,12 @@ export default function console_(ctx: Context, verify: VerifyService) {
         view: 'library.read',
         call: 'settings.manage',
         methods: { forGrab: 'library.read' },
+        data: {
+          checks: 'settings.manage',
+          durationTolerance: 'settings.manage',
+          tools: 'settings.manage',
+          recent: 'settings.manage',
+        },
       },
       routes: ['/settings/import-checks'],
     },

@@ -40,7 +40,7 @@
             </button>
             <button
               class="small"
-              @click="run(() => data.updateUser(user.id, { disabled: !user.disabled }))"
+              @click="run(() => api('PATCH', `/users/${user.id}`, { disabled: !user.disabled }))"
             >
               {{ user.disabled ? 'Switch on' : 'Switch off' }}
             </button>
@@ -126,7 +126,7 @@
             }}
           </td>
           <td class="actions">
-            <button class="small danger" @click="run(() => data.revokeApiKey(key.id))">
+            <button class="small danger" @click="run(() => api('DELETE', `/api-keys/${key.id}`))">
               Revoke
             </button>
           </td>
@@ -157,6 +157,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRpc } from '@cordisjs/client'
 import type { ApiKeyInfo, UserInfo } from '../src/index'
 import type { AuthData } from '../src/console'
+import { api } from './api'
 
 const data = useRpc<AuthData>()
 const users = ref<UserInfo[]>([])
@@ -179,7 +180,10 @@ const roleLabel = (id: string) => data.value.roles.find((r) => r.id === id)?.lab
 const describe = (id: string) => data.value.roles.find((r) => r.id === id)?.description
 
 async function load() {
-  ;[users.value, keys.value] = await Promise.all([data.value.users(), data.value.apiKeys()])
+  ;[users.value, keys.value] = await Promise.all([
+    api<UserInfo[]>('GET', '/users'),
+    api<ApiKeyInfo[]>('GET', '/api-keys'),
+  ])
 }
 onMounted(load)
 
@@ -196,18 +200,22 @@ async function run(change: () => Promise<unknown>) {
 
 async function add() {
   await run(async () => {
-    await data.value.createUser(newName.value, newPassword.value, newRole.value)
+    await api('POST', '/users', {
+      username: newName.value,
+      password: newPassword.value,
+      role: newRole.value,
+    })
     newName.value = newPassword.value = ''
   })
 }
 
 function setRole(user: UserInfo, role: string) {
-  return run(() => data.value.updateUser(user.id, { role: role as UserInfo['role'] }))
+  return run(() => api('PATCH', `/users/${user.id}`, { role }))
 }
 
 async function reset() {
   await run(async () => {
-    await data.value.resetPassword(resetting.value, resetPassword.value)
+    await api('PUT', `/users/${resetting.value}/password`, { password: resetPassword.value })
     resetting.value = 0
     resetPassword.value = ''
   })
@@ -215,13 +223,15 @@ async function reset() {
 
 function remove(user: UserInfo) {
   if (!confirm(`Delete ${user.username}? Their sessions and API keys go with them.`)) return
-  return run(() => data.value.deleteUser(user.id))
+  return run(() => api('DELETE', `/users/${user.id}`))
 }
 
 async function createKey() {
   copied.value = false
   await run(async () => {
-    newKey.value = await data.value.createApiKey(keyName.value, keyRole.value)
+    newKey.value = (
+      await api<{ key: string }>('POST', '/api-keys', { name: keyName.value, role: keyRole.value })
+    ).key
     keyName.value = ''
   })
 }

@@ -55,6 +55,7 @@ ctx.webui.addEntry(
       view: 'library.read', // who is sent the entry's data and page
       call: 'library.write', // who may call its methods (default: view)
       methods: { episodes: 'library.read' }, // exceptions
+      data: { clients: 'settings.manage' }, // top-level data keys that need more than `view`
     },
   },
   data,
@@ -62,10 +63,22 @@ ctx.webui.addEntry(
 ```
 
 **An entry that declares nothing is for administrators only**, so a new plugin cannot expose itself
-by forgetting. `MagpieWebUI` does the filtering: it sends a client only the entries (and later
-changes to them) its caller may view, and refuses RPC calls the caller may not make. Entry data is
-the same for every browser, so anything about the caller or about other users must come from a
-method; read `ctx.webui.caller()` before the method's first `await` to learn who called.
+by forgetting. `MagpieWebUI` does the filtering: it sends a client only the entries its caller may
+view, and refuses RPC calls the caller may not make.
+
+**Hiding keys of an entry's data.** `data` names top-level keys that only some callers may receive,
+e.g. the download-client list on a page that otherwise shows the queue. A caller without the
+permission never gets the key: it is left out of the first snapshot, and every later change to it is
+dropped. Console changes are muon mutations whose encoding depends on the previous one, so they
+can't be edited in place; the server filters the mutation and re-encodes it separately for each
+client (`MagpieEntry` in `plugins/webui/src/index.ts`, `filter.ts`). A hidden key is simply absent
+for that browser, so only pages that need it (settings pages) should read it.
+
+**Entry data is the same for every browser**, so anything about the caller or about other users
+doesn't belong in it. Per-user data is served by `/api/v1` routes, which are told who is calling
+(`ApiRequest.identity`): `GET/PUT /account…` for your own password and sessions (`account.self`,
+logged-in sessions only), and `/users`, `/api-keys` for administrators (`users.manage`). Browsers
+using the session cookie must send write bodies as `application/json`.
 
 **Pages** can also pass `permission` to `registerPage` to hide themselves from people who lack it.
 That is only politeness for entries that mix pages: the server has already refused the calls.
@@ -81,8 +94,7 @@ Failed logins are limited per address and per username (10 in 15 minutes each).
 
 ## Known gaps
 
-- Entries that mix library pages with a settings page (downloads, subtitles, decision) are sent to
-  everyone who can view the library part, and their settings methods are refused per method. Splitting
-  those entries would keep the settings data from viewers too.
+- Hiding is per top-level key. Data that mixes library and settings values under one key has to be
+  split into two keys before it can be hidden.
 - Identity is still local passwords only. Next: split identity into provider plugins
   (`auth-local`, `auth-oidc`, `auth-proxy`) that map an outside identity to a user and role.

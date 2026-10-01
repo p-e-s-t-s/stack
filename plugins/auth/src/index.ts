@@ -13,6 +13,7 @@ import { installGuard, installRoutes, readCookie, COOKIE } from './http'
 import { hashPassword, sha256, token, verifyPassword } from './password'
 import { KEY_ROLES, type Permission, type Role, isRole, roleAtMost, roleCan } from './permissions'
 import { installPolicy, SocketRegistry } from './policy'
+import routes from './routes'
 import * as schema from './schema'
 
 export * from './schema'
@@ -103,9 +104,10 @@ export class AuthService extends Service {
     })
     installGuard(this.ctx, this)
     installRoutes(this.ctx, this)
+    this.ctx.inject(['api'], (ctx) => void ctx.plugin(routes, this))
     this.ctx.inject(['webui'], (ctx) => {
       installPolicy(ctx, this)
-      ctx.plugin(console_, this)
+      ctx.plugin(console_)
     })
   }
 

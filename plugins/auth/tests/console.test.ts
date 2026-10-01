@@ -1,10 +1,11 @@
 import Server from '@cordisjs/plugin-server'
 import DatabaseService from '@magpiejs/database'
 import { MagpieWebUI } from '@magpiejs/webui'
+import { DeltaState, apply } from '@cordisjs/muon'
 import { Context, Service } from 'cordis'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
-import AuthService, { type Identity } from '../src'
+import AuthService from '../src'
 
 /** The real access rules on a console that has no browser bundle to build. */
 class TestWebUI extends MagpieWebUI {
@@ -117,7 +118,6 @@ describe('console access', () => {
       {
         look: async () => 'seen',
         change: async () => (calls.push('change'), 'changed'),
-        who: async () => ctx.webui.caller<Identity>()?.type,
       },
     )
     const viewer = await connect(await login('vic'))
@@ -126,32 +126,79 @@ describe('console access', () => {
     expect(await viewer.call(entry.id, 'change')).toMatchObject({ ok: false })
     expect(calls).toEqual([])
     expect(await manager.call(entry.id, 'change')).toMatchObject({ ok: true, value: 'changed' })
-    expect(await manager.call(entry.id, 'who')).toMatchObject({ ok: true, value: 'session' })
     expect(calls).toEqual(['change'])
     viewer.ws.close()
     manager.ws.close()
   })
 
-  it('tells the console who is logged in, and runs methods as them', async () => {
+  it('tells the console who is logged in', async () => {
     await users()
     const viewer = await connect(await login('vic'))
     const caller = viewer.messages.find((m) => m.type === 'caller')
     expect(caller.body).toMatchObject({ username: 'vic', role: 'viewer' })
     expect(caller.body.permissions).toContain('library.read')
     expect(caller.body.permissions).not.toContain('library.write')
-
-    // the auth plugin's own entry: everyone sees it, only some methods are theirs
-    const entryId = viewer.entryIds()[0]!
-    expect(await viewer.call(entryId, 'me')).toMatchObject({ ok: true, value: { username: 'vic' } })
-    expect(await viewer.call(entryId, 'users')).toMatchObject({ ok: false })
-    expect(await viewer.call(entryId, 'createApiKey', 'k', 'viewer')).toMatchObject({ ok: false })
-    expect(ctx.auth.apiKeys()).toEqual([])
-    const admin = await connect(await login('root'))
-    const key = await admin.call(admin.entryIds()[0]!, 'createApiKey', 'k', 'viewer')
-    expect(key.ok).toBe(true)
-    expect(ctx.auth.apiKeys()[0]).toMatchObject({ owner: 'root', role: 'viewer' })
     viewer.ws.close()
+  })
+
+  it('keeps hidden keys from callers who may not see them, now and as the data changes', async () => {
+    await users()
+    const data: any = {
+      queue: [{ id: 1, progress: 0 }],
+      clients: [{ name: 'qbittorrent', host: 'internal' }],
+      label: 'one',
+    }
+    const entry = ctx.webui.addEntry(
+      { ...files, access: { view: 'library.read', data: { clients: 'settings.manage' } } },
+      data,
+    )
+    const admin = await connect(await login('root'))
+    const viewer = await connect(await login('vic'))
+
+    // each browser rebuilds the data from what it is sent, as the console does
+    const follow = (who: Awaited<ReturnType<typeof connect>>) => {
+      const state = new DeltaState()
+      let mirror: any
+      let seen = 0
+      return () => {
+        for (const message of who.messages.slice(seen)) {
+          if (message.type === 'entry:init' && message.body.entries[entry.id]) {
+            const { data, cursor } = message.body.entries[entry.id]
+            mirror = JSON.parse(JSON.stringify(data))
+            state.restore(cursor)
+          } else if (message.type === 'entry:delta' && message.body.id === entry.id) {
+            const { id: _, ...delta } = message.body
+            apply(mirror, state.load(delta))
+          }
+        }
+        seen = who.messages.length
+        return mirror
+      }
+    }
+    const adminSees = follow(admin)
+    const viewerSees = follow(viewer)
+    expect(adminSees()).toEqual(data)
+    expect(viewerSees()).toEqual({ queue: data.queue, label: 'one' })
+
+    const changes: ((d: any) => void)[] = [
+      (d) => void (d.label = 'two'),
+      (d) => void (d.clients[0].host = 'elsewhere'),
+      (d) => void d.clients.push({ name: 'tx', host: 'other' }),
+      (d) => void d.queue.push({ id: 2, progress: 10 }),
+      (d) => Object.assign(d, { clients: [], label: 'three' }),
+      (d) => void (d.queue[0].progress = 75),
+    ]
+    for (const change of changes) {
+      entry.mutate(change)
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      expect(adminSees()).toEqual(JSON.parse(JSON.stringify(data)))
+      const { clients: _, ...visible } = JSON.parse(JSON.stringify(data))
+      expect(viewerSees()).toEqual(visible)
+    }
+    // nothing the viewer was ever sent mentions a hidden key
+    expect(JSON.stringify(viewer.messages)).not.toMatch(/clients|internal|elsewhere|qbittorrent/)
     admin.ws.close()
+    viewer.ws.close()
   })
 
   it('closes a console when its session ends or its role changes', async () => {
