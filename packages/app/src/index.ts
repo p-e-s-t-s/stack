@@ -68,6 +68,11 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/health' },
     { name: '@magpiejs/backup' },
     { name: '@magpiejs/settings' },
+    // swappable console themes; installed themes appear in Settings → Appearance
+    { name: '@magpiejs/themes' },
+    // two sample themes: Slate (colours and type) and Dock (top bar, table list; builds on Slate)
+    { name: '@magpiejs/theme-slate' },
+    { name: '@magpiejs/theme-dock' },
   ]
 }
 

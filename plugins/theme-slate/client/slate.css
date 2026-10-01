@@ -1,0 +1,30 @@
+/* Slate: tokens and a little type. Applied inside the console's `theme` layer. */
+:root {
+  --mp-bg: #eef2f4;
+  --mp-surface: #ffffff;
+  --mp-surface-2: #e4eaed;
+  --mp-text: #17252a;
+  --mp-muted: #5b6f76;
+  --mp-accent: #0f766e;
+  --mp-accent-soft: #d5ece9;
+  --mp-on-accent: #ffffff;
+  --mp-border: #d3dde1;
+  --mp-radius: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mp-bg: #0f1a1d;
+    --mp-surface: #15262a;
+    --mp-surface-2: #1c3136;
+    --mp-text: #e3eef0;
+    --mp-muted: #8fa8ae;
+    --mp-accent: #4fd1c5;
+    --mp-accent-soft: #14393a;
+    --mp-on-accent: #05211f;
+    --mp-border: #26414a;
+  }
+}
+h1,
+.mp-brand {
+  font-family: Georgia, 'Times New Roman', serif;
+}

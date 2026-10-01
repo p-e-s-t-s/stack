@@ -27,7 +27,13 @@ export type PartSource = Component | LazyPart
 
 export interface ThemeRegistration {
   id: string
-  parts: Partial<Record<ThemePartName, PartSource>>
+  parts?: Partial<Record<ThemePartName, PartSource>>
+  /**
+   * The theme's CSS: tokens (`--mp-*` custom properties) and rules for the `.mp-*` classes. It is
+   * applied inside the `theme` cascade layer while the theme is in the chain; a loader such
+   * as `() => import('./theme.css?inline')` keeps it off the wire until then.
+   */
+  styles?: string | (() => Promise<string | { default: string }>)
 }
 
 type Registered = PartCandidate & { component: Component }
@@ -36,11 +42,22 @@ const isLazy = (source: PartSource): source is LazyPart =>
   typeof source === 'object' && source !== null && 'load' in source && !('render' in source)
 
 /**
- * Register a theme's parts. A theme that does not provide a part inherits it from the next
- * theme in the chain, and finally the built-in component.
+ * Register a theme's parts and styles. A theme that does not provide a part inherits it from
+ * the next theme in the chain, and finally the built-in component.
  */
 export function registerTheme(ctx: Context, theme: ThemeRegistration) {
-  const disposers = Object.entries(theme.parts).map(([type, source]) =>
+  const { styles } = theme
+  if (styles) {
+    const load = async () => {
+      const css = typeof styles === 'string' ? styles : await styles()
+      return typeof css === 'string' ? css : css.default
+    }
+    ctx.effect(() => {
+      ctx.client.themes.styles.set(theme.id, load)
+      return () => ctx.client.themes.styles.delete(theme.id)
+    })
+  }
+  const disposers = Object.entries(theme.parts ?? {}).map(([type, source]) =>
     ctx.client.router.slot({
       type,
       component: isLazy(source) ? defineAsyncComponent(source.load as never) : source,
@@ -61,6 +78,24 @@ export function registerRegion(
   return ctx.client.router.slot({ type: regionSlot(name), component, order: options.order ?? 0 })
 }
 
+/** The registration to render for a part, or undefined for the built-in. */
+function pick(ctx: Context, name: string, failed: Set<object>) {
+  const views = (ctx.client.router.views[name] ?? []) as unknown as Registered[]
+  const chain = ctx.client.themes?.chain.value ?? [DEFAULT_THEME]
+  return selectPart(views, chain, (candidate) => failed.has(candidate))
+}
+
+/** Remember a theme part that threw while rendering, so the next one takes over. */
+function dropOnError(name: () => string, current: () => object | undefined, failed: Set<object>) {
+  onErrorCaptured((error) => {
+    const part = current()
+    if (!part) return true // the built-in itself failed: not ours to hide
+    console.error(`theme part "${name()}" failed, using the next one`, error)
+    failed.add(part)
+    return false
+  })
+}
+
 /**
  * A component that renders the active theme's version of a part, or `Default` when no theme
  * in the chain provides one. Props, attributes (including listeners) and slots are passed
@@ -75,22 +110,43 @@ export function themed(name: ThemePartName, Default: Component): Component {
       const ctx = useContext()
       const failed = shallowReactive(new Set<object>())
       let current: object | undefined
-      onErrorCaptured((error) => {
-        if (!current) return true
-        console.error(`theme part "${name}" failed, using the next one`, error)
-        failed.add(current)
-        return false
-      })
+      dropOnError(
+        () => name,
+        () => current,
+        failed,
+      )
       return () => {
-        const views = (ctx.client.router.views[name] ?? []) as unknown as Registered[]
-        const chain = ctx.client.themes?.chain.value ?? [DEFAULT_THEME]
-        const part = selectPart(views, chain, (candidate) => failed.has(candidate))
-        current = part
+        const part = (current = pick(ctx, name, failed))
         return h(part?.component ?? Default, attrs, slots)
       }
     },
   })
 }
+
+/**
+ * `<Part name="settings.layout">`: renders a part by name, for shells that need to place
+ * another part. The built-in comes from the engine's registry (`ctx.client.themes.defaults`).
+ */
+export const Part = defineComponent({
+  name: 'Part',
+  inheritAttrs: false,
+  props: { name: { type: String, required: true } },
+  setup(props, { attrs, slots }) {
+    const ctx = useContext()
+    const failed = shallowReactive(new Set<object>())
+    let current: object | undefined
+    dropOnError(
+      () => props.name,
+      () => current,
+      failed,
+    )
+    return () => {
+      const part = (current = pick(ctx, props.name, failed))
+      const component = part?.component ?? ctx.client.themes.defaults.get(props.name)
+      return component ? h(component, attrs, slots) : null
+    }
+  },
+})
 
 /** Everything plugins contributed to a region, in order; nothing at all when it is empty. */
 export const Region = defineComponent({

@@ -3,41 +3,15 @@ import { registerRegion, ThemeClient } from '@magpiejs/console-kit/theme'
 import Root from './root.vue'
 import Home from './home.vue'
 import OfflineNotice from './offline-notice.vue'
+import { DefaultSettingsLayout } from './parts'
 import SettingsLink from './settings-link.vue'
 import './style.css'
 
-/** The chain last used on this device, so the first paint already has the right theme. */
-const MIRROR = 'magpie.theme.chain'
-
-function readMirror(): string[] | undefined {
-  try {
-    const value = JSON.parse(localStorage.getItem(MIRROR) ?? 'null')
-    return Array.isArray(value) && value.every((id) => typeof id === 'string') ? value : undefined
-  } catch {
-    return undefined
-  }
-}
-
-/** Remember the chain for the next first paint. */
-export function mirrorChain(chain: readonly string[]) {
-  try {
-    localStorage.setItem(MIRROR, JSON.stringify(chain))
-  } catch {
-    // private mode: the first paint just uses the default
-  }
-}
-
-/** This tab's theme: the stored chain, then the server's answer. `?theme=default` skips both. */
+/** Ask the server which themes apply to this user; no themes plugin means the default. */
 async function loadChain(themes: ThemeClient) {
-  if (new URLSearchParams(location.search).get('theme') === 'default') return
-  const mirrored = readMirror()
-  if (mirrored) themes.setChain(mirrored)
   try {
     const res = await fetch('/themes', { credentials: 'same-origin' })
-    if (!res.ok) return // no themes plugin: the default
-    const body = (await res.json()) as { chain: string[] }
-    themes.setChain(body.chain)
-    mirrorChain(themes.chain.value)
+    if (res.ok) themes.apply(((await res.json()) as { chain: string[] }).chain)
   } catch {
     // offline: keep what we have
   }
@@ -50,6 +24,8 @@ export default function shell(ctx: Context) {
   if (config.locale !== preferred) config.locale = preferred
 
   ctx.client.themes = new ThemeClient()
+  ctx.effect(() => ctx.client.themes.mountStyles())
+  ctx.client.themes.defaults.set('settings.layout', DefaultSettingsLayout)
   void loadChain(ctx.client.themes)
 
   // `root` is the engine's, not a theme part (docs/themes.md §3.2): pinned to the top order

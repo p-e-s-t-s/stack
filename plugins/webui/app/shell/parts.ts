@@ -5,5 +5,5 @@ import { themed } from '@magpiejs/console-kit/theme'
 import DefaultShell from './default-shell.vue'
 import DefaultSettingsLayout from './settings-layout.vue'
 
+export { DefaultSettingsLayout }
 export const Shell = themed('shell', DefaultShell)
-export const SettingsLayout = themed('settings.layout', DefaultSettingsLayout)

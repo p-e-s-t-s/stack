@@ -57,9 +57,9 @@
       <Region name="shell.notices" tag="" />
       <Region name="shell.topbar" class="mp-topbar" />
       <div class="mp-content" :class="{ 'mp-content-settings': inSettings }">
-        <SettingsLayout v-if="inSettings">
+        <Part v-if="inSettings" name="settings.layout">
           <div class="mp-page"><RoutedPage /></div>
-        </SettingsLayout>
+        </Part>
         <div v-else>
           <div class="mp-page"><RoutedPage /></div>
         </div>
@@ -69,9 +69,8 @@
 </template>
 
 <script lang="ts" setup>
-import { Region, RoutedPage, useDrawer, useNavigation } from '@magpiejs/console-kit/theme'
+import { Part, Region, RoutedPage, useDrawer, useNavigation } from '@magpiejs/console-kit/theme'
 import NavIcon from './nav-icon.vue'
-import { SettingsLayout } from './parts'
 
 const { model, active, inSettings, href, navigate } = useNavigation()
 const drawer = useDrawer()
