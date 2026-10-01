@@ -1,8 +1,32 @@
 # Import lists
 
 Implementation plan for the "Import lists" item in Phase 8 of [PLAN.md](PLAN.md).
-Status: **planned, nothing built**. Sources named in PLAN.md: TMDB lists, Trakt, IMDb lists
-and the Plex watchlist.
+Status: **built in a simplified form** (see below). The rest of this document is the
+original design; where it disagrees with "What was built", the latter wins. Sources named in
+PLAN.md: TMDB lists, Trakt, IMDb lists and the Plex watchlist.
+
+## What was built
+
+| Package                                      | What it does                                                                                                                                                                 |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@magpiejs/import-lists`                     | `ctx.importLists.register(provider, { name, settings })`, the `importlists.sync` job (scheduled per list), tables, Settings → Import lists (sync now, unmatched, exclusions) |
+| `@magpiejs/list-{tmdb,trakt,imdb,plex}`      | Provider plugins (`kind: import-list`), added in Settings like indexers and notifiers                                                                                        |
+| `@magpiejs/metadata-tmdb`, `@magpiejs/types` | `mapIds(ids, kind)` now maps imdb and tvdb ids to TMDB movies and shows; new `ImportListProvider` and `ListEntry` types                                                      |
+
+Differences from the design below:
+
+- A list's defaults (profile, root folder, monitor, search, interval) are part of its provider
+  entry in `magpie.yml`, shared through `@magpiejs/import-lists/config`. There is no
+  `importlists_lists` table; `importlists_status` holds only the last sync's result.
+- Trakt takes a client id and an access token you create yourself; the OAuth device flow and
+  token refresh are not built, so an expired token shows as an error on the list.
+- Not built: REST routes, the health check, manual matching of unmatched titles, a per-list
+  "unmonitor when removed" option, and a sync on first registration (use **Sync now**).
+- Deleting a title that a list added puts it in the exclusions automatically.
+- The movies and series plugins are looked up at sync time, so a disabled kind is skipped.
+- **Not verified against the live services.** The TMDB, Trakt, IMDb and Plex requests are
+  written from their documentation and only the response parsing is tested. Try each against
+  a real account before relying on it, IMDb especially.
 
 ## Outcome and scope
 

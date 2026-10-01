@@ -1,0 +1,40 @@
+{
+  "name": "@magpiejs/import-lists",
+  "version": "0.0.0",
+  "description": "Adds movies and series from external lists (TMDB, Trakt, IMDb, Plex)",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./config": "./src/config.ts"
+  },
+  "magpie": {
+    "namespace": "importlists"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@magpiejs/console-kit": "0.0.0",
+    "@magpiejs/database": "0.0.0",
+    "@magpiejs/decision": "0.0.0",
+    "@magpiejs/jobs": "0.0.0",
+    "@magpiejs/library": "0.0.0",
+    "@magpiejs/metadata": "0.0.0",
+    "@magpiejs/movies": "0.0.0",
+    "@magpiejs/series": "0.0.0",
+    "@magpiejs/types": "0.0.0",
+    "drizzle-orm": "1.0.0-rc.4",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependencies": {
+    "cordis": "4.0.0-rc.10"
+  },
+  "devDependencies": {
+    "@magpiejs/testing": "0.0.0",
+    "@magpiejs/webui": "0.0.0",
+    "cordis": "4.0.0-rc.10",
+    "drizzle-kit": "1.0.0-rc.4"
+  }
+}

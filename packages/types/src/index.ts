@@ -167,7 +167,8 @@ export interface MetadataProvider {
   getSeries?(externalId: string): Promise<SeriesMetadata>
   getEpisodes?(externalId: string, ordering?: EpisodeOrdering): Promise<EpisodeMetadata[]>
   orderings?(externalId: string): Promise<EpisodeOrdering[]>
-  mapIds?(ids: ExternalIds): Promise<ExternalIds>
+  /** Fills in missing ids (`kind` says which TMDB type an imdb/tvdb id refers to). */
+  mapIds?(ids: ExternalIds, kind?: MediaKind): Promise<ExternalIds>
   getAuthor?(externalId: string): Promise<AuthorMetadata>
   /** Books the author wrote (not ones they only contributed to). */
   getBooks?(authorId: string): Promise<BookMetadata[]>
@@ -272,6 +273,25 @@ export interface DownloadClient {
   /** Downloads in Magpie's category. */
   list(): Promise<DownloadStatus[]>
   remove(downloadId: string, deleteData: boolean): Promise<void>
+  test(): Promise<TestResult>
+}
+
+// Import lists
+
+/** One title on an external list. Give as many ids as the source has. */
+export interface ListEntry {
+  kind: 'movie' | 'series'
+  title: string
+  year?: number
+  ids: ExternalIds
+}
+
+export interface ImportListProvider {
+  /** `tmdb:<entry id>`; unique per configured list. */
+  id: string
+  kinds: ('movie' | 'series')[]
+  /** The whole list; paginate inside. */
+  fetch(options?: { signal?: AbortSignal }): Promise<ListEntry[]>
   test(): Promise<TestResult>
 }
 
