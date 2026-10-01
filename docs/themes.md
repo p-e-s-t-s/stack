@@ -56,7 +56,7 @@ data)`. `data` is **shared by every connected client**, so it cannot carry per-u
                         └──────────────┬───────────────┘
                                        │ metadata + /themes routes
   client                ┌──────────────▼───────────────┐
-                        │  theme registry (reactive)    │  chain: user pref → extends… → default
+                        │  router.views slots + chain   │  chain: user pref → extends… → default
                         │  parts + styles, per theme    │
                         └───┬──────────────┬────────────┘
                  <themed name="…">     tokens / CSS layer
@@ -154,27 +154,88 @@ ctx.theme.resolve(userId): string[]  // chain, most specific first, always ends 
 - Cycles in `extends` are cut at registration (a theme whose chain loops is refused).
 - Event `theme/changed` fires on register/dispose/default change; the console refetches.
 
-### 4.4 Client: registry, resolution, `<themed>`
+### 4.4 Client: slots, not a custom registry
 
-- Each theme's client entry registers with the client-side registry:
-  `registerTheme(ctx, { id, parts: { shell: () => import('./Shell.vue'), … }, styles: () =>
-import('./tokens.css?inline') })`. Parts and styles are **lazy loaders**, so a user with the
-  default theme never downloads the code of installed themes.
-- **Resolution** per part name: walk the chain (`['compact', 'default']`), first theme that
-  provides the part wins. The result is a computed map, so changing the preference swaps
-  components live. Resolved components are cached by `(theme, part)`.
-- **`<themed name="media-list" v-bind="$attrs">`** is the one thing kind plugins and the
-  engine use. It renders the resolved component, with the default's component as the last
-  fallback; a theme part that throws on load logs and falls through to the next in the chain,
-  so one broken theme cannot blank the console.
+`@cordisjs/client` (0.8.2, read from source) already has the mechanism, so themes use it
+instead of a registry of our own:
+
+- `ctx.client.router.slot({ type, component, order, disabled })` registers a component for a
+  named slot. The slot list is `ctx.client.router.views`, **a service on the client's root
+  context**, so every plugin entry reaches the same list through its own `ctx` however many
+  copies of a module are bundled (§4.6).
+- `<k-slot name="x" single>` renders the enabled item with the highest `order`, passing its
+  `data` as props and its slots through, or its own default content when nothing is
+  registered. `disabled` is a function read at render time, so it can depend on reactive
+  state.
+- The client also ships `ctx.client.theme.theme({ id, components })`, which is this idea but
+  keyed on a dark/light preference kept in client settings. It cannot express a per-user
+  server-side choice or inheritance, so Magpie registers slots directly and does not use it.
+
+A **part** is a slot type (`media-list`, `shell`, …). A theme registers its parts like this,
+in its client entry:
+
+```ts
+// plugins/theme-tv/client/index.ts
+import { registerTheme } from '@magpiejs/console-kit/theme'
+import Shell from './Shell.vue'
+import MediaList from './MediaList.vue'
+import './tokens.css?inline'
+
+export default function (ctx: Context) {
+  registerTheme(ctx, { id: 'tv', parts: { shell: Shell, 'media-list': MediaList } })
+}
+```
+
+`registerTheme` is a small helper in console-kit. For each part it calls `router.slot` with:
+
+- `disabled: () => !chain.value.includes(id)`, where `chain` is the current user's resolved
+  chain (`['tv', 'default']`) from `GET /themes`;
+- `order`: the theme's position in the chain, so the most specific theme wins under `single`.
+
+That is the whole of partial themes and `extends`: a part the theme does not register simply
+falls through to the next theme in the chain, and the default's components are registered
+by `webui` at the lowest order. Changing the preference changes `chain`, and the console
+re-renders with no reload.
+
+**Kind plugins do not change.** console-kit's `MediaCardGrid`, `MediaDetailShell` and
+`AddMediaFlow` become thin wrappers around their current implementations. The wrapper is the
+`<themed>` shorthand used elsewhere in this doc:
+
+```ts
+// console-kit/src/themed.ts (sketch)
+export function themed(name: string, Default: Component) {
+  return defineComponent({
+    inheritAttrs: false,
+    setup(_, { attrs, slots }) {
+      const ctx = useContext()
+      return () => {
+        const part = [...(ctx.client.router.views[name] ?? [])]
+          .filter((item) => !item.disabled?.())
+          .sort((a, b) => b.order! - a.order!)[0]
+        return h(part?.component ?? Default, attrs, slots)
+      }
+    },
+  })
+}
+// MediaCardGrid.vue's exported component = themed('media-list', DefaultMediaCardGrid)
+```
+
+`movie-list.vue` keeps importing `MediaCardGrid` and passing the same props and slots; if a
+theme registered `media-list`, that is what renders, with the same props and slots. (The
+helper resolves the slot itself rather than using `<k-slot>`, because `<k-slot>` forwards
+only its own slots to the chosen component, which would drop the `#meta`/`#actions` slots the
+kind plugins pass.)
+
 - **Styles** (§4.5) follow the same chain, base first, so a child's tokens override its
   parent's.
-- **First paint.** The shell must know the theme before it renders, or the user sees the
-  default flash. The client mirrors the server-resolved chain in `localStorage` and uses it
-  immediately; the `GET /themes` response then corrects it if it changed (another device).
-  Static assets for the default are always present, so the worst case is one frame of default.
-- Theme options (future): the registry already passes the active theme a per-user options
-  object (empty in v1) so adding an options schema later is additive.
+- **Lazy loading.** A part may be given as `() => import('./Shell.vue')`; the helper wraps it
+  in `defineAsyncComponent`, so a theme's heavy parts load only when its chain is active. A
+  part that fails to load falls through to the next in the chain, so one broken theme cannot
+  blank the console.
+- **First paint.** The shell must know the chain before it renders, or the user sees the
+  default flash. The client mirrors the server-resolved chain in `localStorage`, uses it
+  immediately, and corrects it when `GET /themes` answers (e.g. changed on another device).
+- **Theme options** (future): see §5.5.
 
 ### 4.5 Styles and CSS ordering
 
@@ -191,18 +252,20 @@ rules always beat layered ones, so a theme could not override them. Fix it once,
 This is a mechanical but wide edit (every `style.css`); it ships first (§6 step 1) with no
 visible change.
 
-### 4.6 Where the registry lives
+### 4.6 Where shared state lives (and why `console-kit` is not a vendor chunk)
 
-`console-kit` is not in the `vendors` list in `webui/app/vite.config.ts`, so **each plugin
-entry bundles its own copy**, and a module-level singleton would exist once per entry. The
-registry must be shared. Options, in order of preference:
+An earlier draft proposed making `console-kit` a shared vendor chunk so a registry singleton
+would be one instance. That was the wrong fix. In Cordis, state lives in **services reached
+through the context**, not in module-level variables, so the number of bundled copies of a
+module does not matter. The slot list is `ctx.client.router.views`; the server side is
+`ctx.theme`. Neither is a module singleton.
 
-1. Add `@magpiejs/console-kit` to `vendors` (a shared chunk, like `vue` and
-   `@cordisjs/client`), so all entries import the same instance.
-2. Hang the registry off the Cordis client context.
-3. `globalThis[Symbol.for('magpie.theme')]`.
-
-Step 0's spike decides; option 1 is likely simplest.
+`vue` and `@cordisjs/client` are vendor chunks in `webui/app/vite.config.ts` for a different
+reason: they keep module-level state (Vue's current-instance tracking, the `kContext`
+injection key in `@cordisjs/client`), and two copies break at runtime. `console-kit`
+holds only stateless components and helpers that take `ctx` as an argument, so duplication
+costs bytes, not correctness. The rule for this work is: **nothing in `console-kit` keeps
+state in module scope; state goes in a service or in `ctx`-keyed data**.
 
 ## 5. Behaviour details
 
@@ -238,22 +301,41 @@ v1; the resolver reserves the syntax so adding it changes no existing theme.
 | Not logged in (login page)               | Login is server-rendered and not themed in v1           |
 | Instance default theme uninstalled       | Reverts to `default`; stored id kept in case it returns |
 
+### 5.5 Variants as plugin instances, and theme options
+
+Cordis can load the same plugin several times with different configs, and nested config is
+how a plugin is parameterised. Magpie already uses the pattern for providers (`settings`:
+entries of a provider with a config). Themes can use it too, so a variant need not be a new
+package:
+
+- A theme plugin takes a `Config` schema (`accent`, `density`, `fontScale`…) and a `name`,
+  and registers a theme from it. Loading `theme-base` twice, as "Comfortable" and "Compact",
+  gives two selectable themes from one codebase.
+- An admin sets those options in the plugin's Cordis config (where Magpie config is edited
+  today). Per-**user** options stay a non-goal for v1; if wanted later they become a small
+  schema stored next to the preference.
+- The theme's id comes from its config, so each instance registers with `ctx.theme.register`
+  independently and disposes with its own scope.
+
 ## 6. Steps
 
 Each step ends with the app running and tests green, and no step changes what the default
 user sees until step 3.
 
-0. **Spike (no merged code).** Confirm: (a) whether every `addEntry` entry loads for every
-   page or only for its `routes`; (b) the shared-registry option of §4.6; (c) whether
-   `router.slot({ type: 'root' })` can be replaced or only added to, to decide how the engine
-   hands over `root`; (d) first-paint behaviour with the `localStorage` mirror.
+0. **Spike (no merged code).** Confirm in the running app: (a) whether every `addEntry`
+   entry loads for every page or only for its `routes`; (b) that a slot registered from one
+   entry is seen by `ctx.client.router.views` in another; (c) that `root` can be overridden
+   with `order`/`disabled` (the engine's `root` slot is order -1000, so a theme's root needs a
+   higher order and the default must stay as the fallback); (d) first-paint behaviour with the
+   `localStorage` mirror.
 1. **CSS layers.** `@layer base, kind, theme`; wrap all stylesheets. No visual change.
 2. **Contract extraction.** Move the navigation model and its tests to `console-kit`; add
    `useNavigation`, `useDrawer`, `useConnection`; rebuild `root.vue` on them.
-3. **Client registry and `<themed>`.** Registry, resolution, lazy loading, failure fall-through
-   (pure resolution function unit-tested with vitest). `root` becomes `<themed name="shell">`;
-   route the `console-kit` list, detail and add components through `<themed>`. Default parts
-   are the existing components.
+3. **`registerTheme` and `themed`.** The chain-to-`disabled`/`order` helper, lazy parts,
+   failure fall-through (the chain logic as a pure function, unit-tested with vitest). The
+   shell's `root` slot resolves through `themed('shell', …)`; the `console-kit` list, detail
+   and add components become `themed(...)` wrappers. Default parts are the existing
+   components, so kind plugins are untouched.
 4. **Server `theme` service.** `@magpiejs/themes`: service, schema + migration, REST, events,
    tests (register/dispose, chain with unknown ids, cycle refusal, preference cascade on user
    delete, default fallback).
@@ -275,7 +357,7 @@ user sees until step 3.
   the build output in step 6.
 - **Instance default needs an admin concept.** Until roles exist, any user can change it.
   Decide whether that is acceptable or whether the first user is treated as admin.
-- **Console-kit as a shared chunk** (§4.6, option 1) changes how every plugin entry is built;
-  check `scripts/build-webui.ts` and the `import` plugin's special-cased manifest handling.
+- **Module-level state in `console-kit`** would silently split across entries (§4.6). Keep
+  it stateless; a lint rule or review note is enough.
 - **Login page** is server-rendered (`auth/src/login.ts`) and outside the theme system; it
   will look un-themed until it gets a token-only treatment.
