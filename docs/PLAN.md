@@ -774,7 +774,7 @@ search and replace works from the UI.
   add/lookup, quality profile and root folder listing, as used by those apps.
   Detailed scope, routing, contracts and acceptance checks:
   [Request-app compatibility](request-app-compatibility.md).
-- Import lists: TMDB lists, Trakt, IMDb lists, Plex watchlist.
+- Import lists: TMDB lists, Trakt, IMDb lists, Plex watchlist. Plan: [Import lists](import-lists.md).
 - Metadata: `metadata-anidb` for anime; `metadata-tvdb` (v4 API, subscriber PIN);
   `mapping-xem` scene numbering; TMDB episode groups for alternate orderings (moved from
   Phase 4).
