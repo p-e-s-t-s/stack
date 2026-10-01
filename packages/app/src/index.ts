@@ -75,6 +75,9 @@ export function defaultConfig(options: StartOptions) {
     { name: '@magpiejs/verify' },
     { name: '@magpiejs/subtitles' },
     { name: '@magpiejs/calendar' },
+    // library statistics page, and the Ctrl+K search in the top bar
+    { name: '@magpiejs/stats' },
+    { name: '@magpiejs/search' },
     { name: '@magpiejs/browse' },
     { name: '@magpiejs/webui', config: { devMode: !!options.dev } },
     { name: '@magpiejs/system' },

@@ -161,7 +161,7 @@ export class PodcastsService extends Service {
       schema,
       migrations: new URL('../migrations', import.meta.url),
     })
-    this.ctx.library.registerKind({ id: 'podcast', label: 'Podcasts' })
+    this.ctx.library.registerKind({ id: 'podcast', label: 'Podcasts', detailPath: '/podcasts' })
     this.ctx.library.registerNaming('podcast', PODCAST_NAMING)
     this.ctx.decision.family(podcastFamily)
     this.ctx.jobs.define('podcasts.refresh', async (payload: { id?: number }) => {

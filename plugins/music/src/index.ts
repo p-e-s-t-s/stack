@@ -145,7 +145,7 @@ export class MusicService extends Service {
       schema,
       migrations: new URL('../migrations', import.meta.url),
     })
-    this.ctx.library.registerKind({ id: 'music', label: 'Music' })
+    this.ctx.library.registerKind({ id: 'music', label: 'Music', detailPath: '/music' })
     this.ctx.library.registerNaming('music', MUSIC_NAMING)
     this.ctx.decision.family(audioFamily)
     this.ctx.jobs.define('music.refresh', async (payload: { id?: number }) => {

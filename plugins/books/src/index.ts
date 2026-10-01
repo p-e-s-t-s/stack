@@ -134,8 +134,8 @@ export class BooksService extends Service {
       schema,
       migrations: new URL('../migrations', import.meta.url),
     })
-    this.ctx.library.registerKind({ id: 'ebook', label: 'Ebooks' })
-    this.ctx.library.registerKind({ id: 'audiobook', label: 'Audiobooks' })
+    this.ctx.library.registerKind({ id: 'ebook', label: 'Ebooks', detailPath: '/books' })
+    this.ctx.library.registerKind({ id: 'audiobook', label: 'Audiobooks', detailPath: '/books' })
     this.ctx.library.registerNaming('ebook', BOOK_NAMING.ebook)
     this.ctx.library.registerNaming('audiobook', BOOK_NAMING.audiobook)
     this.ctx.decision.family(ebookFamily)

@@ -95,6 +95,8 @@ export function sortTitle(title: string) {
 export interface KindInfo {
   /** Discovery actions contributed by the kind plugin. */
   browse?: { addPath: string; detailPath: string }
+  /** Console page of one item (`<detailPath>/<id>`), for kinds without `browse`; used by search. */
+  detailPath?: string
   id: MediaKind
   /** Plural, e.g. `Movies`. */
   label: string
