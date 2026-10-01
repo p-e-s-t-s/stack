@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { activePage, isSettings, navigation, type NavPage } from '../app/shell/navigation'
-import type { PageNavigation } from '@magpiejs/console-kit'
+import {
+  activePage,
+  isSettings,
+  navigation,
+  type NavPage,
+  type PageNavigation,
+} from '../src/navigation'
 const page = (path: string, nav?: PageNavigation, order = 0, disabled = false): NavPage => ({
   id: path,
   path,

@@ -1,78 +1,81 @@
 /* Layout specific to the music pages; the grid, hero, results, edit form and sections come from
    the shell (.mp-grid, .mp-hero, .mp-result, .mp-edit, .mp-section…). */
+@layer base, kind, theme, user;
 
-.mu .poster {
-  aspect-ratio: 1;
-}
+@layer kind {
+  .mu .poster {
+    aspect-ratio: 1;
+  }
 
-/* album/secondary type checkboxes, on the add and edit forms */
-.mu .types {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-}
-.mu .types label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--mp-text);
-  font-size: 13.5px;
-}
+  /* album/secondary type checkboxes, on the add and edit forms */
+  .mu .types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+  }
+  .mu .types label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--mp-text);
+    font-size: 13.5px;
+  }
 
-/* albums by type, on the artist page */
-.mu .albums td.cover-cell {
-  width: 52px;
-}
-.mu .albums .cover {
-  width: 44px;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 3px;
-  background: var(--mp-surface-2);
-  display: block;
-}
-.mu .albums td.date {
-  width: 110px;
-  white-space: nowrap;
-}
-.mu .albums td.mon {
-  width: 32px;
-}
-.mu .albums td.actions {
-  white-space: nowrap;
-  text-align: right;
-}
-.mu .albums td.actions button {
-  margin-left: 6px;
-}
-.mu .albums tr.off td {
-  color: var(--mp-muted);
-}
-.mu .albums a {
-  color: inherit;
-}
-/* the same columns in every group */
-.mu .albums {
-  table-layout: fixed;
-}
-.mu .albums td.actions {
-  width: 220px;
-}
+  /* albums by type, on the artist page */
+  .mu .albums td.cover-cell {
+    width: 52px;
+  }
+  .mu .albums .cover {
+    width: 44px;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 3px;
+    background: var(--mp-surface-2);
+    display: block;
+  }
+  .mu .albums td.date {
+    width: 110px;
+    white-space: nowrap;
+  }
+  .mu .albums td.mon {
+    width: 32px;
+  }
+  .mu .albums td.actions {
+    white-space: nowrap;
+    text-align: right;
+  }
+  .mu .albums td.actions button {
+    margin-left: 6px;
+  }
+  .mu .albums tr.off td {
+    color: var(--mp-muted);
+  }
+  .mu .albums a {
+    color: inherit;
+  }
+  /* the same columns in every group */
+  .mu .albums {
+    table-layout: fixed;
+  }
+  .mu .albums td.actions {
+    width: 220px;
+  }
 
-/* tracks, on the album page */
-.mu .tracks td.num {
-  width: 48px;
-  color: var(--mp-muted);
-}
-.mu .tracks td.len {
-  width: 70px;
-  color: var(--mp-muted);
-}
-.mu .tracks td.state {
-  width: 140px;
-  text-align: right;
-}
-.mu .disc-head td {
-  font-weight: 600;
-  background: var(--mp-surface-2);
+  /* tracks, on the album page */
+  .mu .tracks td.num {
+    width: 48px;
+    color: var(--mp-muted);
+  }
+  .mu .tracks td.len {
+    width: 70px;
+    color: var(--mp-muted);
+  }
+  .mu .tracks td.state {
+    width: 140px;
+    text-align: right;
+  }
+  .mu .disc-head td {
+    font-weight: 600;
+    background: var(--mp-surface-2);
+  }
 }

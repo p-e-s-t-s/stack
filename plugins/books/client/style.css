@@ -1,84 +1,87 @@
 /* Layout specific to the book pages; the grid, hero, results and edit form come from the shell
    (.mp-grid, .mp-hero, .mp-result, .mp-edit…). */
+@layer base, kind, theme, user;
 
-.bk .poster {
-  aspect-ratio: 2 / 3;
-}
-.bk .more {
-  margin-top: 12px;
-}
+@layer kind {
+  .bk .poster {
+    aspect-ratio: 2 / 3;
+  }
+  .bk .more {
+    margin-top: 12px;
+  }
 
-/* author list: a badge per followed format */
-.bk .formats {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
+  /* author list: a badge per followed format */
+  .bk .formats {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
 
-/* add author: one card per format being followed */
-.bk .add-formats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.bk .add-formats .mp-card {
-  display: grid;
-  gap: 8px;
-}
-.bk .add-formats label {
-  display: grid;
-  gap: 4px;
-  font-size: 12.5px;
-  color: var(--mp-muted);
-}
-.bk .add-formats label.check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--mp-text);
-  font-size: 14px;
-  font-weight: 600;
-}
+  /* add author: one card per format being followed */
+  .bk .add-formats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .bk .add-formats .mp-card {
+    display: grid;
+    gap: 8px;
+  }
+  .bk .add-formats label {
+    display: grid;
+    gap: 4px;
+    font-size: 12.5px;
+    color: var(--mp-muted);
+  }
+  .bk .add-formats label.check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--mp-text);
+    font-size: 14px;
+    font-weight: 600;
+  }
 
-/* author detail: one card per followed format, above the book list */
-.bk .format-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-  margin: 16px 0;
-}
-.bk .format-cards .mp-card h3 {
-  margin: 0 0 6px;
-}
-.bk .format-cards .mp-row {
-  margin-top: 10px;
-}
+  /* author detail: one card per followed format, above the book list */
+  .bk .format-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .bk .format-cards .mp-card h3 {
+    margin: 0 0 6px;
+  }
+  .bk .format-cards .mp-row {
+    margin-top: 10px;
+  }
 
-/* the book list: a cover, title and one status column per followed format */
-.bk .bookrow .cover {
-  width: 40px;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  border-radius: 3px;
-  background: var(--mp-surface-2);
-  display: block;
-}
-.bk .bookrow td.cover-cell {
-  width: 48px;
-}
-.bk .bookrow td.fmt {
-  width: 190px;
-  white-space: nowrap;
-}
-.bk .bookrow td.fmt .line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.bk .bookrow td.fmt button {
-  margin-left: 2px;
-}
-.bk .bookrow.unreleased td {
-  color: var(--mp-muted);
+  /* the book list: a cover, title and one status column per followed format */
+  .bk .bookrow .cover {
+    width: 40px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 3px;
+    background: var(--mp-surface-2);
+    display: block;
+  }
+  .bk .bookrow td.cover-cell {
+    width: 48px;
+  }
+  .bk .bookrow td.fmt {
+    width: 190px;
+    white-space: nowrap;
+  }
+  .bk .bookrow td.fmt .line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bk .bookrow td.fmt button {
+    margin-left: 2px;
+  }
+  .bk .bookrow.unreleased td {
+    color: var(--mp-muted);
+  }
 }

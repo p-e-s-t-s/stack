@@ -1,33 +1,36 @@
 /* Layout specific to the movie pages; the grid, hero, results and edit form come from the
    shell (.mp-grid, .mp-hero, .mp-result, .mp-edit…). */
+@layer base, kind, theme, user;
 
-.mv .poster {
-  aspect-ratio: 2 / 3;
-}
+@layer kind {
+  .mv .poster {
+    aspect-ratio: 2 / 3;
+  }
 
-.mv .movie-download-progress {
-  margin-top: 10px;
-}
+  .mv .movie-download-progress {
+    margin-top: 10px;
+  }
 
-/* Extra versions: a row each, only shown once a movie has more than one. */
-.mv .version {
-  flex-wrap: wrap;
-  padding: 6px 0;
-}
+  /* Extra versions: a row each, only shown once a movie has more than one. */
+  .mv .version {
+    flex-wrap: wrap;
+    padding: 6px 0;
+  }
 
-.mv .version .grow {
-  flex: 1;
-}
+  .mv .version .grow {
+    flex: 1;
+  }
 
-.mv .add-version {
-  background: none;
-  border: 0;
-  padding: 6px 0;
-  color: inherit;
-  opacity: 0.7;
-  cursor: pointer;
-}
+  .mv .add-version {
+    background: none;
+    border: 0;
+    padding: 6px 0;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+  }
 
-.mv .add-version:hover {
-  opacity: 1;
+  .mv .add-version:hover {
+    opacity: 1;
+  }
 }

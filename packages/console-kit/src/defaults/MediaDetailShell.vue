@@ -26,7 +26,7 @@
 // status, overview, and the action buttons. Everything below the header is the default
 // slot. Classes on the component (`class="mv"`) land on the section.
 import { ref, watch } from 'vue'
-import NavLink from './NavLink.vue'
+import NavLink from '../NavLink.vue'
 
 const props = defineProps<{
   backTo: string

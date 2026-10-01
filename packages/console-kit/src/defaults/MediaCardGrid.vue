@@ -41,7 +41,7 @@
 // and what goes under each card (`meta`). Classes on the component (`class="mv"`) land on
 // the section so a kind's own stylesheet still applies.
 import { computed, reactive, ref } from 'vue'
-import NavLink from './NavLink.vue'
+import NavLink from '../NavLink.vue'
 
 const props = defineProps<{
   title: string
