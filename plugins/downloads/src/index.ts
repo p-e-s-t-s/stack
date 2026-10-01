@@ -149,7 +149,7 @@ export class DownloadsService extends Service {
     this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
     this.ctx.inject(['api'], (ctx) => {
       ctx.api.get('/queue', () => this.active())
-      ctx.api.delete('/queue/:id', async ({ params, query }) => {
+      ctx.api.as('downloads.manage').delete('/queue/:id', async ({ params, query }) => {
         await this.remove(Number(params.id), {
           deleteData: query.get('deleteData') === 'true',
           blocklist: query.get('blocklist') === 'true',

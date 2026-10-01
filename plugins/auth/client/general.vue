@@ -2,9 +2,14 @@
   <section>
     <div class="mp-head"><h1>General</h1></div>
 
+    <h2>Your account</h2>
+    <p v-if="me" class="mp-lead">
+      Logged in as <strong>{{ me.username }}</strong
+      >, {{ roleLabel }}.
+    </p>
+
     <h2>Password</h2>
     <form class="mp-card" @submit.prevent="changePassword">
-      <p class="mp-muted" style="margin-top: 0">Logged in as {{ data.username }}.</p>
       <div class="mp-field">
         <label for="current">Current password</label>
         <input id="current" v-model="current" type="password" autocomplete="current-password" />
@@ -12,7 +17,7 @@
       <div class="mp-field">
         <label for="next">New password</label>
         <input id="next" v-model="next" type="password" autocomplete="new-password" />
-        <span class="mp-help">At least 8 characters. Other devices are logged out.</span>
+        <span class="mp-help">At least 8 characters. Your other sessions are logged out.</span>
       </div>
       <div class="mp-row">
         <button class="primary" type="submit" :disabled="!current || !next">Change password</button>
@@ -22,64 +27,80 @@
       </div>
     </form>
 
-    <h2>API keys</h2>
-    <p class="mp-lead">
-      For other programs using Magpie's API at <code>/api/v1</code>. They send the key in an
-      <code>X-Api-Key</code> header.
-    </p>
-    <table v-if="data.apiKeys.length" class="mp-table">
+    <h2>Sessions</h2>
+    <p class="mp-lead">Browsers logged in as you.</p>
+    <table v-if="me?.sessions.length" class="mp-table">
       <tbody>
-        <tr v-for="key in data.apiKeys" :key="key.id">
+        <tr v-for="session in me.sessions" :key="session.id">
           <td>
-            <strong>{{ key.name }}</strong>
-            <span class="mono mp-muted prefix">{{ key.prefix }}…</span>
+            <strong>{{ browser(session.userAgent) }}</strong>
+            <span v-if="session.current" class="mp-muted"> (this one)</span>
+            <div class="mp-muted mp-small">{{ session.address || 'unknown address' }}</div>
           </td>
           <td class="mp-muted mp-small">
-            {{
-              key.lastUsedAt ? `Used ${new Date(key.lastUsedAt).toLocaleString()}` : 'Never used'
-            }}
+            Started {{ new Date(session.createdAt).toLocaleString() }}<br />
+            <template v-if="session.lastSeenAt"
+              >Last used {{ new Date(session.lastSeenAt).toLocaleString() }}</template
+            >
           </td>
           <td class="actions">
-            <button class="small danger" @click="data.revokeApiKey(key.id)">Revoke</button>
+            <button v-if="!session.current" class="small danger" @click="revoke(session.id)">
+              Log out
+            </button>
           </td>
         </tr>
       </tbody>
     </table>
-    <form class="mp-row add" @submit.prevent="createKey">
-      <input v-model="keyName" placeholder="What it's for, e.g. Home Assistant" class="name" />
-      <button class="primary" type="submit">Create key</button>
-    </form>
-    <div v-if="newKey" class="mp-card new-key">
-      Copy this key now; it won't be shown again.
-      <div class="mp-row">
-        <code class="key">{{ newKey }}</code>
-        <button class="small" type="button" @click="copy">{{ copied ? 'Copied' : 'Copy' }}</button>
-      </div>
+    <div v-if="me && me.sessions.length > 1" class="mp-row more">
+      <button class="small" type="button" @click="revokeOthers">Log out everywhere else</button>
     </div>
   </section>
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRpc } from '@cordisjs/client'
 import type { AuthData } from '../src/console'
 
 const data = useRpc<AuthData>()
+type Me = Awaited<ReturnType<AuthData['me']>>
+const me = ref<Me>()
 const current = ref('')
 const next = ref('')
 const passwordMessage = ref('')
 const passwordOk = ref(false)
-const keyName = ref('')
-const newKey = ref('')
-const copied = ref(false)
 
-async function copy() {
-  try {
-    await navigator.clipboard.writeText(newKey.value)
-    copied.value = true
-  } catch {
-    // the clipboard needs https or localhost; the key can still be selected by hand
-  }
+const roleLabel = computed(() => data.value.roles.find((r) => r.id === me.value?.role)?.label)
+
+async function load() {
+  me.value = await data.value.me()
+}
+onMounted(load)
+
+/** "Firefox on Linux" from a user-agent string, as far as it is plain. */
+function browser(userAgent: string | null) {
+  if (!userAgent) return 'Unknown browser'
+  const name = /Edg\//.test(userAgent)
+    ? 'Edge'
+    : /Firefox\//.test(userAgent)
+      ? 'Firefox'
+      : /Chrome\//.test(userAgent)
+        ? 'Chrome'
+        : /Safari\//.test(userAgent)
+          ? 'Safari'
+          : 'Browser'
+  const os = /Windows/.test(userAgent)
+    ? 'Windows'
+    : /Android/.test(userAgent)
+      ? 'Android'
+      : /iPhone|iPad/.test(userAgent)
+        ? 'iOS'
+        : /Mac OS/.test(userAgent)
+          ? 'macOS'
+          : /Linux/.test(userAgent)
+            ? 'Linux'
+            : ''
+  return os ? `${name} on ${os}` : name
 }
 
 async function changePassword() {
@@ -88,37 +109,26 @@ async function changePassword() {
     passwordOk.value = true
     passwordMessage.value = 'Password changed. Other sessions were logged out.'
     current.value = next.value = ''
+    await load()
   } catch (error) {
     passwordOk.value = false
     passwordMessage.value = (error as Error).message
   }
 }
 
-async function createKey() {
-  copied.value = false
-  newKey.value = await data.value.createApiKey(keyName.value)
-  keyName.value = ''
+async function revoke(id: string) {
+  await data.value.revokeSession(id)
+  await load()
+}
+
+async function revokeOthers() {
+  await data.value.revokeOtherSessions()
+  await load()
 }
 </script>
 
 <style scoped>
-.add {
+.more {
   margin-top: 12px;
-}
-.name {
-  flex: 1;
-  max-width: 360px;
-}
-.new-key {
-  margin-top: 12px;
-  background: var(--mp-warn-soft);
-  border-color: transparent;
-}
-.prefix {
-  margin-left: 8px;
-}
-.key {
-  font-size: 14px;
-  user-select: all;
 }
 </style>

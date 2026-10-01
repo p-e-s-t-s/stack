@@ -1,19 +1,22 @@
-// @magpiejs/auth: one login for the web console, its WebSocket and the API, plus API
-// keys for other programs (docs/phase-3.md §4.5). Everything except the login page needs
-// a session cookie or, under /api/, an API key.
+// @magpiejs/auth: users with roles, sessions and API keys for the web console, its
+// WebSocket and the API (docs/phase-3.md §4.5, docs/auth.md). This file is the service:
+// accounts, sessions, keys and the permission check. http.ts guards the server and serves
+// the login routes; policy.ts connects it to the web console.
 
-import type {} from '@cordisjs/plugin-server'
-import type { Request, Response } from '@cordisjs/plugin-server'
+import type { Request } from '@cordisjs/plugin-server'
 import type { Drizzle } from '@magpiejs/database'
 import { type Context, Service } from 'cordis'
-import { desc, eq, lt } from 'drizzle-orm'
+import { and, desc, eq, lt, ne } from 'drizzle-orm'
 import z from 'schemastery'
 import console_ from './console'
-import { loginPage } from './login'
+import { installGuard, installRoutes, readCookie, COOKIE } from './http'
 import { hashPassword, sha256, token, verifyPassword } from './password'
+import { KEY_ROLES, type Permission, type Role, isRole, roleAtMost, roleCan } from './permissions'
+import { installPolicy, SocketRegistry } from './policy'
 import * as schema from './schema'
 
 export * from './schema'
+export * from './permissions'
 
 declare module 'cordis' {
   interface Context {
@@ -22,22 +25,59 @@ declare module 'cordis' {
 }
 
 export type Identity =
-  { type: 'session'; user: schema.User } | { type: 'api-key'; key: schema.ApiKey }
+  | { type: 'session'; user: schema.User; sessionId: string }
+  | { type: 'api-key'; key: schema.ApiKey; role: Role }
+
+/** A user without their password hash. */
+export interface UserInfo {
+  id: number
+  username: string
+  role: Role
+  disabled: boolean
+  createdAt: number
+  lastLoginAt: number | null
+}
+
+export interface SessionInfo {
+  id: string
+  createdAt: number
+  lastSeenAt: number | null
+  address: string | null
+  userAgent: string | null
+  current: boolean
+}
+
+export interface ApiKeyInfo {
+  id: number
+  name: string
+  prefix: string
+  role: Role
+  /** The user who made it; `null` for keys from before users had roles. */
+  owner: string | null
+  createdAt: number
+  lastUsedAt: number | null
+}
 
 export interface Config {
   sessionDays: number
+  trustProxy: boolean
 }
 
 export const Config: z<Config> = z.object({
   sessionDays: z.natural().min(1).default(30).description('Days a login lasts without use.'),
+  trustProxy: z
+    .boolean()
+    .default(false)
+    .description(
+      'Believe X-Forwarded-For and X-Forwarded-Proto. Turn on behind a reverse proxy, so ' +
+        'login limits count real addresses and cookies are marked Secure over https.',
+    ),
 })
 
-const COOKIE = 'magpie_session'
 const DAY = 86_400_000
 const MIN_PASSWORD = 8
-/** Failed logins allowed per address in a window before it has to wait. */
-const MAX_FAILURES = 10
-const FAILURE_WINDOW = 15 * 60_000
+/** Writes of "last seen" and "last used" are skipped when the last one is this recent. */
+const TOUCH_INTERVAL = 60_000
 
 export class AuthService extends Service {
   static inject = ['database', 'server']
@@ -45,11 +85,12 @@ export class AuthService extends Service {
   db!: Drizzle<typeof schema>
   /** Who made each request, set by the guard. */
   private identities = new WeakMap<object, Identity>()
-  private failures = new Map<string, { count: number; since: number }>()
+  /** Open console sockets, to close them when their user's access changes. */
+  sockets = new SocketRegistry()
 
   constructor(
     ctx: Context,
-    public config: Config = { sessionDays: 30 },
+    public config: Config = { sessionDays: 30, trustProxy: false },
   ) {
     super(ctx, 'auth')
   }
@@ -60,9 +101,26 @@ export class AuthService extends Service {
       schema,
       migrations: new URL('../migrations', import.meta.url),
     })
-    this.guard()
-    this.routes()
-    this.ctx.inject(['webui'], (ctx) => void ctx.plugin(console_, this))
+    installGuard(this.ctx, this)
+    installRoutes(this.ctx, this)
+    this.ctx.inject(['webui'], (ctx) => {
+      installPolicy(ctx, this)
+      ctx.plugin(console_, this)
+    })
+  }
+
+  // ---- permissions
+
+  roleOf(identity: Identity | undefined): Role | undefined {
+    if (!identity) return
+    const role = identity.type === 'session' ? identity.user.role : identity.role
+    return isRole(role) ? role : undefined
+  }
+
+  /** Whether the caller holds a permission. No caller, or an unknown role, holds none. */
+  can(identity: Identity | undefined, permission: Permission) {
+    const role = this.roleOf(identity)
+    return !!role && roleCan(role, permission)
   }
 
   // ---- users
@@ -71,20 +129,77 @@ export class AuthService extends Service {
     return !!this.db.select({ id: schema.users.id }).from(schema.users).limit(1).get()
   }
 
-  users() {
-    return this.db.select().from(schema.users).all()
+  users(): UserInfo[] {
+    return this.db.select().from(schema.users).orderBy(schema.users.username).all().map(toInfo)
   }
 
-  async createUser(username: string, password: string) {
-    username = username.trim()
-    if (!username) throw new Error('enter a username')
-    if (password.length < MIN_PASSWORD)
-      throw new Error(`the password needs at least ${MIN_PASSWORD} characters`)
-    return this.db
-      .insert(schema.users)
-      .values({ username, passwordHash: await hashPassword(password), createdAt: Date.now() })
-      .returning()
-      .get()
+  user(id: number) {
+    return this.db.select().from(schema.users).where(eq(schema.users.id, id)).get()
+  }
+
+  /** Makes the first account, an administrator. Fails once any account exists. */
+  async setup(username: string, password: string) {
+    username = checkUsername(username)
+    checkPassword(password)
+    const passwordHash = await hashPassword(password)
+    // no await between the check and the insert, so two setups cannot both win
+    if (this.hasUsers()) throw new Error('an account already exists; log in')
+    return this.insertUser(username, passwordHash, 'admin')
+  }
+
+  async createUser(username: string, password: string, role: Role) {
+    username = checkUsername(username)
+    checkPassword(password)
+    if (!isRole(role)) throw new Error('choose a role')
+    return this.insertUser(username, await hashPassword(password), role)
+  }
+
+  private insertUser(username: string, passwordHash: string, role: Role) {
+    try {
+      return this.db
+        .insert(schema.users)
+        .values({ username, passwordHash, role, createdAt: Date.now() })
+        .returning()
+        .get()
+    } catch (error) {
+      if (isUniqueViolation(error))
+        throw new Error(`the username ${username} is taken`, { cause: error })
+      throw error
+    }
+  }
+
+  /** Changes a user's role or switches them off. The last active administrator stays. */
+  updateUser(id: number, change: { role?: Role; disabled?: boolean }) {
+    const user = this.requireUser(id)
+    if (change.role !== undefined && !isRole(change.role)) throw new Error('choose a role')
+    const role = change.role ?? (user.role as Role)
+    const disabled = change.disabled ?? user.disabled
+    if (user.role === 'admin' && !user.disabled && (role !== 'admin' || disabled))
+      this.requireOtherAdmin(id)
+    this.db.update(schema.users).set({ role, disabled }).where(eq(schema.users.id, id)).run()
+    if (disabled) this.endSessions(id)
+    // an open console keeps the role it connected with, so make it reconnect
+    this.sockets.close((s) => s.userId === id)
+  }
+
+  deleteUser(id: number, actingId?: number) {
+    const user = this.requireUser(id)
+    if (id === actingId) throw new Error('you cannot delete your own account')
+    if (user.role === 'admin' && !user.disabled) this.requireOtherAdmin(id)
+    this.sockets.close((s) => s.userId === id)
+    this.db.delete(schema.users).where(eq(schema.users.id, id)).run()
+  }
+
+  /** An administrator sets a new password for someone, ending their sessions. */
+  async resetPassword(id: number, next: string) {
+    this.requireUser(id)
+    checkPassword(next)
+    this.db
+      .update(schema.users)
+      .set({ passwordHash: await hashPassword(next) })
+      .where(eq(schema.users.id, id))
+      .run()
+    this.endSessions(id)
   }
 
   async verify(username: string, password: string) {
@@ -98,31 +213,53 @@ export class AuthService extends Service {
     return ok ? user : undefined
   }
 
-  /** Changes a password and ends that user's other sessions. */
+  /** Records a login. */
+  markLogin(userId: number) {
+    this.db
+      .update(schema.users)
+      .set({ lastLoginAt: Date.now() })
+      .where(eq(schema.users.id, userId))
+      .run()
+  }
+
+  /** Changes your own password and ends your other sessions. */
   async changePassword(userId: number, current: string, next: string, keepSession?: string) {
-    const user = this.db.select().from(schema.users).where(eq(schema.users.id, userId)).get()
+    const user = this.user(userId)
     if (!user || !(await verifyPassword(current, user.passwordHash)))
       throw new Error('the current password is wrong')
-    if (next.length < MIN_PASSWORD)
-      throw new Error(`the password needs at least ${MIN_PASSWORD} characters`)
+    checkPassword(next)
     this.db
       .update(schema.users)
       .set({ passwordHash: await hashPassword(next) })
       .where(eq(schema.users.id, userId))
       .run()
-    for (const s of this.db
-      .select()
-      .from(schema.sessions)
-      .where(eq(schema.sessions.userId, userId))
-      .all()) {
-      if (s.id !== (keepSession && sha256(keepSession)))
-        this.db.delete(schema.sessions).where(eq(schema.sessions.id, s.id)).run()
-    }
+    this.endSessions(userId, keepSession)
+  }
+
+  private requireUser(id: number) {
+    const user = this.user(id)
+    if (!user) throw new Error('no such user')
+    return user
+  }
+
+  private requireOtherAdmin(id: number) {
+    const other = this.db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(
+        and(
+          eq(schema.users.role, 'admin'),
+          eq(schema.users.disabled, false),
+          ne(schema.users.id, id),
+        ),
+      )
+      .get()
+    if (!other) throw new Error('there must be at least one active administrator')
   }
 
   // ---- sessions
 
-  createSession(userId: number) {
+  createSession(userId: number, meta: { address?: string; userAgent?: string } = {}) {
     const now = Date.now()
     this.db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, now)).run()
     const value = token()
@@ -133,39 +270,90 @@ export class AuthService extends Service {
         userId,
         createdAt: now,
         expiresAt: now + this.config.sessionDays * DAY,
+        lastSeenAt: now,
+        address: meta.address?.slice(0, 64) ?? null,
+        userAgent: meta.userAgent?.slice(0, 200) ?? null,
       })
       .run()
     return value
   }
 
   /** The user of a live session, extending it when it is past half its life. */
-  sessionUser(value: string) {
+  session(value: string): Extract<Identity, { type: 'session' }> | undefined {
     const id = sha256(value)
     const session = this.db.select().from(schema.sessions).where(eq(schema.sessions.id, id)).get()
     const now = Date.now()
     if (!session || session.expiresAt < now) return
+    const user = this.user(session.userId)
+    if (!user || user.disabled) return
     const lifetime = this.config.sessionDays * DAY
-    if (session.expiresAt - now < lifetime / 2) {
+    const extend = session.expiresAt - now < lifetime / 2
+    if (extend || now - (session.lastSeenAt ?? 0) > TOUCH_INTERVAL) {
       this.db
         .update(schema.sessions)
-        .set({ expiresAt: now + lifetime })
+        .set({ lastSeenAt: now, ...(extend && { expiresAt: now + lifetime }) })
         .where(eq(schema.sessions.id, id))
         .run()
     }
-    return this.db.select().from(schema.users).where(eq(schema.users.id, session.userId)).get()
+    return { type: 'session', user, sessionId: id }
   }
 
   endSession(value: string) {
-    this.db
-      .delete(schema.sessions)
-      .where(eq(schema.sessions.id, sha256(value)))
-      .run()
+    this.revoke(sha256(value))
+  }
+
+  /** A user's live sessions, newest first. `current` is the id of the one asking. */
+  sessions(userId: number, current?: string): SessionInfo[] {
+    return this.db
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.userId, userId))
+      .orderBy(desc(schema.sessions.createdAt))
+      .all()
+      .filter((s) => s.expiresAt > Date.now())
+      .map((s) => ({
+        id: s.id,
+        createdAt: s.createdAt,
+        lastSeenAt: s.lastSeenAt,
+        address: s.address,
+        userAgent: s.userAgent,
+        current: s.id === current,
+      }))
+  }
+
+  /** Ends one of a user's sessions, and the console sockets that used it. */
+  revokeSession(userId: number, id: string) {
+    const owned = this.db
+      .select({ id: schema.sessions.id })
+      .from(schema.sessions)
+      .where(and(eq(schema.sessions.id, id), eq(schema.sessions.userId, userId)))
+      .get()
+    if (owned) this.revoke(id)
+  }
+
+  /** Ends a user's sessions, except `keep` (a session id). */
+  endSessions(userId: number, keep?: string) {
+    for (const s of this.db
+      .select({ id: schema.sessions.id })
+      .from(schema.sessions)
+      .where(eq(schema.sessions.userId, userId))
+      .all()) {
+      if (s.id !== keep) this.revoke(s.id)
+    }
+  }
+
+  private revoke(id: string) {
+    this.db.delete(schema.sessions).where(eq(schema.sessions.id, id)).run()
+    this.sockets.close((s) => s.sessionId === id)
   }
 
   // ---- API keys
 
   /** Creates a key. The returned `key` is shown once; only its hash is stored. */
-  createApiKey(name: string) {
+  createApiKey(name: string, options: { role?: Role; userId?: number } = {}) {
+    const role = options.role ?? 'manager'
+    if (!(KEY_ROLES as readonly string[]).includes(role))
+      throw new Error('an API key can be a viewer or a manager')
     const key = token(24)
     const row = this.db
       .insert(schema.apiKeys)
@@ -173,6 +361,8 @@ export class AuthService extends Service {
         name: name.trim() || 'API key',
         keyHash: sha256(key),
         prefix: key.slice(0, 6),
+        role,
+        userId: options.userId ?? null,
         createdAt: Date.now(),
       })
       .returning()
@@ -180,27 +370,58 @@ export class AuthService extends Service {
     return { key, row }
   }
 
-  apiKeys() {
-    return this.db.select().from(schema.apiKeys).orderBy(desc(schema.apiKeys.createdAt)).all()
+  apiKeys(): ApiKeyInfo[] {
+    const owners = new Map(
+      this.db
+        .select()
+        .from(schema.users)
+        .all()
+        .map((u) => [u.id, u.username]),
+    )
+    return this.db
+      .select()
+      .from(schema.apiKeys)
+      .orderBy(desc(schema.apiKeys.createdAt))
+      .all()
+      .map((k) => ({
+        id: k.id,
+        name: k.name,
+        prefix: k.prefix,
+        role: isRole(k.role) ? k.role : 'viewer',
+        owner: k.userId ? (owners.get(k.userId) ?? null) : null,
+        createdAt: k.createdAt,
+        lastUsedAt: k.lastUsedAt,
+      }))
   }
 
   revokeApiKey(id: number) {
     this.db.delete(schema.apiKeys).where(eq(schema.apiKeys.id, id)).run()
   }
 
-  checkApiKey(key: string) {
-    const row = this.db
+  /** The key's identity: its role, held down to its owner's if it has one. */
+  checkApiKey(value: string): Extract<Identity, { type: 'api-key' }> | undefined {
+    const key = this.db
       .select()
       .from(schema.apiKeys)
-      .where(eq(schema.apiKeys.keyHash, sha256(key)))
+      .where(eq(schema.apiKeys.keyHash, sha256(value)))
       .get()
-    if (!row) return
-    this.db
-      .update(schema.apiKeys)
-      .set({ lastUsedAt: Date.now() })
-      .where(eq(schema.apiKeys.id, row.id))
-      .run()
-    return row
+    if (!key || !isRole(key.role)) return
+    let role: Role = key.role
+    if (key.userId !== null) {
+      const owner = this.user(key.userId)
+      if (!owner || owner.disabled || !isRole(owner.role)) return
+      // a key never outranks the person who made it
+      if (!roleAtMost(key.role, owner.role)) role = owner.role
+    }
+    const now = Date.now()
+    if (now - (key.lastUsedAt ?? 0) > TOUCH_INTERVAL) {
+      this.db
+        .update(schema.apiKeys)
+        .set({ lastUsedAt: now })
+        .where(eq(schema.apiKeys.id, key.id))
+        .run()
+    }
+    return { type: 'api-key', key, role }
   }
 
   // ---- requests
@@ -210,169 +431,48 @@ export class AuthService extends Service {
     return this.identities.get(req._req)
   }
 
+  /** @internal Set by the guard. */
+  remember(req: Request, identity: Identity) {
+    this.identities.set(req._req, identity)
+  }
+
   authenticate(req: Request): Identity | undefined {
     const cookie = readCookie(req.headers.get('cookie'), COOKIE)
-    const user = cookie && this.sessionUser(cookie)
-    if (user) return { type: 'session', user }
+    const session = cookie && this.session(cookie)
+    if (session) return session
     if (!req.path.startsWith('/api/')) return
     const key = req.headers.get('x-api-key') ?? req.query.get('apikey')
-    const row = key && this.checkApiKey(key)
-    if (row) return { type: 'api-key', key: row }
-  }
-
-  private guard() {
-    const open = (path: string) => path === '/login' || path.startsWith('/auth/')
-    this.ctx.server.use(async (req, res, next) => {
-      if (open(req.path)) return next()
-      const who = this.authenticate(req)
-      if (who) {
-        this.identities.set(req._req, who)
-        return next()
-      }
-      if (req.method === 'GET' && !req.path.startsWith('/api/') && req.accepts('html')) {
-        redirect(res, `/login?next=${encodeURIComponent(req.url)}`)
-      } else {
-        res.status = 401
-        res.json({ error: 'log in or send an API key' })
-      }
-    })
-    // the web console's WebSocket: a session, from a page on this same host
-    this.ctx.on(
-      'server/upgrade',
-      async (req, next) => {
-        const origin = req.headers.get('origin')
-        const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
-        const sameHost = !origin || safeHost(origin) === host
-        const cookie = readCookie(req.headers.get('cookie'), COOKIE)
-        if (sameHost && cookie && this.sessionUser(cookie)) return next()
-        const socket = req._req.socket
-        socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
-      },
-      { prepend: true },
-    )
-  }
-
-  private routes() {
-    const server = this.ctx.server
-    server.get('/login', async (req, res) => {
-      if (this.authenticate(req)) return redirect(res, safeNext(req.query.get('next')))
-      html(
-        res,
-        loginPage({
-          setup: !this.hasUsers(),
-          next: safeNext(req.query.get('next')),
-          error: req.query.get('error') ?? undefined,
-        }),
-      )
-    })
-
-    server.get('/auth/status', async (req, res) => {
-      const who = this.authenticate(req)
-      res.status = who ? 200 : 401
-      res.json({ authenticated: !!who, setup: !this.hasUsers() })
-    })
-
-    server.post('/auth/setup', async (req, res) => {
-      const form = await readForm(req)
-      const next = safeNext(form.get('next'))
-      const fail = (error: string) =>
-        redirect(res, `/login?error=${encodeURIComponent(error)}&next=${encodeURIComponent(next)}`)
-      if (this.hasUsers()) return fail('an account already exists; log in')
-      const password = form.get('password') ?? ''
-      if (password !== form.get('confirm')) return fail('the passwords differ')
-      try {
-        const user = await this.createUser(form.get('username') ?? '', password)
-        this.ctx.logger.info('created the login for %s', user.username)
-        this.startSession(req, res, user.id, next)
-      } catch (error) {
-        fail((error as Error).message)
-      }
-    })
-
-    server.post('/auth/login', async (req, res) => {
-      const form = await readForm(req)
-      const next = safeNext(form.get('next'))
-      const address = req._req.socket.remoteAddress ?? ''
-      const now = Date.now()
-      let failed = this.failures.get(address)
-      if (failed && now - failed.since > FAILURE_WINDOW) this.failures.delete(address)
-      failed = this.failures.get(address)
-      if (failed && failed.count >= MAX_FAILURES) {
-        const error = 'too many failed attempts; try again in a few minutes'
-        return redirect(
-          res,
-          `/login?error=${encodeURIComponent(error)}&next=${encodeURIComponent(next)}`,
-        )
-      }
-      const user = await this.verify(form.get('username') ?? '', form.get('password') ?? '')
-      if (!user) {
-        this.failures.set(address, { count: (failed?.count ?? 0) + 1, since: failed?.since ?? now })
-        this.ctx.logger.warn('failed login from %s', address)
-        const error = 'wrong username or password'
-        return redirect(
-          res,
-          `/login?error=${encodeURIComponent(error)}&next=${encodeURIComponent(next)}`,
-        )
-      }
-      this.failures.delete(address)
-      this.startSession(req, res, user.id, next)
-    })
-
-    server.post('/auth/logout', async (req, res) => {
-      const cookie = readCookie(req.headers.get('cookie'), COOKIE)
-      if (cookie) this.endSession(cookie)
-      res.headers.append('set-cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`)
-      redirect(res, '/login')
-    })
-  }
-
-  private startSession(req: Request, res: Response, userId: number, next: string) {
-    const value = this.createSession(userId)
-    const secure = req.headers.get('x-forwarded-proto') === 'https' ? '; Secure' : ''
-    res.headers.append(
-      'set-cookie',
-      `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${this.config.sessionDays * 86_400}${secure}`,
-    )
-    redirect(res, next)
+    return (key && this.checkApiKey(key)) || undefined
   }
 }
 
-function readCookie(header: string | null, name: string) {
-  for (const part of header?.split(';') ?? []) {
-    const [key, ...value] = part.trim().split('=')
-    if (key === name) return value.join('=') || undefined
+function toInfo(u: schema.User): UserInfo {
+  return {
+    id: u.id,
+    username: u.username,
+    role: isRole(u.role) ? u.role : 'viewer',
+    disabled: u.disabled,
+    createdAt: u.createdAt,
+    lastLoginAt: u.lastLoginAt,
   }
 }
 
-async function readForm(req: Request) {
-  return new URLSearchParams(await req.text())
+/** SQLite's constraint error, which Drizzle wraps in a "Failed query" error. */
+function isUniqueViolation(error: unknown) {
+  for (let e = error; e instanceof Error; e = e.cause) if (/UNIQUE/i.test(e.message)) return true
+  return false
 }
 
-/** Only same-site paths, so the login page can't be used to send people elsewhere. */
-function safeNext(next: string | null | undefined) {
-  return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\')
-    ? next
-    : '/'
+function checkUsername(username: string) {
+  username = username.trim()
+  if (!username) throw new Error('enter a username')
+  if (username.length > 64) throw new Error('the username is too long')
+  return username
 }
 
-function safeHost(url: string) {
-  try {
-    return new URL(url).host
-  } catch {
-    return undefined
-  }
-}
-
-function redirect(res: Response, location: string) {
-  res.status = 303
-  res.headers.set('location', location)
-}
-
-function html(res: Response, body: string) {
-  res.status = 200
-  res.headers.set('content-type', 'text/html; charset=utf-8')
-  res.headers.set('cache-control', 'no-store')
-  res.body = body
+function checkPassword(password: string) {
+  if (password.length < MIN_PASSWORD)
+    throw new Error(`the password needs at least ${MIN_PASSWORD} characters`)
 }
 
 export default AuthService

@@ -258,6 +258,7 @@ export default function console_(ctx: Context, books: BooksService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'library.read', call: 'library.write', methods: { books: 'library.read' } },
       routes: ['/books', '/books/add', '/books/:id'],
     },
     data,

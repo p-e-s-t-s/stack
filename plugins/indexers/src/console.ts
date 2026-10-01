@@ -21,6 +21,7 @@ export default function console_(ctx: Context, indexers: IndexersService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'settings.manage' },
       routes: ['/settings/indexers'],
     },
     {

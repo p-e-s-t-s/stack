@@ -97,8 +97,9 @@ export class HealthService extends Service {
     })
     builtIn(this.ctx, this)
     this.ctx.inject(['api'], (ctx) => {
-      ctx.api.get('/health', () => ({ level: this.level(), checks: this.list() }))
-      ctx.api.post('/health/run', async () => {
+      const admin = ctx.api.as('system.admin')
+      admin.get('/health', () => ({ level: this.level(), checks: this.list() }))
+      admin.post('/health/run', async () => {
         await this.run()
         return { level: this.level(), checks: this.list() }
       })

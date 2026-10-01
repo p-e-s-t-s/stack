@@ -34,6 +34,7 @@ export default function console_(ctx: Context, backup: BackupService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'system.admin' },
       routes: ['/system/backups'],
     },
     {

@@ -245,6 +245,11 @@ export default function console_(ctx: Context, series: SeriesService) {
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: {
+        view: 'library.read',
+        call: 'library.write',
+        methods: { episodes: 'library.read' },
+      },
       routes: ['/series', '/series/add', '/series/:id'],
     },
     data,

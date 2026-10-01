@@ -112,7 +112,7 @@ are the entry point (`app`), shared types, and pure-logic libraries (`parser`,
 |---|---|---|---|
 | `@magpiejs/database` | `ctx.database`: per-plugin schema registration, migration runner, backups (§4.2) | `_magpie_migrations` | — |
 | `@magpiejs/jobs` | `ctx.jobs` persisted queue & schedules | `jobs` | database |
-| `@magpiejs/auth` | login, API keys, WS origin check | `users`, `api_keys` | database, server |
+| `@magpiejs/auth` | users with roles, sessions, API keys, permission checks, console access policy ([auth.md](auth.md)) | `users`, `sessions`, `api_keys` | database, server |
 | `@magpiejs/api` | `ctx.api` REST route helper under `/api/v1` | — | server, auth |
 | `@magpiejs/webui-base` | shell, `page`/`widget`/`slot` helpers | — | webui |
 | `@magpiejs/library` | `ctx.library`: media items, files, root folders, naming | `media_items`, `media_files`, `alternate_titles`, `root_folders`, `naming` | database |

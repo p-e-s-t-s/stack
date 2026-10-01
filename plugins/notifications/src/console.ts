@@ -25,6 +25,7 @@ export default function console_(ctx: Context, notifications: NotificationsServi
       baseUrl: import.meta.url,
       source: '../client/index.ts',
       manifest: '../dist/manifest.json',
+      access: { view: 'settings.manage' },
       routes: ['/settings/notifications'],
     },
     {

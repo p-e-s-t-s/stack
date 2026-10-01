@@ -18,10 +18,12 @@
     "./SearchBox.vue": "./src/SearchBox.vue",
     "./LookupResult.vue": "./src/LookupResult.vue",
     "./ProfileFolderFields.vue": "./src/ProfileFolderFields.vue",
-    "./AddMediaFlow.vue": "./src/AddMediaFlow.vue"
+    "./AddMediaFlow.vue": "./src/AddMediaFlow.vue",
+    "./access": "./client/access.ts"
   },
   "dependencies": {
-    "@magpiejs/types": "0.0.0"
+    "@magpiejs/types": "0.0.0",
+    "vue": "^3.5.33"
   },
   "peerDependencies": {
     "@cordisjs/client": "0.8.2"
