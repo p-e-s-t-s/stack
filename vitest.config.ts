@@ -8,5 +8,11 @@ export default defineConfig({
   test: {
     include: ['packages/*/tests/**/*.test.ts', 'plugins/*/tests/**/*.test.ts'],
     pool: 'forks',
+    // Report only (`npm run test:coverage`): no thresholds, it exists to show what is untested.
+    coverage: {
+      provider: 'v8',
+      include: ['packages/*/src/**', 'plugins/*/src/**', 'plugins/*/client/**'],
+      reporter: ['text-summary', 'html', 'json-summary'],
+    },
   },
 })
