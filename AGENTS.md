@@ -743,7 +743,7 @@ check:ownership, test, build. **All must pass.** Run the same before you finish.
 reproducing the failure first, then showing the passing check. Never skip, disable or quarantine a
 test to get green.
 
-Dev notes: `@cordisjs/plugin-hmr` and `plugin-logger` aren't used (dev restarts via `tsx watch`;
+Dev notes: `@cordisjs/plugin-hmr` and `plugin-logger` aren't used (dev restarts via `packages/app/src/dev.ts` (not `tsx watch`, which loops on Vite's temp config file);
 Cordis 4's built-in logger is attached in `packages/app`). The console builds with Vite 7;
 Vitest uses Vite 8. A client entry is rebuilt per plugin by `scripts/build-webui.ts`; the `import`
 plugin needs `build: { manifest: false }` (special-cased there).

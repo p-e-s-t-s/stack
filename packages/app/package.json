@@ -12,7 +12,7 @@
   },
   "scripts": {
     "start": "tsx src/cli.ts",
-    "dev": "tsx watch --clear-screen=false --include ../../plugins/*/src --include ../../packages/*/src src/cli.ts --dev"
+    "dev": "node --import tsx src/dev.ts"
   },
   "dependencies": {
     "@cordisjs/plugin-http": "1.5.2",
