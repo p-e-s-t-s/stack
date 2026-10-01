@@ -100,20 +100,27 @@ tagged with source kind, source instance and source ID so Radarr and Sonarr IDs 
   not forward credentials on redirect.
 
 **Endpoints** under `/api/v1/migrations`: test source, scan, mappings, preview, import,
-cancel, resume, retry, report. The console uses the same service methods. They require the
-existing auth; admin-only if roles exist, otherwise settle that first.
+cancel, resume, retry, report. The console uses the same service methods. They require a
+signed-in user or API key, like every other endpoint.
 
 ## 5. Changes to existing plugins
 
-| Plugin                 | Change                                                                                                                                                                                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `movies`               | Ingestion method taking normalized metadata, exact folder, original dates and monitoring, with no lookup, naming, search or add events.                                                                                                                            |
-| `series`               | Same for seasons and episodes with exact monitoring. Resolve TVDB-only records to TMDB (the schema requires a unique TMDB ID); unresolved or ambiguous matches are skipped with a reason, never guessed from title. Keep refresh from replacing migrated mappings. |
-| `library`              | Register existing roots without creating directories; file upsert at existing paths; multi-episode files as one record with several links.                                                                                                                         |
-| `decision`             | Read access to profiles for mapping. No creation in v1.                                                                                                                                                                                                            |
-| `jobs`                 | Import job with per-item checkpoints, cancel, resume, deduplication.                                                                                                                                                                                               |
-| `database` / `backup`  | Reuse the existing backup for the pre-import backup; expose a synchronous transaction for item plus ledger.                                                                                                                                                        |
-| `api`, `auth`, `webui` | Migration endpoints, authorization, Settings navigation entry.                                                                                                                                                                                                     |
+What the current code does, and what has to change. Checked against the repo, not assumed.
+
+| Plugin                 | Today                                                                                                                                                    | Change needed                                                                                                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `movies`               | `add()` looks up metadata, renders a folder name and emits `movies/added` (starts a search by default).                                                  | New ingestion method: takes metadata, exact folder, added date and monitoring; no lookup, naming or search event.                                                     |
+| `series`               | Same shape as movies. `series_details.tmdb_id` is required and unique; `tvdb_id` is optional.                                                            | Ingestion for seasons and episodes with exact monitoring, no `series/added` search. TVDB-only series need TMDB resolution (see below); keep refresh from overwriting. |
+| `metadata-tmdb`        | `mapIds` only turns an IMDb ID into a TMDB _movie_ ID. No TVDB lookup.                                                                                   | Extend `mapIds` to call TMDB `/find` with `tvdb_id` and return the TV result. Sonarr always has a TVDB ID, so this is required for Sonarr.                            |
+| `library`              | Items store `rootFolderId` + `folder`; several root folders per kind are supported. `addRootFolder` runs `mkdirSync`; `add()` emits `library/added`.     | Register an existing root without creating directories; file upsert at existing paths; multi-episode files as one record with several links; no add event.            |
+| `decision`             | Owns profiles.                                                                                                                                           | Read-only access to list profiles for mapping. No creation in v1.                                                                                                     |
+| `jobs`                 | Persisted queue and schedules.                                                                                                                           | Import job with per-item checkpoints and cancel; resume reads the ledger.                                                                                             |
+| `database` / `backup`  | Backups and staged restore exist.                                                                                                                        | Reuse for the pre-import backup; expose a synchronous transaction so item, file records and ledger row commit together.                                               |
+| `api`, `auth`, `webui` | `auth` has users, sessions and API keys but no roles. `api` endpoints are auth-checked. Settings fields support a `secret` type, stored in `magpie.yml`. | Add `/api/v1/migrations` endpoints and a Settings → Migration entry. No role work (see section 8).                                                                    |
+
+**Sonarr identity.** Resolve each series TVDB → TMDB through `mapIds`. No result, or more
+than one, skips that series with a reason; never guess from the title. Keep the TVDB ID on
+the record. Season and episode numbers are copied from Sonarr as-is.
 
 Do not call `movies.add()` or `series.add()` and patch the result: they fetch metadata,
 generate folder names and emit events that start automation. Each destination write stays in
@@ -155,13 +162,22 @@ imported items start with automation held and are released at the end of the wiz
 - A real Radarr and Sonarr library imports with no unexplained mismatches, followed by a
   successful search, download and import in Magpie.
 
-## 8. Open questions
+## 8. Decisions and open questions
 
-- Does `plugins/auth` have roles, or should migration be available to any signed-in user?
-- Which Radarr and Sonarr major versions are supported first (assumed Radarr v5, Sonarr v4)?
-- Does the existing metadata abstraction resolve TVDB IDs, or does that capability need adding?
-- Is there an existing mechanism for storing credentials, or is memory-only with re-entry
-  acceptable for v1?
+Decided:
+
+- **Auth:** `plugins/auth` has no roles, only users and API keys, so migration is open to
+  any authenticated caller. Revisit if roles are added.
+- **Credentials:** the source API key is held in memory only; after a restart the wizard
+  asks for it again. Nothing is written to `magpie.yml`, the database or job payloads.
+- **TVDB:** needs a small addition to `metadata-tmdb` (section 5).
+
+Still open:
+
+- Which Radarr and Sonarr major versions to support first (assumed Radarr v5, Sonarr v4).
+- Whether an imported item should hold automation through a per-item flag or through a
+  migration-wide pause. Both work with the current `*/added` events; the per-item flag is
+  safer across restarts but touches more tables.
 
 Run the repository's typecheck, lint, formatting, ownership and test checks for
 implementation changes. For this planning document, formatting validation is sufficient.
