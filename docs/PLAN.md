@@ -718,7 +718,9 @@ rather than worked around:
 **Exit:** a real Radarr + Sonarr instance migrates with a report showing zero
 unexplained mismatches.
 
-### Phase 6 — Prowlarr integration
+### Phase 6 — Prowlarr integration (done)
+Built as `plugins/indexer-prowlarr`: pull over Prowlarr's v1 API and push over the Radarr/Sonarr
+v3 API. See [Prowlarr integration](prowlarr.md).
 
 Magpie doesn't replace Prowlarr; it uses it. Indexers work from Phase 3 by pasting
 Prowlarr's per-indexer Torznab/Newznab URLs; this phase removes that manual step.
@@ -772,8 +774,6 @@ search and replace works from the UI.
 - Seerr-first request-app compatibility (legacy Overseerr/Jellyseerr where practical):
   extend the `/api/v3` shim with movie/series
   add/lookup, quality profile and root folder listing, as used by those apps.
-  Detailed scope, routing, contracts and acceptance checks:
-  [Request-app compatibility](request-app-compatibility.md).
 - Import lists: TMDB lists, Trakt, IMDb lists, Plex watchlist. [Import lists](import-lists.md).
 - Metadata: `metadata-anidb` for anime; `metadata-tvdb` (v4 API, subscriber PIN);
   `mapping-xem` scene numbering; TMDB episode groups for alternate orderings (moved from

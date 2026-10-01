@@ -12,6 +12,8 @@ export const name = 'indexer-torznab'
 export const inject = ['http', 'indexers']
 
 export interface Config {
+  /** Stable id for indexers made by another plugin (e.g. Prowlarr); else taken from the entry. */
+  id?: string
   name: string
   url: string
   apiKey: string
@@ -28,6 +30,7 @@ export interface Config {
 }
 
 export const Config: z<Config> = z.object({
+  id: z.string().hidden(),
   name: z.string().required().description('Name shown in Magpie.'),
   url: z
     .string()
@@ -71,7 +74,9 @@ const CAPS: Record<NewznabMode, string> = {
 export function apply(ctx: Context, config: Config) {
   // the entry id in magpie.yml is stable across restarts, so health history survives (the
   // full `entry.id` also has the include entry's id, which is not)
-  const id = `torznab:${(ctx.fiber as { entry?: { options: { id: string } } }).entry?.options.id ?? config.name}`
+  const id =
+    config.id ??
+    `torznab:${(ctx.fiber as { entry?: { options: { id: string } } }).entry?.options.id ?? config.name}`
   let caps: ReturnType<typeof parseCaps> | undefined
 
   const request = async (params: Record<string, string | number | undefined>) => {

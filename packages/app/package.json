@@ -36,6 +36,7 @@
     "@magpiejs/history": "0.0.0",
     "@magpiejs/import": "0.0.0",
     "@magpiejs/import-lists": "0.0.0",
+    "@magpiejs/indexer-prowlarr": "0.0.0",
     "@magpiejs/indexer-torznab": "0.0.0",
     "@magpiejs/indexers": "0.0.0",
     "@magpiejs/jobs": "0.0.0",
